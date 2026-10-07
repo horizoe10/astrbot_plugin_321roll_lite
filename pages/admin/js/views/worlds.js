@@ -1,8 +1,18 @@
-import { acts, busy, cover, dot, empty, esc, figure, hero, icon, radar, roundIcon, section, shortTitle, subTitle } from "../ui.js";
+import { acts, busy, cover, dot, empty, esc, figure, hero, icon, paintArt, radar, roundIcon, section, shortTitle, subTitle, when } from "../ui.js";
 import * as editor from "./world_editor.js";
+
+const size = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + " MB";
+const host = (url) => { try { return new URL(url).host; } catch { return String(url || ""); } };
+const packageName = (id, revision) => String(id).replace(/:/g, "_") + "-r" + revision + ".zip";
+
+function tabs(current) {
+  return '<nav class="tabs" aria-label="世界分区">' + [["", "世界库", "book"], ["market", "世界市场", "globe"]].map(([key, label, ic]) =>
+    '<a href="#/worlds' + (key ? "/" + key : "") + '"' + (key === current ? ' aria-current="page"' : "") + ">" + icon(ic, 15) + label + "</a>").join("") + "</nav>";
+}
 
 export async function render(root, ctx) {
   const [first, second] = ctx.route.rest;
+  if (first === "market" && !second) return market(root, ctx);
   if (first === "import") return importer(root, ctx);
   if (first === "new") return editor.render(root, ctx, { from: ctx.route.params.from });
   if (first && second === "edit") return editor.render(root, ctx, { id: first });
@@ -10,15 +20,18 @@ export async function render(root, ctx) {
   const data = await ctx.api.get("worlds");
   const list = data.worlds;
   const custom = list.filter((w) => w.source === "custom");
-  const presets = list.filter((w) => w.source !== "custom");
+  const installed = list.filter((w) => w.source === "market");
+  const presets = list.filter((w) => w.source === "builtin");
+  const group = (title, items, opts) => items.length ? '<section class="sec">' + section(title, { count: items.length, ...opts }) + '<div class="cards">' + items.map(card).join("") + "</div></section>" : "";
   root.innerHTML = hero({
     eyebrow: "世界 · WORLDS", title: "世界",
-    lead: "随插件附带六个预设世界；复制一份就能改出自己的版本，改好可以导出成文件保存或分享。停用的世界不会出现在 /团 世界 里。",
-    figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(custom.length, "自定义", "plain") + "</div>",
+    lead: "插件附带六个预设世界的文本版，在世界市场里可以换成带场景图的版本，也能安装别人发布的世界。复制一份就能改出自己的版本；停用的世界不会出现在 /团 世界 里。",
+    figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(installed.length, "市场安装", "plain") + figure(custom.length, "自定义", "plain") + "</div>",
     actions: '<a class="btn" href="#/worlds/import">' + icon("upload", 15) + '导入世界文件</a><a class="btn primary" href="#/worlds/import?start=1">' + icon("plus", 15) + "新建世界</a>",
-  }) +
-    (custom.length ? '<section class="sec">' + section("我的世界", { count: custom.length, meta: "自定义世界可以随时编辑、导出" }) + '<div class="cards">' + custom.map(card).join("") + "</div></section>" : "") +
-    '<section class="sec">' + section("预设世界", { count: presets.length, meta: "只读 · 复制后可以改成自己的版本" }) + '<div class="cards">' + presets.map(card).join("") + "</div></section>";
+  }) + tabs("") +
+    group("我的世界", custom, { meta: "自定义世界可以随时编辑、导出" }) +
+    group("市场世界", installed, { meta: "从世界市场安装 · 只读，复制后可以修改；在世界市场里更新或卸载" }) +
+    group("预设世界", presets, { meta: "插件自带的文本版 · 只读", link: ["#/worlds/market", "安装图文版"] });
   root.querySelectorAll("[data-toggle]").forEach((input) => input.addEventListener("change", async () => {
     input.disabled = true;
     try {
@@ -33,17 +46,19 @@ export async function render(root, ctx) {
       input.disabled = false;
     }
   }));
+  paintArt(root, ctx.api);
 }
 
 function card(w) {
   const link = "#/worlds/" + encodeURIComponent(w.id);
   const s = w.shape;
-  return '<article class="world-card' + (w.enabled ? "" : " off") + '"><a href="' + link + '">' + cover(w.cover, "poster", w.title) + "</a>" +
+  return '<article class="world-card' + (w.enabled ? "" : " off") + '"><a href="' + link + '">' +
+    cover(w.cover, "poster", w.title, w.art ? 'data-art="' + esc(w.id) + '" data-rev="' + esc(w.market?.sha256 || "") + '"' : "") + "</a>" +
     '<div class="body"><div class="style">' + esc(w.style) + "</div>" +
     '<div class="stat-row">' + radar(s.labels, s.archetypes.map((v) => ({ values: v })), s.min, s.max, 96, false) +
       '<div class="figures">' + figure(w.attributes.length, "项属性", "small plain") + figure(w.archetypes.length, "个职业", "small plain") + figure(w.skills + w.items, "技能物品", "small plain") + figure(w.entries, "条设定", "small plain") + "</div></div>" +
     '<div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)">' + acts(w.acts.map((_, i) => i + 1), 0, true) + "<span>" + w.acts.length + " 幕 · " + w.endings.length + " 个结局</span><span class=\"spacer\"></span>" +
-      icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">第 ' + w.revision + " 版</span>" : "") + "</div>" +
+      icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">第 ' + w.revision + " 版</span>" : w.source === "market" ? '<span class="tag gold">' + (w.art ? "图文 · " : "") + "第 " + w.revision + " 版</span>" : "") + "</div>" +
     '<div class="foot"><span class="row" style="gap:18px"><a class="link" href="' + link + '">查看' + icon("arrow", 14) + "</a>" +
       (w.source === "custom" ? '<a class="link" href="' + link + '/edit">' + icon("pen", 14) + "编辑</a>" : '<a class="link" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + icon("copy", 14) + "复制</a>") + "</span>" +
       '<label class="row" style="gap:10px;font-size:12.5px;color:var(--muted)"><span data-state>' + (w.enabled ? "已启用" : "已停用") + "</span>" +
@@ -64,19 +79,28 @@ async function detail(root, ctx, id) {
   const w = await ctx.api.get("world", { id });
   const p = w.pack, pres = w.presentation || {};
   const custom = w.source === "custom";
+  const fromMarket = w.source === "market";
+  const m = w.market;
   const attrs = p.attributes;
   const lo = Math.min(...attrs.map((a) => a.min)), hi = Math.max(...attrs.map((a) => a.max));
+  const exports = '<button class="btn" data-package title="zip 安装包，可在另一台 AstrBot 的世界市场里上传安装">' + icon("download", 15) + '导出安装包</button>' +
+    '<button class="btn text" data-export title="可在编辑器或“导入世界文件”里打开的 JSON">JSON</button>';
   const actions = custom
     ? '<a class="btn primary" href="#/worlds/' + encodeURIComponent(id) + '/edit">' + icon("pen", 15) + '编辑</a><a class="btn" href="#/worlds/new?from=' + encodeURIComponent(id) + '">' + icon("copy", 15) +
-      '复制</a><button class="btn" data-export>' + icon("download", 15) + '导出</button><button class="btn text danger" data-delete>' + icon("trash", 15) + "删除</button>"
-    : '<a class="btn primary" href="#/worlds/new?from=' + encodeURIComponent(id) + '">' + icon("copy", 15) + '复制为自定义世界</a><button class="btn" data-export>' + icon("download", 15) + "导出</button>";
+      "复制</a>" + exports + '<button class="btn text danger" data-delete>' + icon("trash", 15) + "删除</button>"
+    : '<a class="btn primary" href="#/worlds/new?from=' + encodeURIComponent(id) + '">' + icon("copy", 15) + "复制为自定义世界</a>" + exports +
+      (fromMarket ? '<button class="btn text danger" data-uninstall>' + icon("trash", 15) + "卸载</button>" : "");
+  const origin = !m ? "" : m.source === "upload" ? "上传的安装包" : m.source === "url" ? "网址安装 · " + host(m.file) : host(m.source) + " 索引";
   root.innerHTML = '<a class="crumb" href="#/worlds">' + icon("arrow", 14, "flip") + "世界</a>" +
-    '<header class="band tone-' + esc(w.cover.tone) + '" data-mark="' + esc(w.cover.mark) + '"><div class="band-top"><div style="min-width:0">' +
-      '<div class="eyebrow">' + (custom ? "自定义世界 · 第 " + p.revision + " 版" : "预设世界 · 只读") + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
+    '<header class="band tone-' + esc(w.cover.tone) + '" data-mark="' + esc(w.cover.mark) + '"' + (w.art ? ' data-art="' + esc(id) + '" data-rev="' + esc(m.sha256) + '"' : "") + '><div class="band-top"><div style="min-width:0">' +
+      '<div class="eyebrow">' + (custom ? "自定义世界 · 第 " + p.revision + " 版" : fromMarket ? "市场世界 · 第 " + p.revision + " 版" + (w.art ? " · 图文" : "") : "预设世界 · 文本版") + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
       '<div class="band-meta">' + dot(w.enabled ? "ok" : "off", w.enabled ? "已启用" : "已停用") + "<span>" + icon("users", 13) + " " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</span><span>" +
       (pres.acts || []).length + " 幕 · " + (pres.endings || []).length + " 个结局</span><span>" + p.entries.length + " 条设定</span></div></div>" +
       '<div class="btns" style="flex:none">' + actions + "</div></div>" +
       ((pres.acts || []).length ? '<div class="band-acts">' + acts(pres.acts, 0) + "</div>" : "") + "</header>" +
+    (w.scenes.length ? '<section style="margin:0 0 56px">' + section("场景图", { count: w.scenes.length, meta: "随安装包附带 · 保存在插件数据目录" }) + '<div class="scene-grid">' +
+      w.scenes.map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
+        esc(s.label) + "</figcaption></figure>").join("") + "</div></section>" : "") +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' +
       "<section>" + section("世界观", { meta: esc(p.style || "") }) + '<div class="prose initial">' + esc(p.worldview) + "</div>" + (p.seed ? '<p class="quote">' + esc(p.seed) + "</p>" : "") + "</section>" +
       ((pres.acts || []).length ? "<section>" + section("幕", { count: pres.acts.length, meta: "故事的大段落，主持人用 /团 主持 换幕 推进" }) + '<div class="rows">' +
@@ -89,6 +113,11 @@ async function detail(root, ctx, id) {
       "<section>" + section("职业属性", { meta: "所有职业叠在一起看侧重" }) + '<div style="display:grid;place-items:center">' +
         radar(attrs.map((a) => a.name), p.archetypes.map((a) => ({ values: attrs.map((at) => a.attributes[at.id]) })), lo, hi, 240) + "</div>" +
         '<div class="figures" style="justify-content:space-between;margin-top:18px">' + figure(attrs.length, "项属性", "small") + figure(p.resources.length, "种资源", "small") + figure(p.skills.length, "项技能", "small") + figure(p.items.length, "件物品", "small") + "</div></section>" +
+      (m ? "<section>" + section("安装信息", { meta: "在世界市场里更新或卸载" }) + '<dl class="kv"><dt>来源</dt><dd>' + esc(origin) + "</dd>" +
+        "<dt>安装包</dt><dd>第 " + m.revision + " 版 · " + size(m.size) + " · " + m.images + " 张场景图</dd>" +
+        '<dt>sha256</dt><dd class="mono" title="' + esc(m.sha256) + '">' + esc(String(m.sha256).slice(0, 16)) + "…</dd>" +
+        "<dt>安装时间</dt><dd>" + esc(when(m.installed_at)) + "</dd>" +
+        (w.builtin_revision ? "<dt>文本版</dt><dd>插件自带第 " + w.builtin_revision + " 版，卸载后恢复</dd>" : "") + "</dl></section>" : "") +
       "<section>" + section("规则") + '<dl class="kv"><dt>属性</dt><dd>' + attrs.map((a) => esc(a.name) + " " + a.min + "–" + a.max).join("、") + "</dd>" +
         "<dt>资源</dt><dd>" + p.resources.map((r) => esc(r.name) + " " + r.initial + "/" + r.max).join("、") + "</dd>" +
         "<dt>难度</dt><dd>简单 " + p.rules.difficulties.join(" · ").replace(/^(\d+) · (\d+) · (\d+) · (\d+)$/, "$1 · 标准 $2 · 困难 $3 · 极难 $4") + "</dd>" +
@@ -98,6 +127,23 @@ async function detail(root, ctx, id) {
         String.fromCharCode(65 + i) + '</span><div style="min-width:0"><div class="ri-title">' + esc(e.name) + '</div><div class="ri-meta">' + esc(e.rule) + "</div></div><span></span></div>").join("") + "</div></section>" : "") +
     "</div></div>";
   root.querySelector("[data-export]").addEventListener("click", () => download(w, p, pres, ctx.toast));
+  root.querySelector("[data-package]").addEventListener("click", async (e) => {
+    try {
+      const name = packageName(id, p.revision);
+      await busy(e.currentTarget, () => ctx.api.download("worlds/package", { id }, name));
+      ctx.toast("已导出 " + name);
+    } catch (error) { ctx.toast(error.message, "error"); }
+  });
+  root.querySelector("[data-uninstall]")?.addEventListener("click", async (e) => {
+    const after = w.builtin_revision ? "卸载后恢复插件自带的文本版。" : "卸载后这个世界会从列表里移除。";
+    if (!window.confirm("确定卸载「" + shortTitle(p.title) + "」吗？" + after + "已开的团桌不受影响。")) return;
+    try {
+      await busy(e.currentTarget, () => ctx.api.post("market/uninstall", { id }));
+      ctx.toast("已卸载 " + shortTitle(p.title));
+      ctx.go("worlds");
+    } catch (error) { ctx.toast(error.message, "error"); }
+  });
+  paintArt(root, ctx.api);
   root.querySelector("[data-delete]")?.addEventListener("click", async (e) => {
     if (!window.confirm("确定删除这个自定义世界吗？已开的团桌不受影响。建议先导出一份。")) return;
     try {
@@ -119,7 +165,7 @@ async function importer(root, ctx) {
       presets.map((w) => '<a class="preset" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + cover(w.cover, "tile") +
         "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></section>" +
     '<section class="sec grid cols-2"><div>' + section("导入文件", { meta: "导出的 .world.json 可以原样导回" }) +
-      '<label class="drop">' + icon("upload", 22) + '<input type="file" accept=".json,application/json" data-file="pack" /><b>选择世界文件</b><span>.world.json（Lite 导出的文件）或 pack.json</span></label>' +
+      '<label class="drop">' + icon("upload", 22) + '<input type="file" accept=".json,application/json" data-file="pack" /><b>选择世界文件</b><span>.world.json（Lite 导出的文件）或 pack.json；zip 安装包请在世界市场上传</span></label>' +
       '<div class="field" style="margin-top:18px"><label for="pack">文件内容</label><textarea class="textarea" id="pack" spellcheck="false" placeholder="也可以直接粘贴 JSON"></textarea></div>' +
       '<details class="ed-more"><summary>另附 presentation.json（只在导入 321Roll 的 pack.json 时需要）</summary><div class="field" style="margin-top:12px">' +
       '<textarea class="textarea" id="presentation" spellcheck="false" style="min-height:110px"></textarea><input type="file" accept=".json,application/json" data-file="presentation" class="hint" /></div></details>' +
@@ -141,10 +187,10 @@ async function importer(root, ctx) {
     try {
       const r = await busy(e.currentTarget, () => ctx.api.post("worlds/validate", body()));
       checked = r.ok ? r : null;
-      saveBtn.disabled = !r.ok || r.existing === "builtin";
+      saveBtn.disabled = !r.ok || r.existing === "builtin" || r.existing === "market";
       saveBtn.lastChild.textContent = r.existing === "custom" ? "覆盖导入" : "导入";
       out.innerHTML = r.ok
-        ? (r.existing === "builtin" ? dot("err", "编号与预设世界相同，不能导入") : r.existing === "custom" ? dot("warn", "将覆盖已有的同编号世界，版本号自动递增") : dot("ok", "可以导入")) +
+        ? (r.existing === "builtin" ? dot("err", "编号与预设世界相同，不能导入") : r.existing === "market" ? dot("err", "编号与市场安装的世界相同，不能导入") : r.existing === "custom" ? dot("warn", "将覆盖已有的同编号世界，版本号自动递增") : dot("ok", "可以导入")) +
           '<div class="serif" style="font-size:20px;font-weight:600;margin:16px 0 4px">' + esc(shortTitle(r.summary.title)) + '</div><div class="hint num">' + esc(r.summary.id) + "</div>" +
           '<div class="figures" style="margin-top:18px;gap:24px">' + figure(r.summary.attributes, "项属性", "small") + figure(r.summary.archetypes, "个职业", "small") + figure(r.summary.entries, "条设定", "small") +
           figure(r.summary.acts, "幕", "small") + figure(r.summary.endings, "个结局", "small") + "</div>"
@@ -162,3 +208,157 @@ async function importer(root, ctx) {
   });
 }
 
+// ---------------------------------------------------------------- world market
+const STATES = {
+  available: { action: "安装" },
+  upgrade: { label: "已附带文本版", action: "安装图文版" },
+  installed: { label: "已安装", gold: true, note: () => "已是最新版本" },
+  update: { label: "可更新", gold: true, action: (w) => "更新到第 " + w.revision + " 版", note: (w) => "已安装第 " + w.installed_revision + " 版" },
+  changed: { label: "内容有变", action: "重新安装", note: () => "索引里同版本的文件与已安装的不同" },
+  older: { label: "版本较旧", note: (w) => "插件自带的第 " + w.builtin_revision + " 版更新", warn: true },
+  conflict: { label: "编号冲突", note: () => "已有同 id 的自定义世界", warn: true },
+  plugin: { label: "需更新插件", note: (w) => "需要插件 " + w.min_plugin + " 或更新", warn: true },
+};
+const ROUTE_NOTES = {
+  jsdelivr: "GitHub 上的文件改走 jsDelivr 镜像，失败再直连。国内网络建议用这个。",
+  direct: "直接访问 GitHub。服务器在海外时用这个。",
+  prefix: "在地址前加上代理前缀（例如 https://ghfast.top/），失败再直连。",
+};
+
+async function market(root, ctx, refresh = false) {
+  draw(root, ctx, await ctx.api.get("market", refresh ? { refresh: "1" } : {}));
+}
+
+function marketCard(w, source) {
+  const st = STATES[w.status] || STATES.available;
+  const pick = (v) => (typeof v === "function" ? v(w) : v || "");
+  const action = pick(st.action);
+  const installed = Boolean(w.installed_revision);
+  const art = w.previews.length ? "data-srcs='" + esc(JSON.stringify(w.previews)) + "'" : "";
+  return '<article class="world-card market-card"><div class="poster-wrap">' +
+    cover(w.cover || { mark: shortTitle(w.title).slice(0, 1), tone: "ink" }, "poster", w.title, art) +
+    (st.label ? '<span class="tag state' + (st.gold ? " gold" : "") + '">' + esc(st.label) + "</span>" : "") + "</div>" +
+    '<div class="body"><div class="style">' + esc(w.summary || "") + "</div>" +
+    '<div class="facts"><span>第 <span class="num">' + w.revision + "</span> 版</span><span>" +
+      (w.images ? '<span class="num">' + w.images + "</span> 张场景图" : "纯文本") + '</span><span class="num">' + size(w.size) + "</span></div>" +
+    '<div class="foot"><span class="note' + (st.warn ? " warn" : "") + '">' + esc(pick(st.note)) + '</span><span class="row" style="gap:14px">' +
+      (installed ? '<a class="link" href="#/worlds/' + encodeURIComponent(w.id) + '">查看' + icon("arrow", 14) + "</a>" +
+        '<button class="btn text small danger" data-uninstall="' + esc(w.id) + '" data-title="' + esc(shortTitle(w.title)) + '" data-builtin="' + (w.builtin_revision ? "1" : "") + '">卸载</button>' : "") +
+      (action ? '<button class="btn primary small" data-install="' + esc(w.id) + '" data-source="' + esc(source) + '">' + icon("download", 14) + esc(action) + "</button>" : "") +
+    "</span></div></div></article>";
+}
+
+function sourceBlock(s) {
+  const meta = '<span class="mono">' + esc(host(s.url)) + "</span>" +
+    (s.ok ? "<span>读取于 " + esc(when(s.fetched_at)) + "</span>" + (s.skipped ? "<span>" + s.skipped + " 条无法识别，已跳过</span>" : "") : "");
+  const head = section(s.name || host(s.url), { count: s.ok ? s.worlds.length : null, meta });
+  if (!s.ok) {
+    return "<section>" + head + '<div class="source-empty">' + icon("alert", 20) + "<div><b>读取索引失败</b><p>" + esc(s.error) + "</p>" +
+      "<p>索引所在的 GitHub 仓库需要公开；国内网络可以在右侧换成 jsDelivr 或代理前缀。也可以先下载安装包，再从右侧上传。</p></div></div></section>";
+  }
+  if (!s.worlds.length) return "<section>" + head + empty("这个索引里还没有世界") + "</section>";
+  return "<section>" + head + '<div class="cards">' + s.worlds.map((w) => marketCard(w, s.url)).join("") + "</div></section>";
+}
+
+function side(data) {
+  const cfg = data.settings;
+  const routes = Object.entries(cfg.routes);
+  const short = { jsdelivr: "jsDelivr", direct: "直连", prefix: "代理前缀" };
+  return '<aside class="market-side">' +
+    '<section class="panel"><div class="panel-head"><h3 class="panel-title">下载线路</h3><span class="panel-sub">' + esc(cfg.routes[cfg.route]) + "</span></div>" +
+      '<div class="seg" role="group" aria-label="下载线路">' + routes.map(([key]) => '<button type="button" data-route="' + key + '" aria-pressed="' + (cfg.route === key) + '">' + short[key] + "</button>").join("") + "</div>" +
+      '<p class="side-note" data-route-note>' + esc(ROUTE_NOTES[cfg.route]) + "</p>" +
+      '<div class="field" data-prefix style="margin:14px 0 0' + (cfg.route === "prefix" ? "" : ";display:none") + '"><label for="mk-prefix">代理前缀</label>' +
+        '<div class="row" style="gap:8px"><input class="input" id="mk-prefix" placeholder="https://ghfast.top/" value="' + esc(cfg.prefix) + '" /><button class="btn small" data-save-prefix>保存</button></div></div></section>' +
+    '<section class="panel"><div class="panel-head"><h3 class="panel-title">索引地址</h3><span class="panel-sub">每行一个，最多 10 个</span></div>' +
+      '<textarea class="textarea" id="mk-sources" spellcheck="false">' + esc(cfg.sources.join("\n")) + "</textarea>" +
+      '<div class="btns" style="margin-top:12px"><button class="btn small" data-save-sources>' + icon("check", 14) + '保存</button><button class="btn text small" data-official>恢复官方索引</button></div>' +
+      '<p class="side-note">官方索引在插件仓库的 worlds 分支。也可以填别人发布的 index.json。</p></section>' +
+    '<section class="panel"><div class="panel-head"><h3 class="panel-title">离线安装</h3><span class="panel-sub">最大 ' + data.max_package_mb + " MB</span></div>" +
+      '<label class="drop">' + icon("upload", 22) + '<input type="file" accept=".zip,application/zip" data-upload /><b data-upload-label>上传安装包</b><span>从别处下载或导出的 .zip</span></label>' +
+      '<div class="field" style="margin:16px 0 8px"><label for="mk-url">从网址安装</label><input class="input" id="mk-url" placeholder="https://…/world-r1.zip" /></div>' +
+      '<input class="input" id="mk-sha" placeholder="sha256（可选，填了就核对）" style="font:12px var(--mono)" />' +
+      '<div class="btns" style="margin-top:12px"><button class="btn small" data-install-url>' + icon("download", 14) + "安装</button></div>" +
+      '<p class="side-note">安装包只含 JSON 和图片，安装前会逐个核对文件，再交给世界引擎编译。</p></section></aside>';
+}
+
+function draw(root, ctx, data) {
+  const all = data.sources.flatMap((s) => s.worlds);
+  const count = (...states) => all.filter((w) => states.includes(w.status)).length;
+  const updates = count("update");
+  root.innerHTML = hero({
+    eyebrow: "世界 · MARKET", title: "世界市场",
+    lead: "从 GitHub 上的世界包索引安装带场景图的世界。下载后先核对每个文件的大小和 sha256，再交给世界引擎编译，全部通过才会出现在世界库里。",
+    figures: '<div class="figures">' + figure(count("available", "upgrade"), "可安装") + figure(count("installed", "update", "changed"), "已安装", "plain") +
+      figure(updates, "可更新", updates ? "" : "plain") + "</div>",
+    actions: '<button class="btn" data-refresh>' + icon("refresh", 15) + "刷新索引</button>",
+  }) + tabs("market") +
+    '<div class="market-layout"><div class="stack" style="gap:56px">' +
+      (data.sources.length ? data.sources.map(sourceBlock).join("")
+        : '<div class="source-empty">' + icon("alert", 20) + "<div><b>还没有索引地址</b><p>在右侧填入 index.json 的地址，或点“恢复官方索引”。</p></div></div>") +
+    "</div>" + side(data) + "</div>";
+  const cfg = data.settings;
+  const again = async (body) => draw(root, ctx, body || await ctx.api.get("market"));
+  const saveSettings = (patch) => ctx.api.post("market/settings", { sources: cfg.sources, route: cfg.route, prefix: cfg.prefix, ...patch });
+  const act = (selector, handler) => root.querySelectorAll(selector).forEach((el) => el.addEventListener("click", async (e) => {
+    try { await handler(e.currentTarget); } catch (error) { ctx.toast(error.message, "error"); }
+  }));
+  act("[data-refresh]", async (btn) => { await busy(btn, () => market(root, ctx, true)); });
+  act("[data-install]", async (btn) => {
+    const r = await busy(btn, () => ctx.api.post("market/install", { source: btn.dataset.source, id: btn.dataset.install }));
+    ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版" + (r.previous ? "（原第 " + r.previous + " 版）" : ""));
+    await again();
+  });
+  act("[data-uninstall]", async (btn) => {
+    const after = btn.dataset.builtin ? "卸载后恢复插件自带的文本版。" : "卸载后这个世界会从列表里移除。";
+    if (!window.confirm("确定卸载「" + btn.dataset.title + "」吗？" + after + "已开的团桌不受影响。")) return;
+    await busy(btn, () => ctx.api.post("market/uninstall", { id: btn.dataset.uninstall }));
+    ctx.toast("已卸载 " + btn.dataset.title);
+    await again();
+  });
+  act("[data-route]", async (btn) => {
+    const route = btn.dataset.route;
+    if (route === "prefix" && !cfg.prefix) {          // ask for the prefix first; saving it switches the route
+      root.querySelectorAll("[data-route]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      root.querySelector("[data-route-note]").textContent = ROUTE_NOTES.prefix;
+      root.querySelector("[data-prefix]").style.display = "";
+      root.querySelector("#mk-prefix").focus();
+      return;
+    }
+    await again(await saveSettings({ route }));
+    ctx.toast("下载线路：" + cfg.routes[route]);
+  });
+  act("[data-save-prefix]", async (btn) => {
+    await again(await busy(btn, () => saveSettings({ route: "prefix", prefix: root.querySelector("#mk-prefix").value })));
+    ctx.toast("已保存代理前缀");
+  });
+  act("[data-save-sources]", async (btn) => {
+    await again(await busy(btn, () => saveSettings({ sources: root.querySelector("#mk-sources").value })));
+    ctx.toast("已保存索引地址");
+  });
+  act("[data-official]", async (btn) => {
+    await again(await busy(btn, () => saveSettings({ sources: [cfg.official] })));
+    ctx.toast("已恢复官方索引");
+  });
+  act("[data-install-url]", async (btn) => {
+    const r = await busy(btn, () => ctx.api.post("market/install-url", { url: root.querySelector("#mk-url").value, sha256: root.querySelector("#mk-sha").value }));
+    ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版");
+    await again();
+  });
+  root.querySelector("[data-upload]").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const label = root.querySelector("[data-upload-label]");
+    label.textContent = "正在安装 " + file.name + "…";
+    try {
+      const r = await ctx.api.upload("market/upload", file);
+      ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版");
+      await again();
+    } catch (error) {
+      label.textContent = "上传安装包";
+      e.target.value = "";
+      ctx.toast(error.message, "error");
+    }
+  });
+  paintArt(root, ctx.api);
+}

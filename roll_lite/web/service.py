@@ -3,6 +3,8 @@
 web/api.py registers them with AstrBot; tools/preview_webui.py serves them
 locally.  Room operations run the same '/团' commands as an administrator so
 the group sees the same receipts and the same rules apply.
+FILE_ROUTES return (filename, content type, bytes) for downloads; UPLOAD_ROUTES
+take the uploaded bytes and file name.
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from .. import adjust, loadout, messages, people, shared
+from ..cards import cover
 from ..commands import Caller, strip_command
 from ..delivery import load_prefs, save_prefs
 from ..engine.gateway import ENGINE_VERSION
@@ -19,7 +22,9 @@ from ..render import MARKDOWN_PLATFORMS, PLAIN, inline, render
 from ..rooms import lifecycle
 from ..storage import dumps, loads, now
 from ..version import DATABASE_SCHEMA, PLUGIN_VERSION, WORLD_FORMAT
+from ..worlds import market
 from ..worlds.catalog import COVER_TONES, WorldInvalid, validate_presentation, validate_world
+from ..worlds.package import MAX_PACKAGE
 from .preview import message_preview
 
 if TYPE_CHECKING:
@@ -38,24 +43,36 @@ class WebError(Exception):
     pass
 
 
-# Covers are a colour field plus one large character; preset worlds get a hand-picked pair.
-COVERS = {"seventh-mystery": ("七", "ink"), "wildfire-hunt": ("狩", "ember"), "neon-pawnshop": ("当", "neon"),
-          "nameless-sword-tomb": ("剑", "jade"), "final-curtain": ("戏", "wine"), "greycrown-prequel": ("冠", "slate")}
 # Export file: one JSON holding both documents, so a world can be saved and imported again as is.
 BUNDLE_FORMAT = "321roll-lite.world-bundle/1"
 
 
-def cover(world_id: str, title: str, presentation: dict[str, Any] | None = None) -> dict[str, str]:
-    chosen = (presentation or {}).get("cover")
-    if chosen:
-        return dict(chosen)
-    if world_id in COVERS:
-        mark, tone = COVERS[world_id]
-    else:
-        name = title.split(" · ")[0].removeprefix("第")
-        mark = next((ch for ch in name if not ch.isspace()), "团")
-        tone = COVER_TONES[sum(map(ord, world_id)) % len(COVER_TONES)]
-    return {"mark": mark, "tone": tone}
+def _origin(entry: Any) -> dict[str, Any] | None:
+    """What the WebUI shows about a market install."""
+    o = entry.origin
+    if not o:
+        return None
+    return {"source": o.get("source"), "file": o.get("file"), "revision": o.get("revision"), "sha256": o.get("sha256"),
+            "size": o.get("size"), "installed_at": o.get("installed_at"), "images": len(set((o.get("images") or {}).values())),
+            "banner": bool(o.get("banner"))}
+
+
+def _scenes(entry: Any) -> list[dict[str, str]]:
+    """Installed scene images in story order with readable labels, for the world gallery."""
+    found = (entry.origin or {}).get("scenes") or {}
+    pres = entry.presentation
+    labels = [("cover", "封面")]
+    labels += [(f"act:{a['number']}", f"第 {a['number']} 幕 · {a['title']}") for a in pres.get("acts", [])]
+    labels += [(f"place:{p['entry']}", p["name"]) for p in pres.get("places", [])]
+    labels += [(f"ending:{e['id']}", f"结局 · {e['name']}") for e in pres.get("endings", [])]
+    return [{"key": key, "label": label} for key, label in labels if key in found]
+
+
+async def _market(call: Any) -> Any:
+    try:
+        return await call
+    except market.MarketError as exc:
+        raise WebError(str(exc)) from exc
 
 
 def _room_row(app: "LiteApp", room_id: str) -> Any:
@@ -334,6 +351,7 @@ async def worlds(app: "LiteApp", payload: dict[str, Any], username: str) -> dict
         result.append({"id": entry.id, "title": entry.title, "source": entry.source, "enabled": entry.enabled,
                        "worldview": pack["worldview"], "style": pack.get("style", ""),
                        "cover": cover(entry.id, entry.title, entry.presentation), "revision": pack.get("revision", 1),
+                       "market": _origin(entry), "art": bool(entry.origin and entry.origin.get("banner")),
                        "seed": pack.get("seed", ""),
                        "attributes": [a["name"] for a in pack["attributes"]], "resources": [r["name"] for r in pack["resources"]],
                        "archetypes": [a["name"] for a in pack["archetypes"]], "entries": len(pack["entries"]),
@@ -354,7 +372,23 @@ async def world(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[
         raise WebError("世界不存在")
     return {"id": entry.id, "source": entry.source, "enabled": entry.enabled, "pack": entry.pack,
             "presentation": entry.presentation, "cover": cover(entry.id, entry.title, entry.presentation),
-            "bundle_format": BUNDLE_FORMAT, "tones": list(COVER_TONES)}
+            "bundle_format": BUNDLE_FORMAT, "tones": list(COVER_TONES), "market": _origin(entry),
+            "art": bool(entry.origin and entry.origin.get("banner")), "scenes": _scenes(entry),
+            "builtin_revision": lifecycle.catalog(app).builtin_revision(entry.id)}
+
+
+async def world_image(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    entry = lifecycle.catalog(app).get(str(payload.get("id") or ""))
+    try:
+        return market.image(app, entry, str(payload.get("key") or "cover"))
+    except market.MarketError as exc:
+        raise WebError(str(exc)) from exc
+
+
+async def market_view(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    data = await market.listing(app, refresh=str(payload.get("refresh") or "") in ("1", "true"))
+    data["max_package_mb"] = MAX_PACKAGE // (1024 * 1024)
+    return data
 
 
 async def features(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
@@ -536,6 +570,38 @@ async def world_delete(app: "LiteApp", payload: dict[str, Any], username: str) -
     return await worlds(app, {}, username)
 
 
+async def market_install(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    return await _market(market.install_from_index(app, str(payload.get("source") or ""), str(payload.get("id") or ""), username))
+
+
+async def market_install_url(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    return await _market(market.install_url(app, payload.get("url"), payload.get("sha256"), username))
+
+
+async def market_upload(app: "LiteApp", data: bytes, filename: str, username: str) -> dict[str, Any]:
+    return await _market(market.install_upload(app, data, filename, username))
+
+
+async def market_uninstall(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    return await _market(market.uninstall(app, str(payload.get("id") or ""), username))
+
+
+async def market_settings(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    try:
+        market.save_settings(app, payload, username)
+    except market.MarketError as exc:
+        raise WebError(str(exc)) from exc
+    return await market_view(app, {}, username)
+
+
+async def world_package(app: "LiteApp", payload: dict[str, Any], username: str) -> tuple[str, str, bytes]:
+    entry = lifecycle.catalog(app).get(str(payload.get("id") or ""))
+    if entry is None:
+        raise WebError("世界不存在")
+    name, data = market.package_file(app, entry, cover(entry.id, entry.title, entry.presentation))
+    return name, "application/zip", data
+
+
 async def feature_set(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
     key = str(payload.get("key") or "")
     if key not in BY_KEY:
@@ -603,6 +669,10 @@ def export_backup(app: "LiteApp") -> dict[str, Any]:
                 "exported_at": now(), "tables": {t: [dict(r) for r in c.execute(f"SELECT * FROM {t}")] for t in BACKUP_TABLES}}
 
 
+async def backup_file(app: "LiteApp", payload: dict[str, Any], username: str) -> tuple[str, str, bytes]:
+    return "321roll-lite-backup.json", "application/json", json.dumps(export_backup(app), ensure_ascii=False).encode("utf-8")
+
+
 async def backup_info(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
     with app.store.read() as c:
         counts = {t: c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in BACKUP_TABLES}
@@ -630,9 +700,12 @@ async def backup_import(app: "LiteApp", payload: dict[str, Any], username: str) 
 
 GET_ROUTES = {"overview": overview, "rooms": rooms, "room": room, "worlds": worlds, "world": world, "features": features,
               "usage": usage, "outbox": outbox, "audit": audit, "settings": settings, "about": about, "backup": backup_info,
-              "messages/preview": message_preview}
+              "messages/preview": message_preview, "market": market_view, "worlds/image": world_image}
 POST_ROUTES = {"room/command": room_command, "room/adjust": room_adjust, "room/adjust/cancel": room_adjust_cancel,
                "worlds/toggle": world_toggle, "worlds/validate": world_validate,
                "worlds/save": world_save, "worlds/delete": world_delete, "features/set": feature_set,
                "settings/set": settings_set, "settings/message": settings_message, "outbox/action": outbox_action,
-               "backup/import": backup_import}
+               "backup/import": backup_import, "market/install": market_install, "market/install-url": market_install_url,
+               "market/uninstall": market_uninstall, "market/settings": market_settings}
+FILE_ROUTES = {"backup/export": backup_file, "worlds/package": world_package}
+UPLOAD_ROUTES = {"market/upload": market_upload}

@@ -355,6 +355,7 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
     choices = make_choices(proposal["suggestions"], proposal.get("suggestion_checks"))
     with app.store.tx() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        old_scene = loads(room["scene_json"], {}).get("title", "")
         shown_act = hosted_data(room).get("shown_act")
         act_heading = lifecycle.act_heading(room).split("\n")[0] if shown_act != room["act"] else ""
         if act_heading:
@@ -378,7 +379,11 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
         new_turn = open_turn(app, c, room, following, choices, round_number) if room["state"] == "running" else None
         if new_turn is None and room["state"] == "running":
             app.store.add_event(c, room_id, "system", "没有在场的玩家，故事停在这里。")
-    reply = Reply().say(messages.narration(text, loads(room["scene_json"], {}).get("title", ""), act_heading))
+    scene_title = loads(room["scene_json"], {}).get("title", "")
+    story = messages.narration(text, scene_title, act_heading)
+    if act_heading or (scene_title and scene_title != old_scene):
+        story.with_art(room["world_id"], f"act:{room['act']}", _art_tag(room))
+    reply = Reply().say(story)
     if adjusted:
         reply.say(messages.adjustments_applied(adjusted))
     if new_turn is not None:
@@ -463,10 +468,17 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
     act = next((a for a in acts if a["number"] == room["act"]), {"title": "", "lead": ""})
     reply = Reply().say(messages.act_card(shared.world(room)["pack"]["title"], room["act"], act["title"], act["lead"]))
     reply.say(messages.scene_card(proposal["scene"]["title"], proposal["scene"]["description"], proposal["goal"],
-                                  [(n["name"], n["description"]) for n in proposal["npcs"]]))
+                                  [(n["name"], n["description"]) for n in proposal["npcs"]])
+              .with_art(room["world_id"], f"act:{room['act']}", _art_tag(room, act["title"])))
     if turn is not None:
         reply.say(turn_prompt(room, turn, first))
     return reply
+
+
+def _art_tag(room: sqlite3.Row, act_title: str = "") -> str:
+    """Small caption on a scene banner: world name and act."""
+    title = messages.short_title(shared.world(room)["pack"]["title"])
+    return " · ".join(p for p in (title, messages.act_label(room["act"]), act_title) if p)
 
 
 async def on_roster_changed(room_id: str, actor_id: str, change: str, *, app: "LiteApp") -> Reply:

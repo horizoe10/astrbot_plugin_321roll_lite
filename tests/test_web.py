@@ -152,9 +152,11 @@ class WebService(unittest.IsolatedAsyncioTestCase):
 
     def test_routes_cover_every_page_call(self) -> None:
         calls = set()
+        tables = {"get": service.GET_ROUTES, "post": service.POST_ROUTES, "download": service.FILE_ROUTES,
+                  "upload": service.UPLOAD_ROUTES}
         for path in (ROOT / "pages" / "admin" / "js").rglob("*.js"):
             text = path.read_text(encoding="utf-8")
-            for method in ("get", "post"):
+            for method in tables:
                 marker = f"api.{method}(\""
                 start = 0
                 while (index := text.find(marker, start)) >= 0:
@@ -162,8 +164,7 @@ class WebService(unittest.IsolatedAsyncioTestCase):
                     calls.add((method, text[index + len(marker):end]))
                     start = end
         for method, endpoint in calls:
-            table = service.GET_ROUTES if method == "get" else service.POST_ROUTES
-            self.assertIn(endpoint, table, f"{method} {endpoint}")
+            self.assertIn(endpoint, tables[method], f"{method} {endpoint}")
 
 
 if __name__ == "__main__":

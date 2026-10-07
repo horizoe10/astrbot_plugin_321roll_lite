@@ -26,8 +26,14 @@ class Sink:
 
 
 class FakeStar:
-    def __init__(self, ok: bool = True) -> None:
-        self.ok, self.rendered = ok, []
+    def __init__(self, ok: bool = True, cards: bool = True) -> None:
+        self.ok, self.cards_ok, self.rendered, self.cards = ok, cards, [], []
+
+    async def html_render(self, tmpl: str, data: dict, return_url: bool = True, options: dict | None = None) -> str:
+        if not (self.ok and self.cards_ok):
+            raise RuntimeError("render service down")
+        self.cards.append((data["html"], options))
+        return f"https://img.example/card{len(self.cards)}.jpg"
 
     async def text_to_image(self, text: str, return_url: bool = True) -> str:
         if not self.ok:
@@ -98,6 +104,23 @@ class Delivery(unittest.IsolatedAsyncioTestCase):
         save_prefs(self.app, {"format": MARKDOWN, "interval": 0, "image_narration": True})
         sink = await self.send("aiocqhttp")
         self.assertIn("倒退了一格", sink.chains[1].text)
+
+    async def test_image_card_first_then_astrbot_template(self) -> None:
+        star = self.app.star = FakeStar()
+        save_prefs(self.app, {"format": MARKDOWN, "interval": 0, "image_choices": True, "card_theme": "dark"})
+        await self.send("aiocqhttp")
+        page, options = star.cards[0]
+        self.assertIn('class="dark seg-choices"', page)
+        self.assertIn("/团 跳过", page)                     # the command row of the choice card
+        self.assertGreater(options["quality"], 40)
+        self.assertEqual(star.rendered, [])
+        star.cards_ok = False
+        sink = await self.send("aiocqhttp")
+        self.assertEqual(len(star.rendered), 1)              # AstrBot's own text-to-image took over
+        self.assertTrue(any(isinstance(p, tuple) and p[0] == "image" for p in sink.chains[2].chain))
+
+    async def test_unknown_card_theme_is_saved_as_light(self) -> None:
+        self.assertEqual(save_prefs(self.app, {"card_theme": "neon"}).card_theme, "light")
 
     async def test_merge_sends_one_message(self) -> None:
         save_prefs(self.app, {"format": MARKDOWN, "interval": 0, "merge": True})

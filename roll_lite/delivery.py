@@ -5,8 +5,9 @@ one global push format; platforms that cannot render Markdown (OneBot and
 anything not in render.MARKDOWN_PLATFORMS) always get plain text, and a
 platform that refuses Markdown once (QQ official without the native-markdown
 permission) is remembered and gets plain text from then on.  Status,
-narration and choices segments can each be sent as images rendered by
-AstrBot's text-to-image service; a failed render falls back to text.
+narration and choices segments can each be sent as image cards (cards.py)
+rendered by AstrBot's html_render; if that fails AstrBot's own text-to-image
+template is tried, and after that the segment goes out as text.
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
+from . import cards
 from .render import MARKDOWN, PLAIN, Msg, mentions_of, render, target_format
 from .storage import now
 
@@ -25,7 +27,7 @@ logger = logging.getLogger("astrbot_plugin_321roll_lite")
 MAX_MESSAGE = 1800
 MENTION_PLATFORMS = frozenset({"aiocqhttp"})
 SEGMENTS = ("status", "narration", "choices")
-PREF_KEYS = ("format", "image_status", "image_narration", "image_choices", "interval", "merge")
+PREF_KEYS = ("format", "image_status", "image_narration", "image_choices", "card_theme", "interval", "merge")
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,7 @@ class MessagePrefs:
     image_status: bool = False
     image_narration: bool = False
     image_choices: bool = False
+    card_theme: str = "light"
     interval: float = 1.0
     merge: bool = False
     blocked: tuple[str, ...] = ()
@@ -59,7 +62,9 @@ def save_prefs(app: "LiteApp", value: dict[str, Any]) -> MessagePrefs:
         interval = 1.0
     prefs = MessagePrefs(format=MARKDOWN if value.get("format") == MARKDOWN else PLAIN,
                          image_status=bool(value.get("image_status")), image_narration=bool(value.get("image_narration")),
-                         image_choices=bool(value.get("image_choices")), interval=interval, merge=bool(value.get("merge")))
+                         image_choices=bool(value.get("image_choices")),
+                         card_theme=value.get("card_theme") if value.get("card_theme") in cards.THEMES else "light",
+                         interval=interval, merge=bool(value.get("merge")))
     with app.store.tx() as c:
         app.store.set_setting(c, "global", "message.prefs", {k: getattr(prefs, k) for k in PREF_KEYS})
         if value.get("reset_blocked"):
@@ -115,12 +120,39 @@ def _chain(out: Outgoing, platform_name: str) -> Any:
     return chain
 
 
-async def _to_image(app: "LiteApp", text: str) -> str:
+def card_art(app: "LiteApp", art: dict[str, str] | None) -> dict[str, str] | None:
+    """Resolve a message's banner: the installed scene image, else the world cover image, else colour and mark."""
+    if not art:
+        return None
+    from .rooms import lifecycle
+    from .worlds import market
+    entry = lifecycle.catalog(app).get(art.get("world") or "")
+    image = ""
+    if entry is not None and entry.origin:
+        for key in dict.fromkeys((art.get("key") or "cover", "cover")):
+            try:
+                image = market.image(app, entry, key)["url"]
+                break
+            except market.MarketError:
+                continue
+    look = cards.cover(art.get("world") or "", entry.title if entry else "", entry.presentation if entry else None)
+    return {**art, **look, "image": image}
+
+
+async def _to_image(app: "LiteApp", item: Any, prefs: MessagePrefs) -> str:
     star = getattr(app, "star", None)
     if star is None:
         return ""
+    if isinstance(item, Msg):
+        try:
+            page = cards.card_html(item, prefs.card_theme, card_art(app, item.art))
+            url = await star.html_render(cards.TEMPLATE, {"html": page}, return_url=True, options=dict(cards.RENDER_OPTIONS))
+            if url:
+                return url
+        except Exception as exc:
+            logger.warning("321Roll Lite card render failed, trying AstrBot text-to-image: %s", exc)
     try:
-        return await star.text_to_image(text, return_url=True) or ""
+        return await star.text_to_image(render(item, MARKDOWN), return_url=True) or ""
     except Exception as exc:
         logger.warning("321Roll Lite text-to-image failed, sending text: %s", exc)
         return ""
@@ -136,7 +168,7 @@ async def prepare(app: "LiteApp", items: list[Any], platform_name: str, platform
         segment = item.segment if isinstance(item, Msg) else ""
         mentions = tuple(mentions_of(item))
         if prefs.image(segment):
-            image = await _to_image(app, render(item, MARKDOWN))
+            image = await _to_image(app, item, prefs)
             if image:
                 outgoing.append(Outgoing(image=image, mentions=mentions, source=index))
                 continue

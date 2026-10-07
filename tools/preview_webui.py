@@ -3,6 +3,8 @@
 Usage: python -X utf8 tools/preview_webui.py [--port 8765]
 Open http://127.0.0.1:8765/ (add ?theme=dark for the black-gold theme).
 Data shown is produced by real commands against a scripted model; it is a preview fixture.
+When dist/worlds exists (python tools/pack_worlds.py), it is served as a local world market
+at /__market/index.json and two of its packages are installed.
 """
 from __future__ import annotations
 
@@ -21,8 +23,10 @@ sys.path.insert(0, str(ROOT))
 
 from support import Player, make_app  # noqa: E402
 from roll_lite.web import service  # noqa: E402
+from roll_lite.worlds import market  # noqa: E402
 
 PAGES = ROOT / "pages" / "admin"
+MARKET = ROOT / "dist" / "worlds"
 BRIDGE = """
 (function () {
   const dark = new URLSearchParams(location.search).get('theme') === 'dark';
@@ -39,15 +43,23 @@ BRIDGE = """
     ready: async () => context, getContext: () => context, onContext: (h) => { h(context); return () => {}; },
     apiGet: (e, p) => call('GET', e, p), apiPost: (e, b) => call('POST', e, b),
     download: async (e, p, name) => {
-      const res = await fetch('/__api/' + e);
+        const res = await fetch('/__api/' + e + '?' + new URLSearchParams(p || {}));
+        if (!res.ok || (res.headers.get('content-type') || '').includes('json') && !name.endsWith('.json')) throw new Error('下载失败');
       const a = document.createElement('a'); a.href = URL.createObjectURL(await res.blob()); a.download = name; a.click();
+        return { filename: name };
+      },
+      upload: async (e, file) => {
+        const res = await fetch('/__upload/' + e + '?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+        const body = await res.json();
+        if (body.status === 'error') throw new Error(body.message);
+        return body.data;
     },
   };
 })();
 """
 
 
-async def seed():
+async def seed(port: int):
     app = make_app({"turn_timeout_seconds": 600})
     host, bob, cat, dan = (Player(app, "admin", "阿主"), Player(app, "bob", "小明"), Player(app, "cat", "猫猫"),
                            Player(app, "dan", "老丹", group="g2"))
@@ -87,6 +99,12 @@ async def seed():
         c.execute("INSERT INTO outbox(umo,text,state,attempts,last_error,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
                   ("fake:GroupMessage:g1", "苏晴 超时，自动选择 B。\n苏晴：检查闪烁的灯", "pending", 2, "platform refused the message",
                    "2026-10-07T09:12:00+00:00", "2026-10-07T09:13:00+00:00"))
+    if (MARKET / "index.json").is_file():
+        index = f"http://127.0.0.1:{port}/__market/index.json"
+        market.save_settings(app, {"sources": [index], "route": "direct"}, "preview")
+        for name in ("final-curtain-r1.zip", "neon-pawnshop-r1.zip"):
+            await market.install_bytes(app, (MARKET / "packs" / name).read_bytes(), username="preview",
+                                       origin={"source": index, "file": index.rsplit("/", 1)[0] + "/packs/" + name})
     return app
 
 
@@ -96,7 +114,7 @@ def main() -> None:
     args = parser.parse_args()
     loop = asyncio.new_event_loop()
     threading.Thread(target=loop.run_forever, daemon=True).start()
-    app = asyncio.run_coroutine_threadsafe(seed(), loop).result()
+    app = asyncio.run_coroutine_threadsafe(seed(args.port), loop).result()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_: object) -> None:
@@ -111,8 +129,17 @@ def main() -> None:
             self.wfile.write(data)
 
         def _api(self, endpoint: str, payload: dict) -> None:
-            if endpoint == "backup/export":
-                return self._json(service.export_backup(app))
+            if endpoint in service.FILE_ROUTES and self.command == "GET":
+                try:
+                    name, kind, data = asyncio.run_coroutine_threadsafe(service.FILE_ROUTES[endpoint](app, payload, "preview"), loop).result()
+                except service.WebError as exc:
+                    return self._json({"status": "error", "message": str(exc)})
+                self.send_response(200)
+                self.send_header("content-type", kind)
+                self.send_header("content-disposition", f'attachment; filename="{name}"')
+                self.send_header("content-length", str(len(data)))
+                self.end_headers()
+                return self.wfile.write(data)
             table = service.GET_ROUTES if self.command == "GET" else service.POST_ROUTES
             fn = table.get(endpoint)
             if fn is None:
@@ -133,6 +160,17 @@ def main() -> None:
                 self.send_header("content-type", "text/javascript")
                 self.end_headers()
                 return self.wfile.write(data)
+            if url.path.startswith("/__market/"):
+                path = (MARKET / url.path[len("/__market/"):]).resolve()
+                if not str(path).startswith(str(MARKET.resolve())) or not path.is_file():
+                    self.send_response(404)
+                    return self.end_headers()
+                data = path.read_bytes()
+                self.send_response(200)
+                self.send_header("content-type", {".json": "application/json", ".webp": "image/webp"}.get(path.suffix, "application/zip"))
+                self.send_header("content-length", str(len(data)))
+                self.end_headers()
+                return self.wfile.write(data)
             path = (PAGES / (url.path.lstrip("/") or "index.html")).resolve()
             if not str(path).startswith(str(PAGES)) or not path.is_file():
                 self.send_response(404)
@@ -150,6 +188,14 @@ def main() -> None:
         def do_POST(self) -> None:
             url = urlparse(self.path)
             length = int(self.headers.get("content-length") or 0)
+            if url.path.startswith("/__upload/"):
+                fn = service.UPLOAD_ROUTES.get(url.path[len("/__upload/"):])
+                name = parse_qs(url.query).get("name", ["upload.zip"])[0]
+                try:
+                    result = asyncio.run_coroutine_threadsafe(fn(app, self.rfile.read(length), name, "preview"), loop).result()
+                    return self._json({"status": "ok", "data": result})
+                except service.WebError as exc:
+                    return self._json({"status": "error", "message": str(exc)})
             body = json.loads(self.rfile.read(length) or b"{}")
             return self._api(url.path[len("/__api/"):], body)
 

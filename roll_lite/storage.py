@@ -120,14 +120,16 @@ CREATE TABLE IF NOT EXISTS audit(
   id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL,
   detail_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
 
--- Custom worlds written in the WebUI.  Built-in packs live in worlds/ and are not stored here.
+-- Custom worlds written in the WebUI and worlds installed from the market (origin_json set).
+-- Built-in packs live in worlds/ and are not stored here; a market row with the same id replaces one.
 CREATE TABLE IF NOT EXISTS worlds(
   id TEXT PRIMARY KEY, pack_json TEXT NOT NULL, presentation_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 """
 
 # Columns added after a table first shipped: (table, column, definition).  migrate() adds any that are missing.
-ADDED_COLUMNS = (("model_calls", "note", "TEXT NOT NULL DEFAULT ''"),)
+ADDED_COLUMNS = (("model_calls", "note", "TEXT NOT NULL DEFAULT ''"),
+                 ("worlds", "origin_json", "TEXT NOT NULL DEFAULT ''"))
 
 
 def now() -> str:

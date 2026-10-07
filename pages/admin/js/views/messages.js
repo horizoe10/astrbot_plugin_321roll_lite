@@ -4,6 +4,8 @@ const IMAGE_ROWS = [["image_status", "个人状态", "检定、骰点与资源�
   ["image_choices", "行动选项", "轮到谁、可选行动与表决"]];
 const SEG_INDEX = { status: "1", narration: "2", choices: "3" };
 const PLATFORMS = [["qq_official", "QQ 官方机器人"], ["aiocqhttp", "OneBot（aiocqhttp）"]];
+const THEMES = [["light", "白金"], ["dark", "黑金"]];
+const PREF_FIELDS = ["format", "image_status", "image_narration", "image_choices", "card_theme", "interval", "merge"];
 
 export async function render(root, ctx) {
   const data = await ctx.api.get("messages/preview");
@@ -22,16 +24,18 @@ export async function render(root, ctx) {
   const formEl = root.querySelector("[data-form]");
   const previewEl = root.querySelector("[data-preview]");
 
-  const dirty = () => ["format", "image_status", "image_narration", "image_choices", "interval", "merge"].some((k) => form[k] !== saved[k]);
+  const dirty = () => PREF_FIELDS.some((k) => form[k] !== saved[k]);
 
   function drawForm() {
     formEl.innerHTML = '<div class="panel-head"><h2 class="panel-title">推送设置</h2><span class="panel-sub">' + (dirty() ? '<span class="gold">有未保存的修改</span>' : "已保存") + "</span></div>" +
       '<div class="label" style="margin-bottom:8px">推送格式</div><div class="seg" role="group" aria-label="推送格式">' +
       [["markdown", "Markdown"], ["plain", "纯文本"]].map(([k, l]) => '<button data-format="' + k + '" aria-pressed="' + (form.format === k) + '">' + l + "</button>").join("") + "</div>" +
       '<p class="hint" style="margin:8px 0 0">支持 Markdown 的平台：' + esc(data.markdown_platforms.join("、")) + "。其余平台一律纯文本。</p>" +
-      '<hr class="rule" /><div class="label">转为图片</div><p class="hint" style="margin:4px 0 4px">用 AstrBot 的文转图服务把这一段渲染成图片发送；渲染失败时自动改发文字。</p>' +
+      '<hr class="rule" /><div class="label">转为图片</div><p class="hint" style="margin:4px 0 4px">按插件自带的卡片版式，经 AstrBot 的渲染服务出图。开场、换幕和换场景时正文卡顶部会放世界横幅。渲染失败时先改用 AstrBot 默认文转图，再失败就发文字。</p>' +
       IMAGE_ROWS.map(([key, label, note]) => '<label class="opt"><span class="opt-num">' + SEG_INDEX[key.replace("image_", "")] + '</span><span class="opt-text"><b>' + label + "</b><span>" + note +
         '</span></span><span class="switch"><input type="checkbox" data-image="' + key + '" ' + (form[key] ? "checked" : "") + ' aria-label="' + label + '转为图片" /><span></span></span></label>').join("") +
+      '<div class="label" style="margin:14px 0 8px">卡片配色</div><div class="seg" role="group" aria-label="卡片配色">' +
+      THEMES.map(([k, l]) => '<button data-card-theme="' + k + '" aria-pressed="' + (form.card_theme === k) + '">' + l + "</button>").join("") + "</div>" +
       '<hr class="rule" /><div class="label">发送节奏</div>' +
       '<label class="opt"><span class="opt-text"><b>合并为一条消息</b><span>状态、正文和选项拼成一条；转图片的段落仍单独发送</span></span><span class="switch"><input type="checkbox" data-merge ' +
         (form.merge ? "checked" : "") + ' aria-label="合并为一条消息" /><span></span></span></label>' +
@@ -42,6 +46,7 @@ export async function render(root, ctx) {
       '<div class="btns" style="margin-top:22px"><button class="btn primary" data-save ' + (dirty() ? "" : "disabled") + '>保存设置</button>' +
         (dirty() ? '<button class="btn text" data-revert>撤销修改</button>' : "") + "</div>";
     formEl.querySelectorAll("[data-format]").forEach((b) => b.addEventListener("click", () => { form.format = b.dataset.format; update(); }));
+    formEl.querySelectorAll("[data-card-theme]").forEach((b) => b.addEventListener("click", () => { form.card_theme = b.dataset.cardTheme; update(); }));
     formEl.querySelectorAll("[data-image]").forEach((i) => i.addEventListener("change", () => { form[i.dataset.image] = i.checked; update(); }));
     formEl.querySelector("[data-merge]").addEventListener("change", (e) => { form.merge = e.target.checked; update(); });
     formEl.querySelector("#interval").addEventListener("input", (e) => {
@@ -73,9 +78,10 @@ export async function render(root, ctx) {
 
   function bubble(entry, asMarkdown) {
     const source = mention(entry.mentions) + (asMarkdown ? entry.markdown : entry.plain);
-    if (imageOn(entry.segment)) {
+    if (imageOn(entry.segment) && entry.card) {
       return '<div class="bubble image">' + (entry.mentions.length ? '<div style="padding:4px 8px 6px"><span class="at">' + esc(mention(entry.mentions)) + "</span></div>" : "") +
-        '<div class="shot md">' + md(entry.markdown) + '</div><div class="shot-tag">图片 · 文转图</div></div>';
+        '<iframe class="card-frame" title="' + esc(entry.label) + '图片卡" srcdoc="' + esc(entry.card[form.card_theme] || entry.card.light) + '"></iframe>' +
+        '<div class="shot-tag">图片 · ' + (form.card_theme === "dark" ? "黑金" : "白金") + "卡片</div></div>";
     }
     return asMarkdown ? '<div class="bubble md">' + md(source) + "</div>" : '<div class="bubble plain">' + plain(source) + "</div>";
   }
@@ -114,6 +120,22 @@ export async function render(root, ctx) {
       '<div class="ornament">其他消息</div><div class="grid cols-even">' + data.others.map((e) => '<section class="chat" style="padding:18px"><div class="label" style="margin-bottom:10px">' +
         esc(e.label) + (imageOn(e.segment) ? " · 图片" : "") + "</div>" + bubble(e, asMarkdown) + "</section>").join("") + "</div>";
     previewEl.querySelectorAll("[data-platform]").forEach((b) => b.addEventListener("click", () => { platform = b.dataset.platform; drawPreview(); }));
+    previewEl.querySelectorAll(".card-frame").forEach((frame) => {
+      // The card stretches to its viewport (min-height 100vh), so measure the natural height of its content plus the footer.
+      let width = 0;
+      const fit = () => {
+        const doc = frame.contentDocument;
+        const content = doc?.querySelector(".content");
+        if (!content || frame.clientWidth === width) return;
+        width = frame.clientWidth;
+        const last = content.lastElementChild;
+        const view = doc.defaultView;
+        const bottom = last ? last.getBoundingClientRect().bottom + parseFloat(view.getComputedStyle(last).marginBottom) : 0;
+        frame.style.height = Math.ceil(bottom + parseFloat(view.getComputedStyle(content).paddingBottom) + doc.querySelector(".foot").offsetHeight) + "px";
+      };
+      frame.addEventListener("load", () => { width = 0; fit(); });
+      new ResizeObserver(fit).observe(frame);
+    });
   }
 
   function update() {

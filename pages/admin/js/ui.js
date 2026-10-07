@@ -156,11 +156,39 @@ export const roomDot = (state, label) => '<span class="dot ' + (STATE_DOT[state]
 export const dot = (kind, label) => '<span class="dot ' + kind + '">' + esc(label) + "</span>";
 export const roundIcon = (name, tone = "") => '<span class="ricon ' + tone + '">' + icon(name, 16) + "</span>";
 
-/** World cover: colour field plus one large character. */
-export function cover(c, size = "tile", title = "") {
+/** World cover: colour field plus one large character; attrs (data-art / data-srcs) let paintArt lay a scene image over it. */
+export function cover(c, size = "tile", title = "", attrs = "") {
   const cap = size === "poster" && title
     ? '<div class="cap"><b>' + esc(shortTitle(title)) + "</b><span>" + esc(subTitle(title)) + "</span></div>" : "";
-  return '<div class="cover ' + size + " tone-" + esc(c?.tone || "ink") + '" aria-hidden="true">' + cap + '<span class="mark">' + esc(c?.mark || "团") + "</span></div>";
+  return '<div class="cover ' + size + " tone-" + esc(c?.tone || "ink") + '" aria-hidden="true"' + (attrs ? " " + attrs : "") + ">" + cap +
+    '<span class="mark">' + esc(c?.mark || "团") + "</span></div>";
+}
+
+// Scene images: installed ones come through the API as data URLs (plugin pages cannot read the data folder),
+// market previews load straight from the index host.  Either way the colour cover stays until an image arrives.
+const artCache = new Map();
+function placeArt(el, url, onFail) {
+  const img = new Image();
+  img.className = "art";
+  img.alt = "";
+  img.decoding = "async";
+  img.onload = () => { el.prepend(img); requestAnimationFrame(() => el.classList.add("has-art")); };
+  img.onerror = () => onFail?.();
+  img.src = url;
+}
+export function paintArt(root, api) {
+  root.querySelectorAll("[data-art]").forEach(async (el) => {
+    const key = el.dataset.art + "|" + (el.dataset.key || "cover") + "|" + (el.dataset.rev || "");
+    try {
+      if (!artCache.has(key)) artCache.set(key, (await api.get("worlds/image", { id: el.dataset.art, key: el.dataset.key || "cover" })).url);
+      placeArt(el, artCache.get(key));
+    } catch { /* keep the colour cover */ }
+  });
+  root.querySelectorAll("[data-srcs]").forEach((el) => {
+    const list = JSON.parse(el.dataset.srcs || "[]");
+    const next = (i) => { if (i < list.length) placeArt(el, list[i], () => next(i + 1)); };
+    next(0);
+  });
 }
 
 /** Initial avatar for a player or character. */

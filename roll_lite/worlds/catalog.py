@@ -1,9 +1,13 @@
-"""World packs: the six built-in 321roll.world-template/1 packs plus custom worlds.
+"""World packs: the six built-in 321roll.world-template/1 packs, custom worlds and market installs.
 
 Validation is ported from 321Roll application/world_template.py; the engine's
 own world_rules.compile_world turns a valid world into hosted D20 rules.
 presentation.json is read for text only (act titles and leads, place names,
 endings); weather, ambience and image fields are ignored.
+
+Market installs (worlds/market.py) are rows with origin_json set.  One whose id
+matches a built-in pack replaces it while its revision is at least the built-in
+one; uninstalling brings the built-in text back.
 """
 from __future__ import annotations
 
@@ -196,10 +200,11 @@ def brief(snapshot: dict[str, Any]) -> dict[str, str]:
 class WorldEntry:
     id: str
     title: str
-    source: str            # 'builtin' | 'custom'
+    source: str            # 'builtin' | 'custom' | 'market'
     enabled: bool
     pack: dict[str, Any]
     presentation: dict[str, Any]
+    origin: dict[str, Any] | None = None   # market install record (see worlds/market.py)
 
 
 class WorldCatalog:
@@ -224,13 +229,33 @@ class WorldCatalog:
     def entries(self, *, include_disabled: bool = False) -> list[WorldEntry]:
         result = []
         with self.app.store.read() as c:
+            rows = [self._entry(c, row) for row in c.execute(
+                "SELECT id,pack_json,presentation_json,origin_json FROM worlds ORDER BY created_at")]
+            replacing = {e.id: e for e in rows if e.id in self._builtin}
             for world_id, (pack, presentation) in self._builtin.items():
-                result.append(WorldEntry(world_id, pack["title"], "builtin", self._enabled(c, world_id), pack, presentation))
-            for row in c.execute("SELECT id,pack_json,presentation_json FROM worlds ORDER BY created_at"):
-                pack = loads(row["pack_json"])
-                result.append(WorldEntry(row["id"], pack["title"], "custom", self._enabled(c, row["id"]),
-                                         pack, loads(row["presentation_json"], {"acts": [], "places": [], "endings": []})))
+                market = replacing.get(world_id)
+                if market is not None and market.pack["revision"] >= pack["revision"]:
+                    result.append(market)
+                else:
+                    result.append(WorldEntry(world_id, pack["title"], "builtin", self._enabled(c, world_id), pack, presentation))
+            result += [e for e in rows if e.id not in self._builtin]
         return [e for e in result if include_disabled or e.enabled]
+
+    def _entry(self, c: Any, row: Any) -> WorldEntry:
+        pack = loads(row["pack_json"])
+        origin = loads(row["origin_json"], None)
+        return WorldEntry(row["id"], pack["title"], "market" if origin else "custom", self._enabled(c, row["id"]), pack,
+                          loads(row["presentation_json"], {"acts": [], "places": [], "endings": []}), origin)
+
+    def stored(self, world_id: str) -> WorldEntry | None:
+        """The worlds-table row for an id, including a market install hidden by a newer built-in pack."""
+        with self.app.store.read() as c:
+            row = c.execute("SELECT id,pack_json,presentation_json,origin_json FROM worlds WHERE id=?", (world_id,)).fetchone()
+            return None if row is None else self._entry(c, row)
+
+    def builtin_revision(self, world_id: str) -> int | None:
+        found = self._builtin.get(world_id)
+        return None if found is None else found[0]["revision"]
 
     def get(self, world_id: str) -> WorldEntry | None:
         return next((e for e in self.entries(include_disabled=True) if e.id == world_id), None)
@@ -270,7 +295,9 @@ class WorldCatalog:
         if pack["id"] in self._builtin:
             raise WorldInvalid("id 与内置世界包重复，请换一个 id")
         with self.app.store.read() as c:
-            existing = c.execute("SELECT pack_json FROM worlds WHERE id=?", (pack["id"],)).fetchone()
+            existing = c.execute("SELECT pack_json,origin_json FROM worlds WHERE id=?", (pack["id"],)).fetchone()
+        if existing is not None and existing["origin_json"]:
+            raise WorldInvalid("这个 id 属于从市场安装的世界，不能直接覆盖；可以复制一份再改")
         if existing is not None and create:
             raise WorldInvalid(f"已经有 id 为 {pack['id']} 的世界，请换一个 id")
         if existing is not None:
@@ -288,6 +315,39 @@ class WorldCatalog:
     def delete_custom(self, world_id: str) -> None:
         if world_id in self._builtin:
             raise WorldInvalid("内置世界包不能删除，可以停用")
+        found = self.stored(world_id)
+        if found is not None and found.origin:
+            raise WorldInvalid("市场安装的世界请在市场里卸载")
         with self.app.store.tx() as c:
             c.execute("DELETE FROM worlds WHERE id=?", (world_id,))
             c.execute("DELETE FROM settings WHERE scope='global' AND key=?", (f"world.{world_id}.enabled",))
+
+    # ------------------------------------------------------------ market installs
+    def check_install(self, world_id: str, revision: int) -> None:
+        """Refuse an install that would overwrite a custom world or go back in revision."""
+        found = self.stored(world_id)
+        if found is not None and not found.origin:
+            raise WorldInvalid("已经有同 id 的自定义世界，请先删除它或把它改成别的 id")
+        builtin = self.builtin_revision(world_id)
+        if builtin is not None and revision < builtin:
+            raise WorldInvalid(f"插件自带的版本（第 {builtin} 版）比这个安装包（第 {revision} 版）新")
+        if found is not None and revision < found.pack["revision"]:
+            raise WorldInvalid(f"已安装第 {found.pack['revision']} 版，不能降级到第 {revision} 版；需要的话先卸载")
+
+    def save_market(self, pack: dict[str, Any], presentation: dict[str, Any], origin: dict[str, Any]) -> None:
+        """Record a checked and compiled market world (worlds/market.py does both)."""
+        with self.app.store.tx() as c:
+            c.execute("INSERT INTO worlds(id,pack_json,presentation_json,origin_json,created_at,updated_at) VALUES(?,?,?,?,?,?) "
+                      "ON CONFLICT(id) DO UPDATE SET pack_json=excluded.pack_json,presentation_json=excluded.presentation_json,"
+                      "origin_json=excluded.origin_json,updated_at=excluded.updated_at",
+                      (pack["id"], dumps(pack), dumps(presentation), dumps(origin), now(), now()))
+
+    def remove_market(self, world_id: str) -> WorldEntry:
+        found = self.stored(world_id)
+        if found is None or not found.origin:
+            raise WorldInvalid("没有从市场安装这个世界")
+        with self.app.store.tx() as c:
+            c.execute("DELETE FROM worlds WHERE id=?", (world_id,))
+            if world_id not in self._builtin:
+                c.execute("DELETE FROM settings WHERE scope='global' AND key=?", (f"world.{world_id}.enabled",))
+        return found

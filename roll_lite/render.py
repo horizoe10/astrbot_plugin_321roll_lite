@@ -132,6 +132,10 @@ class Block:
             return "\n".join(rows)
         if k == "list":
             return "\n".join((f"- {inline(i, fmt, False)}" if md else f"· {inline(i, fmt)}") for i in d["items"])
+        if k == "people":
+            if md:
+                return f"**{esc_inline(d['label'])}**\n" + "\n".join(f"- **{esc_inline(n)}**　{esc_inline(t)}" for n, t in d["items"])
+            return d["label"] + "\n" + "\n".join(f"· {n}　{t}" for n, t in d["items"])
         if k == "hint":
             return f"> {inline(d['text'], fmt, False)}" if md else f"› {inline(d['text'], fmt)}"
         if k == "rule":
@@ -141,7 +145,7 @@ class Block:
 
 # Markdown blocks that must stand apart; inline blocks next to each other get a hard line break,
 # because CommonMark folds single newlines and lets text continue a quote or list item.
-BLOCK_LEVEL = frozenset({"banner", "heading", "quote", "choices", "list", "hint", "rule"})
+BLOCK_LEVEL = frozenset({"banner", "heading", "quote", "choices", "list", "people", "hint", "rule"})
 
 
 @dataclass
@@ -150,9 +154,15 @@ class Msg:
     mentions: list[tuple[str, str]] = field(default_factory=list)   # (user_id, display name), put before the text
     # 'status' | 'narration' | 'choices' | '': segments the admin may send as images.
     segment: str = ""
+    # Scene banner for the image card: {'world': id, 'key': 'act:2', 'tag': '…'}; set at opening, act or scene change.
+    art: dict[str, str] | None = None
 
     def as_segment(self, name: str) -> "Msg":
         self.segment = name
+        return self
+
+    def with_art(self, world: str, key: str, tag: str = "") -> "Msg":
+        self.art = {"world": world, "key": key, "tag": tag}
         return self
 
     def _add(self, kind: str, **data: Any) -> "Msg":
@@ -208,8 +218,12 @@ class Msg:
     def items(self, items: list[str]) -> "Msg":
         return self._add("list", items=items)
 
-    def hint(self, text: str) -> "Msg":
-        return self._add("hint", text=text)
+    def people(self, label: str, items: list[tuple[str, str]]) -> "Msg":
+        return self._add("people", label=label, items=items)
+
+    def hint(self, text: str, *, note: str = "", cmds: list[tuple[str, str]] | None = None) -> "Msg":
+        """note and cmds (label, command) lay the hint out for image cards; text is what chat messages show."""
+        return self._add("hint", text=text, note=note, cmds=cmds or [])
 
     def rule(self) -> "Msg":
         return self._add("rule")

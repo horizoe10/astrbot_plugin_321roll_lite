@@ -26,3 +26,7 @@ export async function post(endpoint, body = {}) {
 export async function download(endpoint, params, filename) {
   return bridge().download(endpoint, params || {}, filename);
 }
+
+export async function upload(endpoint, file) {
+  return bridge().upload(endpoint, file);
+}

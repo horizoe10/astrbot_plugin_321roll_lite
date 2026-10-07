@@ -6,6 +6,7 @@ confirmations stay plain strings.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .render import BT, Msg, dots, safe
@@ -36,6 +37,14 @@ def check_tag(rules: dict[str, Any], check: dict[str, Any]) -> str:
 
 def cmd(text: str) -> str:
     return BT + text + BT
+
+
+def first_sentence(text: str, limit: int = 60) -> str:
+    """An NPC's description up to its first full stop, so the line ends cleanly."""
+    text = " ".join(str(text).split())
+    match = re.search(r"[。！？!?；;…]+", text)
+    head = text[:match.end()] if match else text
+    return head if len(head) <= limit else head[:limit - 1] + "…"
 
 
 # ---------------------------------------------------------------- lobby
@@ -123,7 +132,7 @@ def scene_card(title: str, description: str, goal: str, npcs: list[tuple[str, st
     m = Msg().heading(title).para(description).as_segment("narration")
     m.field("目标", goal)
     if npcs:
-        m.field("登场", "　".join(f"{n}（{d[:24]}）" for n, d in npcs))
+        m.gap().people("登场", [(n, first_sentence(d)) for n, d in npcs])
     return m
 
 
@@ -168,12 +177,18 @@ def turn_prompt(actor: str, user_name: str, user_id: str, round_number: int, cho
     if loadout:
         m.gap().field("可准备", "　".join(loadout[:5]) + ("　…" if len(loadout) > 5 else ""))
     hints = []
+    cmds = []
     if choices and mode != "dialogue_only":
         hints.append(cmd("/团 选 A"))
+        cmds.append(("选择", "/团 选 A"))
     if mode != "choice_only":
         hints.append(cmd("/团 行动 你的做法"))
+        cmds.append(("自由行动", "/团 行动 描述"))
+    cmds.append(("跳过", "/团 跳过"))
+    notes = (["在指令末尾加 " + cmd("[用 名称]") + " 带上技能或物品，加值计入检定"] if loadout else []) + \
+        ([f"{minutes} 分钟内未行动将自动选择风险最低的一项"] if minutes else [])
     m.gap().hint("回复 " + "　或　".join(hints) + ("，句末加 " + cmd("[用 名称]") + " 带上技能或物品" if loadout else "")
-                 + ("，超时将自动选择风险最低的一项" if minutes else ""))
+                 + ("，超时将自动选择风险最低的一项" if minutes else ""), note="；".join(notes) + ("。" if notes else ""), cmds=cmds)
     return m.as_segment("choices")
 
 
@@ -403,7 +418,8 @@ def vote_card(title: str, premise: str, options: list[dict[str, Any]], ballots: 
         tag = "　".join(t for t in (f"风险：{o['risk']}" if o.get("risk") else "", f"代价：{o['cost']}" if o.get("cost") else "") if t)
         items.append({"label": o["key"], "text": o["label"] + (f"——{o['description']}" if o.get("description") else ""), "tag": tag})
     m.gap().choices(items)
-    return m.gap().hint(f"{cmd('/团 投 A')}　已投 {ballots}/{voters}　{minutes} 分钟后截止").as_segment("choices")
+    return m.gap().hint(f"{cmd('/团 投 A')}　已投 {ballots}/{voters}　{minutes} 分钟后截止",
+                        note=f"已投 {ballots}/{voters}，{minutes} 分钟后截止。", cmds=[("投票", "/团 投 A")]).as_segment("choices")
 
 
 def vote_result(title: str, winner: str, counts: list[tuple[str, int]], note: str = "") -> Msg:
