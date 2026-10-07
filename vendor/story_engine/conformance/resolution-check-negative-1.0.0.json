@@ -1,0 +1,28 @@
+{
+  "schema": "se-resolution-check-negative-vectors/1.0.0",
+  "author_mutations": [
+    {"mutation": "unknown_definition_field", "expected": "resolution.definition_fields_invalid"},
+    {"mutation": "unknown_check_kind", "expected": "resolution.check_kind_invalid"},
+    {"mutation": "check_kind_inputs", "expected": "resolution.check_kind_inputs_invalid"},
+    {"mutation": "bad_difficulty", "expected": "resolution.difficulty_invalid"},
+    {"mutation": "empty_actor_inputs", "expected": "resolution.actor_inputs_empty"},
+    {"mutation": "bad_modifier_policy", "expected": "resolution.modifier_policy_invalid"},
+    {"mutation": "bad_assist_policy", "expected": "resolution.assist_policy_invalid"},
+    {"mutation": "bad_retry_policy", "expected": "resolution.retry_policy_invalid"},
+    {"mutation": "bad_opposed_policy", "expected": "resolution.opposed_policy_invalid"},
+    {"mutation": "engine_seed", "expected": "resolution.seed_policy_invalid"},
+    {"mutation": "missing_failure_band", "expected": "resolution.result_bands_incomplete"},
+    {"mutation": "unknown_definition_ref", "expected": "resolution.definition_unknown"},
+    {"mutation": "missing_document", "expected": "resolution.definition_catalog_missing"},
+    {"mutation": "missing_provider", "expected": "compiler.extension_provider_mismatch"},
+    {"mutation": "unknown_extension_field", "expected": "resolution.extension_invalid"}
+  ],
+  "runtime_cases": [
+    "full_envelope_fingerprint", "stale_request", "snapshot_mutation", "illegal_ability", "illegal_skill", "illegal_tool", "check_kind_cardinality",
+    "advantage_forbidden", "modifier_overflow", "assist_overflow", "assist_receipt_mismatch", "retry_overflow", "retry_cost_missing", "opposed_target_missing",
+    "difficulty_fixed_exclusive", "difficulty_platform_exclusive", "difficulty_host_exclusive", "difficulty_receipt_missing", "host_confirmation", "no_roll_seed_missing", "capability_fallback",
+    "receipt_before_fallback", "receipt_fingerprint", "receipt_revision", "receipt_seed", "receipt_band", "public_preview_safe",
+    "cancel_before", "cancel_after", "deadline_before", "deadline_after", "unknown_request_field", "strict_scalar_and_array_types",
+    "proposal_cross_field", "result_cross_field", "result_decoder", "result_fingerprint_problem", "artifact_definition_mutation", "artifact_binding_mutation"
+  ]
+}

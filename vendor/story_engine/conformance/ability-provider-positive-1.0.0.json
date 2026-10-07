@@ -1,0 +1,16 @@
+{
+  "schema": "se-ability-provider-positive-vectors/1.0.0",
+  "manifest_schema": "se-provider-contracts/1.1.0",
+  "manifest_revision": "provider.contracts.2",
+  "capability": "ability.execution/1.0.0",
+  "profile": "crisis_event@1.0.0",
+  "real_consumer": "events/openings/05_opening_hearing.json",
+  "ability_ref": "capability:knight.wall_guard",
+  "author_contract": "se-ability-execution-definitions/1.0.0",
+  "runtime_contract": "se-ability-execution-runtime/1.0.0",
+  "embedded_entrypoint": "story_engine.entrypoints:create_embedded_ability_execution_engine",
+  "remote_entrypoint": "story_engine.entrypoints:create_remote_ability_execution_engine",
+  "remote_dispatch_contract": "se-remote-dispatch/1.11.0",
+  "proposal_only": true,
+  "authority_owner": "321_platform"
+}

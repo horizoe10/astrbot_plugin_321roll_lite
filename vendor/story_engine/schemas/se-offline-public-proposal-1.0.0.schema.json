@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-offline-public-proposal/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "snapshot_sha256",
+    "catalog_sha256",
+    "from_step",
+    "to_step",
+    "changes",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-offline-public-proposal/1.0.0"
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "catalog_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "from_step": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "to_step": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "description": "按冻结目录顺序返回该 opening 的全部匹配轨道；已到顶的轨道返回 before_step == after_step 且 texts 为空。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_ref",
+          "before_step",
+          "after_step",
+          "texts",
+          "deferred"
+        ],
+        "properties": {
+          "track_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+          },
+          "before_step": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "after_step": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "texts": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step",
+                "text",
+                "source_ref"
+              ],
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 12
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              },
+              "description": "text 来自冻结目录中该 track 的阶段正文；source_ref 取该 track 的 source_ref。"
+            }
+          },
+          "deferred": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step",
+                "text",
+                "source_ref"
+              ],
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 12
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              },
+              "description": "text 来自冻结目录中该 track 的阶段正文；source_ref 取该 track 的 source_ref。"
+            }
+          }
+        }
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

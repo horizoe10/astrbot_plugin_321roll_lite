@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-canonical-story-pack-ir/1.0.0",
+  "title": "SE 1 Canonical Story Pack IR",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "engine_spec", "package", "manifest", "world", "modules", "event_compositions", "compiler_contract_fingerprint", "canonical_sha256"],
+  "properties": {
+    "schema": {"const": "se-canonical-story-pack-ir/1.0.0"},
+    "engine_spec": {"const": "1.0.0"},
+    "package": {"$ref": "#/$defs/package"},
+    "manifest": {"type": "object"},
+    "world": {"type": "object"},
+    "modules": {"type": "array", "items": {"type": "object"}},
+    "event_compositions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/event"}},
+    "compiler_contract_fingerprint": {"$ref": "#/$defs/hash"},
+    "canonical_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_id", "content_version"],
+      "properties": {"package_id": {"type": "string"}, "content_version": {"type": "string"}}
+    },
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "profile", "profile_version", "source", "identity", "scope", "visibility", "capability_closure", "trigger_plan", "guards", "density_policy", "checkpoint_graph", "frozen_refs", "consequence_and_consent_gates", "idempotency_templates", "proposal_plans", "resource_budgets", "cancellation_policy", "profile_data", "omens", "effects", "extensions", "compile_diagnostics_summary", "event_ir_sha256"],
+      "properties": {
+        "schema": {"const": "se-event-composition-ir/1.0.0"},
+        "profile": {"type": "string"}, "profile_version": {"type": "string"},
+        "source": {"type": "object"}, "identity": {"type": "object"}, "scope": {"type": "object"}, "visibility": {"type": "object"},
+        "capability_closure": {"type": "object"}, "trigger_plan": {"type": "object"}, "guards": {"type": "array"}, "density_policy": {"type": "object"},
+        "checkpoint_graph": {"$ref": "#/$defs/graph"}, "frozen_refs": {"type": "array", "items": {"type": "object"}},
+        "consequence_and_consent_gates": {"type": "array"}, "idempotency_templates": {"type": "object"}, "proposal_plans": {"type": "object"},
+        "resource_budgets": {"type": "object"}, "cancellation_policy": {"type": "string"}, "profile_data": {"type": "object"},
+        "omens": {"type": "array"}, "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}}, "extensions": {"type": "object"},
+        "compile_diagnostics_summary": {"type": "object"}, "event_ir_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "effect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "route_id", "capability_ref", "effect_type", "target_ref", "revision_source", "payload", "reversible", "gate_checkpoint_ref"],
+      "properties": {
+        "id": {"type": "string"}, "route_id": {"type": "string"}, "capability_ref": {"type": "string"},
+        "effect_type": {"type": "string"}, "target_ref": {"type": "string"},
+        "revision_source": {"enum": ["event", "world", "actor"]}, "payload": {"type": "object"},
+        "reversible": {"type": "boolean"}, "gate_checkpoint_ref": {"type": ["string", "null"]}
+      }
+    },
+    "graph": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nodes", "edges", "bounded_loops", "reachable_exits"],
+      "properties": {
+        "nodes": {"type": "array", "items": {"type": "object"}},
+        "edges": {"type": "array", "items": {"type": "object"}},
+        "bounded_loops": {"type": "array", "items": {"type": "object"}},
+        "reachable_exits": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

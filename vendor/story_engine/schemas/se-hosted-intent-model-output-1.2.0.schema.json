@@ -1,0 +1,141 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "attribute_ref",
+    "difficulty",
+    "failure_cost",
+    "reason",
+    "clarification",
+    "risk_response",
+    "attribute_reason",
+    "attribute_source_refs"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "narrative",
+        "check",
+        "recover",
+        "clarify",
+        "impossible"
+      ]
+    },
+    "attribute_ref": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 80
+    },
+    "difficulty": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 80
+    },
+    "failure_cost": {
+      "enum": [
+        "",
+        "setback",
+        "harm"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "clarification": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 500
+    },
+    "risk_response": {
+      "enum": [
+        "",
+        "intervention",
+        "evacuation",
+        "rescue"
+      ]
+    },
+    "attribute_reason": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 300
+    },
+    "attribute_source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "minItems": 0,
+      "maxItems": 16
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "check"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "attribute_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "difficulty": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "failure_cost": {
+            "enum": [
+              "setback",
+              "harm"
+            ]
+          },
+          "attribute_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "attribute_source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "minItems": 1,
+            "maxItems": 16
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "attribute_ref": {
+            "const": ""
+          },
+          "difficulty": {
+            "const": ""
+          },
+          "failure_cost": {
+            "const": ""
+          },
+          "attribute_reason": {
+            "const": ""
+          },
+          "attribute_source_refs": {
+            "const": []
+          }
+        }
+      }
+    }
+  ]
+}

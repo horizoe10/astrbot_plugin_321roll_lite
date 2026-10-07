@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-character-build-definitions/1.2.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "recipes",
+    "legacy_recipes",
+    "non_recipe_actions",
+    "selection_rules"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-character-build-definitions/1.2.0"
+    },
+    "legacy_recipes": {
+      "type": "array"
+    },
+    "non_recipe_actions": {
+      "const": [
+        "display_name",
+        "character_overview",
+        "final_confirmation",
+        "atomic_creation"
+      ]
+    },
+    "recipes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/recipe"
+      }
+    },
+    "selection_rules": {
+      "$ref": "#/$defs/selection_rules"
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+    },
+    "refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "step_ref",
+        "label",
+        "question",
+        "depends_on",
+        "produces",
+        "method",
+        "input_mode",
+        "minimum",
+        "maximum"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "step_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 800
+        },
+        "depends_on": {
+          "$ref": "#/$defs/refs"
+        },
+        "produces": {
+          "$ref": "#/$defs/refs"
+        },
+        "method": {
+          "enum": [
+            "choice",
+            "player_text",
+            "computed_checkpoint"
+          ]
+        },
+        "input_mode": {
+          "enum": [
+            "choice",
+            "player_text",
+            "computed_checkpoint"
+          ]
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "candidate_map_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "selection_policy": {
+          "const": "explicit_no_default"
+        },
+        "value_bonus": {
+          "type": "integer"
+        },
+        "excludes_selected_from": {
+          "$ref": "#/$defs/refs"
+        },
+        "selection_slot": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "skip_action_ref": {
+          "const": "build.action.skip_current_step"
+        },
+        "text_contract": {
+          "type": "object"
+        },
+        "computation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "accepts_player_input": {
+          "const": false
+        },
+        "llm_calls": {
+          "const": 0
+        },
+        "outputs": {
+          "$ref": "#/$defs/refs"
+        }
+      },
+      "additionalProperties": false
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipe_ref",
+        "replaces_recipe_ref",
+        "label",
+        "modes",
+        "steps",
+        "counts",
+        "preview_fields",
+        "allow_back",
+        "allow_reset",
+        "allow_pause_resume",
+        "final_self_confirmation_required",
+        "completion_contract",
+        "dependency_policy",
+        "runtime_policy"
+      ],
+      "properties": {
+        "recipe_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "replaces_recipe_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modes": {
+          "const": [
+            "sequential_messages",
+            "step_choices"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 30,
+          "maxItems": 30,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "counts": {
+          "type": "object"
+        },
+        "preview_fields": {
+          "$ref": "#/$defs/refs"
+        },
+        "allow_back": {
+          "type": "boolean"
+        },
+        "allow_reset": {
+          "type": "boolean"
+        },
+        "allow_pause_resume": {
+          "type": "boolean"
+        },
+        "final_self_confirmation_required": {
+          "const": true
+        },
+        "completion_contract": {
+          "type": "object"
+        },
+        "dependency_policy": {
+          "type": "object"
+        },
+        "runtime_policy": {
+          "type": "object"
+        }
+      }
+    },
+    "selection_rules": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "variants",
+            "prerequisites",
+            "required_skills"
+          ],
+          "properties": {
+            "schema": {
+              "const": "se-character-build-selection-rules/1.0.0"
+            },
+            "variants": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "parameter_ref",
+                  "values"
+                ],
+                "properties": {
+                  "parameter_ref": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "values": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/$defs/ref"
+                    }
+                  }
+                }
+              }
+            },
+            "prerequisites": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            },
+            "required_skills": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "variants",
+            "prerequisites",
+            "required_skills",
+            "equipment_kits",
+            "equipment_profiles"
+          ],
+          "properties": {
+            "schema": {
+              "const": "se-character-build-selection-rules/1.1.0"
+            },
+            "variants": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "parameter_ref",
+                  "values"
+                ],
+                "properties": {
+                  "parameter_ref": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "values": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/$defs/ref"
+                    }
+                  }
+                }
+              }
+            },
+            "prerequisites": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            },
+            "required_skills": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/ref"
+              }
+            },
+            "equipment_profiles": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            },
+            "equipment_kits": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "label",
+                  "description",
+                  "grants",
+                  "required_item_refs",
+                  "carrying_item_refs"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "grants": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "item_ref",
+                        "count"
+                      ],
+                      "properties": {
+                        "item_ref": {
+                          "$ref": "#/$defs/ref"
+                        },
+                        "count": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20
+                        }
+                      }
+                    }
+                  },
+                  "required_item_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/$defs/ref"
+                    }
+                  },
+                  "carrying_item_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/$defs/ref"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

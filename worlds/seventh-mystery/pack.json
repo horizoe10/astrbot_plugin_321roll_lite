@@ -1,0 +1,521 @@
+{
+  "format": "321roll.world-template/1",
+  "id": "seventh-mystery",
+  "revision": 1,
+  "title": "第七个不思议 · 钟楼在放学后多敲了一下",
+  "worldview": "青岚中学建在城北的半山上，已有九十年校史。新教学楼启用后，红砖的旧校舍和顶上的钟楼一直没有拆。钟楼的钟十年前就停了，指针一直停在四点四十四分。\n\n学生之间代代流传着\"青岚六不思议\"：\n\n- 旧校舍楼梯在夜里会多出第十三级；\n- 美术室石膏像的眼睛会跟着人转；\n- 音乐室半夜会响起没人弹的琴声；\n- 废弃泳池里会伸出手；\n- 图书馆有一本借阅卡上全是同一个名字的书；\n- 走廊尽头的镜子会比你晚半拍眨眼。\n\n传说还有第七个，知道它的人都会消失，所以从来没人说得出它是什么。\n\n明天就是一年一度的校园祭。昨晚晚自习结束时，钟楼敲了七下。今天早上，林小满的座位空着。班主任点名时念过了她的名字，却像念一个从来不存在的人。\n\n这里的怪异有它们的规矩：只要弄清规矩、按规矩行事，就能平安通过。违反规矩的人，会被学校\"记住\"，或者被学校\"忘掉\"。",
+  "seed": "放学铃响过二十分钟，新教学楼的人已经走空。你们各自收到一张折成小方块的便签，字迹都一样：\"旧校舍楼梯口，五点四十。别告诉老师。\"便签背面画着七个圆圈，前六个涂黑了，第七个空着。\n\n楼梯口的灯管闪了两下。抬头看，钟楼的指针不再停在四点四十四分，而是指向五点四十。",
+  "style": "青春校园与轻度恐怖并行：以氛围、悬疑和\"规矩\"制造紧张，少用血腥；同伴之间有互相打气的幽默与温度。",
+  "boundaries": "- 不出现血腥肢解、真实自残方式与过度惊吓的细节。\n- 角色都是高中生，不涉及成人内容。\n- 不使用真实学校名称与真实人物。\n- 怪异可以伤人，但以吓退、困住和\"被遗忘\"为主，不写死亡的具体过程。",
+  "guidance": "真相（不公开）： 第七个不思议是\"被学校遗忘的学生\"。每隔三十年，钟楼会选中一个学生，让所有人慢慢忘记他。到校园祭开幕的钟声响起时，这个学生就从未存在过。\n\n林小满是这一代被选中的人。玩家要在开幕前收集\"被记住的证据\"，让学校重新记起她：\n\n- 她的照片；\n- 她写过的字；\n- 至少一个人亲口说出她的名字。\n\n六个不思议各守着一件证据，按各自的规矩才能拿到。\n\n节奏：\n\n- 第一幕：调查、确认林小满正在被遗忘；\n- 第二、三幕：逐个破解不思议；\n- 第四幕：在钟楼对抗遗忘，在开幕钟声前完成。\n\n失败不直接结束故事，而是让遗忘加速：同伴之间也开始想不起某些事。",
+  "attributes": [
+    {
+      "id": "courage",
+      "name": "胆量",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "perception",
+      "name": "观察",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "knowledge",
+      "name": "学识",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "charm",
+      "name": "人缘",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "athletics",
+      "name": "体能",
+      "min": 6,
+      "max": 16
+    }
+  ],
+  "budget": 55,
+  "modifier": {
+    "baseline": 10,
+    "divisor": 2
+  },
+  "resources": [
+    {
+      "id": "stamina",
+      "name": "体力",
+      "min": 0,
+      "max": 10,
+      "initial": 10
+    },
+    {
+      "id": "sanity",
+      "name": "理智",
+      "min": 0,
+      "max": 8,
+      "initial": 8
+    }
+  ],
+  "rules": {
+    "dcMin": 5,
+    "dcMax": 25,
+    "dc": 12,
+    "difficulties": [
+      8,
+      12,
+      15,
+      18
+    ],
+    "seats": 16,
+    "minPlayers": 1,
+    "recommendedMin": 2,
+    "recommendedMax": 4,
+    "mode": "hybrid",
+    "expectedResults": true,
+    "skillSlots": 2,
+    "failureCost": 1,
+    "failureResource": "stamina",
+    "restCost": 0,
+    "restCostResource": "",
+    "restGain": 3,
+    "restGainResource": "stamina"
+  },
+  "skills": [
+    {
+      "id": "broadcast",
+      "name": "全校广播",
+      "text": "借学生会的名义调动同学、拖住老师或清空一层楼",
+      "attribute": "charm",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "spare-keys",
+      "name": "备用钥匙",
+      "text": "知道哪把钥匙开哪扇门，打开校内上锁的地方",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "flash",
+      "name": "闪光灯",
+      "text": "拍下肉眼看不见的东西，照片可以作为证据",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "sanity",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "interview",
+      "name": "独家采访",
+      "text": "让人说出隐瞒的事",
+      "attribute": "charm",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "lore",
+      "name": "怪谈百科",
+      "text": "说出某个不思议的规矩与禁忌",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "charm-ward",
+      "name": "护身符",
+      "text": "挡下一次怪异的影响",
+      "attribute": "courage",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "sanity",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "sprint",
+      "name": "全力冲刺",
+      "text": "抢在门关上前通过、追上或甩开",
+      "attribute": "athletics",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "shield",
+      "name": "替你挡下",
+      "text": "替同伴承受一次伤害或惊吓",
+      "attribute": "courage",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "records",
+      "name": "借阅记录",
+      "text": "从借阅卡、校刊与毕业照里查到线索",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "shadow",
+      "name": "安静如影",
+      "text": "不被注意地靠近、躲藏或尾随",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "outsider",
+      "name": "局外人",
+      "text": "学校的规矩对外来者暂时无效，可以无视一次规矩",
+      "attribute": "courage",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "sanity",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "deja-vu",
+      "name": "似曾相识",
+      "text": "说出一个本不该知道的细节（向主持询问一条隐藏线索）",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "sanity",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    }
+  ],
+  "items": [
+    {
+      "id": "flashlight",
+      "name": "手电筒",
+      "text": "观察检定 +1，每幕 3 次",
+      "attribute": "perception",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 3,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    },
+    {
+      "id": "mint",
+      "name": "薄荷糖",
+      "text": "理智 +1",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 1,
+      "gainResource": "sanity",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "president",
+      "name": "学生会长",
+      "text": "统筹与开路（均衡型）",
+      "attributes": {
+        "courage": 10,
+        "perception": 12,
+        "knowledge": 12,
+        "charm": 13,
+        "athletics": 8
+      },
+      "skills": [
+        "broadcast",
+        "spare-keys"
+      ]
+    },
+    {
+      "id": "reporter",
+      "name": "新闻部记者",
+      "text": "取证与追问（专精型）",
+      "attributes": {
+        "courage": 8,
+        "perception": 16,
+        "knowledge": 10,
+        "charm": 13,
+        "athletics": 8
+      },
+      "skills": [
+        "flash",
+        "interview"
+      ]
+    },
+    {
+      "id": "occultist",
+      "name": "灵异研究会会长",
+      "text": "规矩与护身（双修型）",
+      "attributes": {
+        "courage": 14,
+        "perception": 10,
+        "knowledge": 15,
+        "charm": 8,
+        "athletics": 8
+      },
+      "skills": [
+        "lore",
+        "charm-ward"
+      ]
+    },
+    {
+      "id": "ace",
+      "name": "田径部王牌",
+      "text": "行动与保护（专精型）",
+      "attributes": {
+        "courage": 13,
+        "perception": 10,
+        "knowledge": 8,
+        "charm": 8,
+        "athletics": 16
+      },
+      "skills": [
+        "sprint",
+        "shield"
+      ]
+    },
+    {
+      "id": "librarian",
+      "name": "图书委员",
+      "text": "查档与潜行（偏科型）",
+      "attributes": {
+        "courage": 11,
+        "perception": 12,
+        "knowledge": 16,
+        "charm": 8,
+        "athletics": 8
+      },
+      "skills": [
+        "records",
+        "shadow"
+      ]
+    },
+    {
+      "id": "transfer",
+      "name": "转学生",
+      "text": "破例与直觉（全才型）",
+      "attributes": {
+        "courage": 12,
+        "perception": 12,
+        "knowledge": 11,
+        "charm": 10,
+        "athletics": 10
+      },
+      "skills": [
+        "outsider",
+        "deja-vu"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "old-building",
+      "name": "旧校舍",
+      "kind": "region",
+      "public": true,
+      "summary": "红砖三层楼，音乐室、美术室与图书馆旧馆都在这里，钟楼在楼顶",
+      "secret": "夜里楼梯是十三级，第十三级通向\"三十年前的旧校舍\"",
+      "links": [
+        "clock-tower",
+        "library"
+      ]
+    },
+    {
+      "id": "clock-tower",
+      "name": "钟楼",
+      "kind": "place",
+      "public": true,
+      "summary": "停在四点四十四分十年的钟，铁门常年上锁",
+      "secret": "钟芯里刻着历代被遗忘学生的名字，最后一行是空的",
+      "links": [
+        "old-building"
+      ]
+    },
+    {
+      "id": "library",
+      "name": "图书馆旧馆",
+      "kind": "place",
+      "public": true,
+      "summary": "旧校舍二楼，存着历届校刊与毕业照",
+      "secret": "1995 届毕业照第三排有一个空位，借阅卡上全是\"周\"字",
+      "links": [
+        "old-building",
+        "clue-photo"
+      ]
+    },
+    {
+      "id": "xiaoman",
+      "name": "林小满",
+      "kind": "npc",
+      "public": true,
+      "summary": "你们的同班同学，美术部，话不多，总在速写本上画钟楼",
+      "secret": "她是这一代被选中的人；速写本里画着第七个不思议的规矩",
+      "links": [
+        "goal-remember"
+      ]
+    },
+    {
+      "id": "uncle-zhou",
+      "name": "周伯",
+      "kind": "npc",
+      "public": true,
+      "summary": "值夜的老校工，在青岚做了三十年",
+      "secret": "三十年前他就是被选中的学生，被同伴救回了一半，至今有人叫不出他的名字",
+      "links": [
+        "clue-photo"
+      ]
+    },
+    {
+      "id": "clue-photo",
+      "name": "缺了一人的毕业照",
+      "kind": "clue",
+      "public": false,
+      "summary": "1995 届毕业照第三排的空位",
+      "secret": "空位上原本是少年时的周伯",
+      "links": [
+        "uncle-zhou",
+        "library"
+      ]
+    },
+    {
+      "id": "goal-remember",
+      "name": "让学校记起她",
+      "kind": "goal",
+      "public": true,
+      "summary": "在校园祭开幕钟声前，让所有人重新记起林小满",
+      "secret": "需要照片、亲笔字迹与亲口呼名三件证据",
+      "links": [
+        "xiaoman"
+      ]
+    },
+    {
+      "id": "student-council",
+      "name": "学生会",
+      "kind": "faction",
+      "public": true,
+      "summary": "负责校园祭，掌握旧校舍钥匙",
+      "secret": "会长室抽屉里有一份历年校园祭失物登记，三十年一次登记着\"一个人\"",
+      "links": []
+    },
+    {
+      "id": "music-room",
+      "name": "音乐室",
+      "kind": "place",
+      "public": true,
+      "summary": "旧校舍三楼，午夜会自己响起的钢琴",
+      "secret": "",
+      "links": [
+        "old-building"
+      ]
+    },
+    {
+      "id": "art-room",
+      "name": "美术室",
+      "kind": "place",
+      "public": true,
+      "summary": "旧校舍二楼，画架上的石膏像会转头",
+      "secret": "",
+      "links": [
+        "old-building"
+      ]
+    },
+    {
+      "id": "council-room",
+      "name": "学生会室",
+      "kind": "place",
+      "public": true,
+      "summary": "新教学楼一楼，旧校舍钥匙与历年失物登记都在这里",
+      "secret": "",
+      "links": [
+        "old-building"
+      ]
+    },
+    {
+      "id": "past-school",
+      "name": "三十年前的旧校舍",
+      "kind": "place",
+      "public": false,
+      "summary": "旧校舍楼梯第十三级通向的地方",
+      "secret": "",
+      "links": [
+        "old-building"
+      ]
+    }
+  ],
+  "initial": {
+    "place": "旧校舍楼梯口",
+    "time": "校园祭前一天 · 放学后 17:40",
+    "state": "林小满失踪的第一天；同学们开始想不起她；钟楼的钟停了十年，今天却走了起来",
+    "links": [
+      "old-building",
+      "xiaoman",
+      "goal-remember"
+    ]
+  }
+}

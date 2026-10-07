@@ -1,0 +1,72 @@
+{
+  "schema": "se-provider-contracts/1.1.0",
+  "revision": "provider.contracts.2",
+  "providers": [
+    {
+      "provider_ref": "provider.conflict.procedure.1",
+      "capability_id": "conflict.procedure",
+      "capability_version": "1.0.0",
+      "profile_id": "conflict_event",
+      "profile_version": "1.0.0",
+      "author_contract": "se-conflict-procedure-definitions/1.0.0",
+      "runtime_contract": "se-conflict-procedure-runtime/1.0.0",
+      "embedded_entrypoint": "story_engine.conflict_procedure.embedded",
+      "remote_entrypoint": "story_engine.conflict_procedure.remote",
+      "remote_dispatch_contract": "se-remote-dispatch/1.12.0",
+      "proposal_only": true,
+      "authority_owner": "321_platform",
+      "legacy": false,
+      "provider_contract_sha256": "sha256:c4ac291697aff67d30af86b73af5635145ffc3dc4b9ecb978147489fc72baece"
+    },
+    {
+      "provider_ref": "provider.recovery.cycle.1",
+      "capability_id": "recovery.cycle",
+      "capability_version": "1.1.0",
+      "profile_id": "recovery_event",
+      "profile_version": "1.0.0",
+      "author_contract": "se-recovery-cycle-definitions/1.1.0",
+      "runtime_contract": "se-recovery-cycle-runtime/1.1.0",
+      "embedded_entrypoint": "story_engine.recovery_cycle.embedded",
+      "remote_entrypoint": "story_engine.recovery_cycle.remote",
+      "remote_dispatch_contract": "se-remote-dispatch/1.13.0",
+      "proposal_only": true,
+      "authority_owner": "321_platform",
+      "legacy": true,
+      "provider_contract_sha256": "sha256:09f299933bf3789be354429b2b3f858931b0c737b738e244d10f0267497a01e5"
+    },
+    {
+      "provider_ref": "provider.recovery.cycle.2",
+      "capability_id": "recovery.cycle",
+      "capability_version": "2.0.0",
+      "profile_id": "recovery_event",
+      "profile_version": "2.0.0",
+      "author_contract": "se-recovery-cycle-definitions/2.0.0",
+      "runtime_contract": "se-recovery-cycle-runtime/2.0.0",
+      "embedded_entrypoint": "story_engine.recovery_cycle_v2.embedded",
+      "remote_entrypoint": "story_engine.recovery_cycle_v2.remote",
+      "remote_dispatch_contract": "se-remote-dispatch/1.14.0",
+      "proposal_only": true,
+      "authority_owner": "321_platform",
+      "legacy": false,
+      "provider_contract_sha256": "sha256:373915a387b9945c73db6e56760428957ffb3934f37972c2c2af57c8c936c46d"
+    },
+    {
+      "provider_ref": "provider.ability.execution.1",
+      "capability_id": "ability.execution",
+      "capability_version": "1.0.0",
+      "profile_id": "crisis_event",
+      "profile_version": "1.0.0",
+      "author_contract": "se-ability-execution-definitions/1.0.0",
+      "runtime_contract": "se-ability-execution-runtime/1.0.0",
+      "embedded_entrypoint": "story_engine.entrypoints:create_embedded_ability_execution_engine",
+      "remote_entrypoint": "story_engine.entrypoints:create_remote_ability_execution_engine",
+      "remote_dispatch_contract": "se-remote-dispatch/1.11.0",
+      "proposal_only": true,
+      "authority_owner": "321_platform",
+      "legacy": false,
+      "real_consumer_source": "events/openings/05_opening_hearing.json",
+      "provider_contract_sha256": "sha256:2e7e0f72fd87fbc329dd20479272df3dfbbf453a97b1ed1e1262fe7db2810c7d"
+    }
+  ],
+  "manifest_fingerprint": "sha256:437d36a1ede87eba4adcec8af7e48233d560afe9f7b343a28d1c9fdb309cff6f"
+}

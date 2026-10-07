@@ -1,0 +1,24 @@
+{
+  "schema": "se-turn-interaction-negative-vectors/1.0.0",
+  "author_mutations": [
+    {"id": "unknown-policy-field", "mutation": "unknown_policy_field", "expected": "interaction.policy_fields_invalid"},
+    {"id": "hybrid-policy-missing", "mutation": "hybrid_policy_missing", "expected": "interaction.hybrid_policy_invalid"},
+    {"id": "multi-choice-unsupported", "mutation": "choice_maximum_two", "expected": "interaction.choice_cardinality_invalid"},
+    {"id": "empty-dialogue-unsupported", "mutation": "allow_empty_true", "expected": "interaction.empty_dialogue_unsupported"},
+    {"id": "unknown-transition", "mutation": "unknown_transition", "expected": "interaction.transition_unknown"},
+    {"id": "missing-policy-document", "mutation": "missing_policy_document", "expected": "interaction.policy_catalog_missing"},
+    {"id": "unknown-policy-ref", "mutation": "unknown_policy_ref", "expected": "interaction.policy_unknown"},
+    {"id": "profile-mismatch", "mutation": "profile_mismatch", "expected": "interaction.policy_profile_mismatch"},
+    {"id": "unregistered-capability", "mutation": "unknown_extension", "expected": "compiler.extension_capability_undeclared"},
+    {"id": "choice-fallback-zero-cardinality", "mutation": "fallback_zero_cardinality", "expected": "interaction.fallback_choice_unavailable"},
+    {"id": "reserved-meta-commands-missing", "mutation": "reserved_commands_missing", "expected": "interaction.reserved_commands_missing"}
+  ],
+  "runtime_cases": [
+    "unknown-input-field", "duplicate-choice-ref", "duplicate-intent-ref", "stale-interaction-revision",
+    "request-fingerprint-mismatch", "invalid-one-of-combination", "choice-not-in-roster", "meta-command-rejected",
+    "dialogue-too-long", "ambiguous-needs-clarification", "fallback-choice-only", "required-fallback-missing",
+    "localized-meta-command", "command-shaped-input", "choice-target-outside-graph", "dialogue-target-outside-graph",
+    "fallback-zero-cardinality", "deadline-after-evaluation", "cancel-before", "cancel-after", "deadline",
+    "artifact-policy-hash-mutation", "artifact-graph-binding-mutation"
+  ]
+}

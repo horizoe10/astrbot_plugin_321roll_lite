@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-pack-independent-handshake/1.1.0",
+  "title": "SE dev5 pack-independent handshake outputs",
+  "oneOf": [
+    {"$ref": "#/$defs/describe"},
+    {"$ref": "#/$defs/readiness"},
+    {"$ref": "#/$defs/capabilities"},
+    {"$ref": "#/$defs/problem"}
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "stringSet": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "providerRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["credential_owner", "required", "optional"],
+      "properties": {
+        "credential_owner": {"const": "321_platform"},
+        "required": {"const": ["structured_output"]},
+        "optional": {"const": ["streaming"]}
+      }
+    },
+    "describe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "story_engine_product", "story_engine_version", "story_engine_port_range", "platform_bridge_range", "supported_features", "required_platform_features", "transports", "deterministic_replay", "security_policy_fingerprint"],
+      "properties": {
+        "schema": {"const": "se-engine-handshake/1.1.0"},
+        "story_engine_product": {"const": "321 Story Engine"},
+        "story_engine_version": {"const": "1.0.0.dev5"},
+        "story_engine_port_range": {"const": "story-engine-port/1.0.0"},
+        "platform_bridge_range": {"const": "platform-bridge/1.0.0"},
+        "supported_features": {"$ref": "#/$defs/stringSet"},
+        "required_platform_features": {"$ref": "#/$defs/stringSet"},
+        "transports": {"$ref": "#/$defs/stringSet"},
+        "deterministic_replay": {"const": true},
+        "security_policy_fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["ready", "degraded", "unavailable", "contract_ready"]},
+        "reason": {"type": "string"},
+        "version": {"type": "string"},
+        "requirements": {"$ref": "#/$defs/providerRequirements"}
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "engine_version", "status", "provider_mode", "accepted_operations", "enabled_features", "missing_dependencies", "reason_codes", "components", "provider_requirements"],
+      "properties": {
+        "schema": {"const": "se-engine-readiness/1.1.0"},
+        "engine_version": {"const": "1.0.0.dev5"},
+        "status": {"enum": ["ready", "degraded", "draining", "not_ready"]},
+        "provider_mode": {"enum": ["platform_bridge", "unavailable"]},
+        "accepted_operations": {"$ref": "#/$defs/stringSet"},
+        "enabled_features": {"$ref": "#/$defs/stringSet"},
+        "missing_dependencies": {"$ref": "#/$defs/stringSet"},
+        "reason_codes": {"$ref": "#/$defs/stringSet"},
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engine_runtime", "event", "narrative", "stream", "platform_bridge", "provider", "story_artifact"],
+          "properties": {
+            "engine_runtime": {"$ref": "#/$defs/component"},
+            "event": {"$ref": "#/$defs/component"},
+            "narrative": {"$ref": "#/$defs/component"},
+            "stream": {"$ref": "#/$defs/component"},
+            "platform_bridge": {"$ref": "#/$defs/component"},
+            "provider": {"$ref": "#/$defs/component"},
+            "story_artifact": {"$ref": "#/$defs/component"}
+          }
+        },
+        "provider_requirements": {"$ref": "#/$defs/providerRequirements"}
+      }
+    },
+    "operationCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "requires"],
+      "properties": {
+        "available": {"type": "boolean"},
+        "requires": {"$ref": "#/$defs/stringSet"},
+        "reason": {"type": "string"}
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "engine_version", "operations", "engine_capabilities", "provider_requirements", "unknown_required_policy", "unknown_optional_policy"],
+      "properties": {
+        "schema": {"const": "se-engine-capabilities/1.0.0"},
+        "engine_version": {"const": "1.0.0.dev5"},
+        "operations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["describe", "readiness", "capabilities", "resolve_turn", "resolve_turn_stream", "evaluate_event"],
+          "properties": {
+            "describe": {"$ref": "#/$defs/operationCapability"},
+            "readiness": {"$ref": "#/$defs/operationCapability"},
+            "capabilities": {"$ref": "#/$defs/operationCapability"},
+            "resolve_turn": {"$ref": "#/$defs/operationCapability"},
+            "resolve_turn_stream": {"$ref": "#/$defs/operationCapability"},
+            "evaluate_event": {"$ref": "#/$defs/operationCapability"}
+          }
+        },
+        "engine_capabilities": {"$ref": "#/$defs/stringSet"},
+        "provider_requirements": {"$ref": "#/$defs/providerRequirements"},
+        "unknown_required_policy": {"const": "fail_closed"},
+        "unknown_optional_policy": {"const": "ignore_with_warning"}
+      }
+    },
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "code", "failed_operation", "reason", "automatic_handling", "next_action", "retryable", "bridge_calls", "provider_calls"],
+      "properties": {
+        "schema": {"const": "se-engine-problem/1.0.0"},
+        "code": {"enum": ["engine.artifact_unavailable", "engine.provider_unavailable", "engine.input_invalid", "engine.effect_capability_missing", "engine.result_stale"]},
+        "failed_operation": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "automatic_handling": {"type": "string", "minLength": 1},
+        "next_action": {"type": "string", "minLength": 1},
+        "retryable": {"type": "boolean"},
+        "bridge_calls": {"type": "integer", "minimum": 0},
+        "provider_calls": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

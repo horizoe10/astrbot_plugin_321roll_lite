@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "documentation-manifest/1.0.0",
+  "title": "DocumentationManifest 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "story_pack_ref", "story_pack_version", "default_locale", "locales", "digest_policy", "assets", "materials"],
+  "properties": {
+    "schema": {"const": "documentation-manifest/1.0.0"},
+    "story_pack_ref": {"$ref": "#/$defs/ref"},
+    "story_pack_version": {"$ref": "#/$defs/ref"},
+    "default_locale": {"$ref": "#/$defs/locale"},
+    "locales": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/locale"}},
+    "digest_policy": {"const": "sha256-canonical-json/1"},
+    "assets": {"type": "array", "items": {"$ref": "#/$defs/asset"}},
+    "materials": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/material"}}
+  },
+  "$defs": {
+    "ref": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$"},
+    "locale": {"type": "string", "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$"},
+    "audience": {"enum": ["public", "player", "room_host", "deployment_owner", "author_offline"]},
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["asset_ref", "path", "digest"],
+      "properties": {
+        "asset_ref": {"$ref": "#/$defs/ref"},
+        "path": {"type": "string", "minLength": 1, "maxLength": 240},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "material": {
+      "type": "object", "additionalProperties": false,
+      "required": ["material_id", "section_id", "material_type", "locale", "audience", "spoiler_class", "title", "summary", "body_ref", "source_refs", "related_material_ids", "display_purposes", "search_terms", "order", "required", "fallback_locale", "version"],
+      "properties": {
+        "material_id": {"$ref": "#/$defs/ref"},
+        "section_id": {"$ref": "#/$defs/ref"},
+        "material_type": {"enum": ["catalog", "player_guide", "mechanics", "room_host_guide", "owner_story", "reference", "faq", "operations"]},
+        "locale": {"$ref": "#/$defs/locale"},
+        "audience": {"$ref": "#/$defs/audience"},
+        "spoiler_class": {"enum": ["none", "mechanics", "progressive", "full_story", "author_internal"]},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 600},
+        "body_ref": {"type": "string", "pattern": "^author/documentation/[A-Za-z0-9_.@/-]+\\.md$"},
+        "source_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "related_material_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "display_purposes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["catalog", "guide", "mechanics", "story", "search", "readme", "qq_help"]}},
+        "search_terms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 120}},
+        "order": {"type": "integer", "minimum": 0},
+        "required": {"type": "boolean"},
+        "fallback_locale": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/locale"}]},
+        "version": {"$ref": "#/$defs/ref"}
+      }
+    }
+  }
+}

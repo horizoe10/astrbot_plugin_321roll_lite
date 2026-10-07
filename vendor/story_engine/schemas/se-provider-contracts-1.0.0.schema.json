@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321.example/schemas/se-provider-contracts-1.0.0.schema.json",
+  "title": "Story Engine owned provider contracts 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "revision", "providers", "manifest_fingerprint"],
+  "properties": {
+    "schema": {"const": "se-provider-contracts/1.0.0"},
+    "revision": {"const": "provider.contracts.1"},
+    "providers": {
+      "type": "array", "minItems": 3, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider_ref", "capability_id", "capability_version", "profile_id", "profile_version", "author_contract", "runtime_contract", "embedded_entrypoint", "remote_entrypoint", "remote_dispatch_contract", "proposal_only", "authority_owner", "legacy"],
+        "properties": {
+          "provider_ref": {"$ref": "#/$defs/ref"},
+          "capability_id": {"$ref": "#/$defs/ref"},
+          "capability_version": {"$ref": "#/$defs/semver"},
+          "profile_id": {"$ref": "#/$defs/ref"},
+          "profile_version": {"$ref": "#/$defs/semver"},
+          "author_contract": {"$ref": "#/$defs/contract"},
+          "runtime_contract": {"$ref": "#/$defs/contract"},
+          "embedded_entrypoint": {"$ref": "#/$defs/ref"},
+          "remote_entrypoint": {"$ref": "#/$defs/ref"},
+          "remote_dispatch_contract": {"$ref": "#/$defs/contract"},
+          "proposal_only": {"const": true},
+          "authority_owner": {"const": "321_platform"},
+          "legacy": {"type": "boolean"}
+        }
+      }
+    },
+    "manifest_fingerprint": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "contract": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"},
+    "semver": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

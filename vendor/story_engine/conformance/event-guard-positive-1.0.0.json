@@ -1,0 +1,16 @@
+{
+  "schema": "se-event-guard-positive-vectors/1.0.0",
+  "condition_contract": "se-condition-tree/1.0.0",
+  "fact_snapshot_contract": "se-event-guard-fact-snapshot/1.0.0",
+  "capability": "event.guard.evaluate/1.0.0",
+  "vectors": [
+    {"id": "guard.true.route-proposed", "expected_status": "proposed"},
+    {"id": "guard.false.zero-proposals", "expected_status": "no_change", "expected_proposals": 0},
+    {"id": "operators.eq-ne", "operators": ["eq", "ne"]},
+    {"id": "operators.order", "operators": ["lt", "lte", "gt", "gte"]},
+    {"id": "operators.membership", "operators": ["contains", "not_contains"]},
+    {"id": "operators.logical", "operators": ["all", "any", "not"]},
+    {"id": "embedded.remote.equal", "expected": true},
+    {"id": "schema.dto.legal_ref", "expected": true}
+  ]
+}

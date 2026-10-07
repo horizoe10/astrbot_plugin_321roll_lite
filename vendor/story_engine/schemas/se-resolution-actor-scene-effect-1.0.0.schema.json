@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "fact_ref",
+        "value"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-actor-scene-effect/1.0.0"
+        },
+        "kind": {
+          "const": "actor.scene.fact.set"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "fact_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "clock_ref",
+        "amount",
+        "initial_value"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-actor-scene-effect/1.0.0"
+        },
+        "kind": {
+          "const": "actor.scene.clock.advance"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "clock_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "initial_value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}

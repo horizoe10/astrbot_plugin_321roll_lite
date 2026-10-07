@@ -1,0 +1,13 @@
+{
+  "schema": "se-resolution-action-offer-positive-vectors/1.0.0",
+  "expected": {
+    "catalog_schema": "se-resolution-action-offer-catalog-ir/1.0.0",
+    "canonical_schema": "se-canonical-story-pack-ir/1.8.0",
+    "artifact_schema": "se-story-artifact/1.8.0",
+    "target_abi": "se-compiler/1.8.0",
+    "modifier_source_evaluations": [
+      {"modifier_source_ref": "modifier.source.environment.heavy-rain", "evaluation": "suppressed"},
+      {"modifier_source_ref": "modifier.source.material.consecrated-silver-against-undead", "evaluation": "suppressed"}
+    ]
+  }
+}

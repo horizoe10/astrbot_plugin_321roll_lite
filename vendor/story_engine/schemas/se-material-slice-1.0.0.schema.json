@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-material-slice/1.0.0",
+  "title": "Physical Material Audience Slice 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "story_pack_ref", "story_pack_version", "locale", "effective_audience", "fallback_material_ids", "toc", "materials", "search_index", "slice_sha256"],
+  "properties": {
+    "schema": {"const": "se-material-slice/1.0.0"},
+    "story_pack_ref": {"type": "string", "minLength": 1}, "story_pack_version": {"type": "string", "minLength": 1},
+    "locale": {"type": "string", "minLength": 2}, "effective_audience": {"enum": ["public", "player", "room_host", "deployment_owner"]},
+    "fallback_material_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "toc": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["material_id", "section_id", "title", "order"], "properties": {"material_id": {"type": "string"}, "section_id": {"type": "string"}, "title": {"type": "string"}, "order": {"type": "integer", "minimum": 0}}}},
+    "materials": {"type": "array", "minItems": 1, "items": {"$ref": "../se-material-ir/1.0.0#/$defs/material"}},
+    "search_index": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["material_id", "section_id", "title", "summary", "terms"], "properties": {"material_id": {"type": "string"}, "section_id": {"type": "string"}, "title": {"type": "string"}, "summary": {"type": "string"}, "terms": {"type": "array", "items": {"type": "string"}}}}},
+    "slice_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

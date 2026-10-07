@@ -1,0 +1,104 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "seventh-mystery",
+  "acts": [
+    {
+      "number": 1,
+      "title": "少了一个人",
+      "lead": "点名册上的名字，比座位多一个。",
+      "weather": "dust",
+      "ambience": [
+        "room",
+        "clock"
+      ],
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "七不思议（上）",
+      "lead": "每个不思议都守着一条规矩，也守着一件东西。",
+      "weather": "dust",
+      "ambience": [
+        "room"
+      ],
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "七不思议（下）",
+      "lead": "越靠近真相，越有人想不起你们刚才说过的话。",
+      "weather": "none",
+      "ambience": [
+        "room",
+        "clock"
+      ],
+      "image": "act-3"
+    },
+    {
+      "number": 4,
+      "title": "开幕钟声",
+      "lead": "钟声响完之前，必须有人叫出她的名字。",
+      "weather": "none",
+      "ambience": [
+        "clock",
+        "wind"
+      ],
+      "image": "act-4"
+    }
+  ],
+  "places": [
+    {
+      "entry": "music-room",
+      "name": "音乐室",
+      "image": "place-music-room",
+      "aliases": [
+        "音乐室"
+      ]
+    },
+    {
+      "entry": "art-room",
+      "name": "美术室",
+      "image": "place-art-room",
+      "aliases": [
+        "美术室"
+      ]
+    },
+    {
+      "entry": "council-room",
+      "name": "学生会室",
+      "image": "place-council-room",
+      "aliases": [
+        "学生会室"
+      ]
+    },
+    {
+      "entry": "past-school",
+      "name": "三十年前的旧校舍",
+      "image": "place-past-school",
+      "aliases": [
+        "三十年前"
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "remembered",
+      "name": "全员记起",
+      "rule": "在开幕钟声前凑齐照片、亲笔字迹与亲口呼名三件证据",
+      "image": "ending-remembered"
+    },
+    {
+      "id": "half-remembered",
+      "name": "记起一半",
+      "rule": "只凑齐其中两件：林小满回来了，但有人始终叫不出她的名字",
+      "image": "ending-half-remembered"
+    },
+    {
+      "id": "forgotten",
+      "name": "被遗忘",
+      "rule": "开幕钟声响完时证据仍不足",
+      "image": "ending-forgotten"
+    }
+  ],
+  "shared": {}
+}

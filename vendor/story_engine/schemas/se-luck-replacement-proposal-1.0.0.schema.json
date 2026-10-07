@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "committed",
+    "recipe_ref",
+    "recipe_sha256",
+    "original_effect_index",
+    "original_effects_sha256",
+    "slots",
+    "effects",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-replacement-proposal/1.0.0"
+    },
+    "committed": {
+      "const": false
+    },
+    "recipe_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "recipe_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "original_effect_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "original_effects_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "effects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "actor.hp.damage"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.consume"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.damage"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.break"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "fact_ref",
+              "value"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-actor-scene-effect/1.0.0"
+              },
+              "kind": {
+                "const": "actor.scene.fact.set"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "fact_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "clock_ref",
+              "amount",
+              "initial_value"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-actor-scene-effect/1.0.0"
+              },
+              "kind": {
+                "const": "actor.scene.clock.advance"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "clock_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "initial_value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-action-obligation/1.0.0"
+              },
+              "kind": {
+                "const": "actor.rope.entangle"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "clock_ref",
+              "initial_value",
+              "amount",
+              "public_label"
+            ],
+            "properties": {
+              "kind": {
+                "const": "clock.advance"
+              },
+              "clock_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "initial_value": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "fact_ref",
+              "value",
+              "public_label"
+            ],
+            "properties": {
+              "kind": {
+                "const": "fact.set"
+              },
+              "fact_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                ]
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-narrative-style-ir/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source_schema", "profile_ref", "profile_version", "locale", "source_sha256", "source_map", "label", "public_summary", "world_voice_summary", "hard_constraints", "forbidden_expressions", "phase_variants", "safety_contract_sha256", "runtime_slice_sha256", "additional_model_calls", "audience_ceiling", "default_preset", "allowed_presets", "customization", "budgets", "style_slices", "ir_sha256"],
+  "properties": {
+    "schema": {"const": "se-narrative-style-ir/1.0.0"},
+    "source_schema": {"const": "narrative-style-profile/1.0.0"},
+    "profile_ref": {"$ref": "#/$defs/ref"},
+    "profile_version": {"$ref": "#/$defs/ref"},
+    "locale": {"type": "string", "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})+$", "maxLength": 35},
+    "source_sha256": {"$ref": "#/$defs/digest"},
+    "source_map": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"$ref": "#/$defs/source_map"}},
+    "label": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S"},
+    "public_summary": {"$ref": "#/$defs/summary"},
+    "world_voice_summary": {"$ref": "#/$defs/summary"},
+    "hard_constraints": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 360, "pattern": "\\S"}},
+    "forbidden_expressions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "\\S"}},
+    "phase_variants": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/variant"}},
+    "safety_contract_sha256": {"$ref": "#/$defs/digest"},
+    "runtime_slice_sha256": {"$ref": "#/$defs/digest"},
+    "additional_model_calls": {"const": 0},
+    "audience_ceiling": {"$ref": "#/$defs/audiences"},
+    "default_preset": {"$ref": "#/$defs/preset"},
+    "allowed_presets": {"type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/preset"}},
+    "customization": {"$ref": "#/$defs/customization"},
+    "budgets": {"$ref": "#/$defs/budgets"},
+    "style_slices": {"type": "array", "minItems": 30, "maxItems": 30, "items": {"$ref": "#/$defs/style_slice"}},
+    "ir_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 600, "pattern": "\\S"},
+    "audience": {"enum": ["public", "party", "actor", "dm", "admin", "author"]},
+    "audiences": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/audience"}},
+    "preset": {"enum": ["dialogue_high", "dialogue_soft", "balanced", "description_soft", "description_high"]},
+    "phase": {"enum": ["cooperative", "private_parallel", "regroup", "public_conflict", "finale", "epilogue"]},
+    "source_map": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ir_ref", "source_path"],
+      "properties": {"ir_ref": {"$ref": "#/$defs/ref"}, "source_path": {"type": "string", "minLength": 1, "maxLength": 200}}
+    },
+    "variant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["variant_ref", "phase", "instruction", "audience_ceiling", "narrative_distance", "sentence_rhythm", "sensory_focus"],
+      "properties": {
+        "variant_ref": {"$ref": "#/$defs/ref"}, "phase": {"$ref": "#/$defs/phase"},
+        "instruction": {"type": "string", "minLength": 1, "maxLength": 320, "pattern": "\\S"},
+        "audience_ceiling": {"$ref": "#/$defs/audiences"},
+        "narrative_distance": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "\\S"},
+        "sentence_rhythm": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "\\S"},
+        "sensory_focus": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"}}
+      }
+    },
+    "customization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "max_chars", "allowed_topics"],
+      "properties": {"enabled": {"type": "boolean"}, "max_chars": {"type": "integer", "minimum": 0, "maximum": 600}, "allowed_topics": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"}}}
+    },
+    "budgets": {
+      "type": "object", "additionalProperties": false,
+      "required": ["base_max_chars", "variant_max_chars", "compiled_max_chars"],
+      "properties": {"base_max_chars": {"type": "integer", "minimum": 1, "maximum": 1200}, "variant_max_chars": {"type": "integer", "minimum": 1, "maximum": 320}, "compiled_max_chars": {"type": "integer", "minimum": 1, "maximum": 1800}}
+    },
+    "instruction_layers": {
+      "type": "object", "additionalProperties": false,
+      "required": ["platform_safety", "hard_constraints", "base_profile", "phase_variant", "narrative_preset", "custom_expectation"],
+      "properties": {
+        "platform_safety": {"type": "string", "minLength": 1}, "hard_constraints": {"type": "string", "minLength": 1},
+        "base_profile": {"type": "string", "minLength": 1}, "phase_variant": {"type": "string", "minLength": 1},
+        "narrative_preset": {"type": "string", "minLength": 1}, "custom_expectation": {"type": "string", "minLength": 1}
+      }
+    },
+    "style_slice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["slice_ref", "variant_ref", "phase", "preset", "dialogue_weight", "description_weight", "audience_ceiling", "instruction_layers", "compiled_instruction", "protected_semantics_sha256", "additional_model_calls", "slice_sha256"],
+      "properties": {
+        "slice_ref": {"type": "string", "minLength": 1, "maxLength": 260}, "variant_ref": {"$ref": "#/$defs/ref"},
+        "phase": {"$ref": "#/$defs/phase"}, "preset": {"$ref": "#/$defs/preset"},
+        "dialogue_weight": {"type": "integer", "minimum": 0, "maximum": 100}, "description_weight": {"type": "integer", "minimum": 0, "maximum": 100},
+        "audience_ceiling": {"$ref": "#/$defs/audiences"}, "instruction_layers": {"$ref": "#/$defs/instruction_layers"},
+        "compiled_instruction": {"type": "string", "minLength": 1, "maxLength": 1800},
+        "protected_semantics_sha256": {"$ref": "#/$defs/digest"}, "additional_model_calls": {"const": 0}, "slice_sha256": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

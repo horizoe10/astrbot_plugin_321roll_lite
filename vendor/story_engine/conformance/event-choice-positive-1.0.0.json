@@ -1,0 +1,1 @@
+{"schema":"se-event-choice-positive-vectors/1.0.0","contract":"se-event-choice-semantics/1.0.0","vectors":[{"id":"choice.valid.a-d","expected_schema":"se-event-composition-ir/1.2.0"},{"id":"choice.deterministic.reordered","expected":true},{"id":"choice.evaluate-event-preserved","expected_status":"proposed"},{"id":"choice.platform-feature-not-engine-provider","expected":true}]}

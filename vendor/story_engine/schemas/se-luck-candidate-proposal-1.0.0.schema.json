@@ -1,0 +1,598 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-luck-candidate-proposal/1.0.0",
+  "description": "一次机运窗口候选的正式嵌套合同：原始骰面与最终带、完整效果、以及配方或补救入口来源。候选由 Engine 掷前准备、平台在本人确认后执行，本身不代表已提交。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mode",
+    "extra_echo",
+    "empty",
+    "coin_waiver",
+    "reaction",
+    "raw",
+    "original_band",
+    "final_band",
+    "effects",
+    "loss_effect_count",
+    "recipe",
+    "remedy"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-candidate-proposal/1.0.0"
+    },
+    "mode": {
+      "description": "本次候选的用法；original 是免费的保留原结果，永远排在首位。",
+      "enum": [
+        "original",
+        "swap",
+        "protect",
+        "leave_door",
+        "change"
+      ]
+    },
+    "extra_echo": {
+      "description": "本候选预留的回响费用，等于本次已选模式的 fee。",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "empty": {
+      "type": "boolean"
+    },
+    "coin_waiver": {
+      "type": "boolean"
+    },
+    "reaction": {
+      "description": "是否消耗本轮反应权限；换价与护注消耗，改面与留门不消耗。",
+      "type": "boolean"
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "face",
+        "modifier",
+        "difficulty",
+        "total",
+        "margin",
+        "result"
+      ],
+      "properties": {
+        "face": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "modifier": {
+          "type": "integer"
+        },
+        "difficulty": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "margin": {
+          "type": "integer"
+        },
+        "result": {
+          "enum": [
+            "critical_failure",
+            "normal_failure",
+            "success_with_cost",
+            "full_success",
+            "critical_success"
+          ]
+        }
+      }
+    },
+    "original_band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "band_ref",
+        "outcome",
+        "degree",
+        "effects_sha256"
+      ],
+      "properties": {
+        "band_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "failure"
+          ]
+        },
+        "degree": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "effects_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "final_band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "band_ref",
+        "outcome",
+        "degree"
+      ],
+      "properties": {
+        "band_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "failure"
+          ]
+        },
+        "degree": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        }
+      }
+    },
+    "effects": {
+      "description": "最终结算的完整效果；空数组表示本次结算没有效果。换价／护注保留原带其它后果，改面采用已有带完整效果，留门在原后果之外只保留既有补救入口。",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "actor.hp.damage"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.consume"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref",
+              "amount"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.damage"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "item_ref"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-personal-cost/1.0.0"
+              },
+              "kind": {
+                "const": "inventory.break"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "item_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "fact_ref",
+              "value"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-actor-scene-effect/1.0.0"
+              },
+              "kind": {
+                "const": "actor.scene.fact.set"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "fact_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label",
+              "clock_ref",
+              "amount",
+              "initial_value"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-actor-scene-effect/1.0.0"
+              },
+              "kind": {
+                "const": "actor.scene.clock.advance"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "clock_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "initial_value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "kind",
+              "public_label"
+            ],
+            "properties": {
+              "schema": {
+                "const": "se-resolution-action-obligation/1.0.0"
+              },
+              "kind": {
+                "const": "actor.rope.entangle"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "public_label",
+              "clock_ref",
+              "initial_value",
+              "amount"
+            ],
+            "properties": {
+              "kind": {
+                "const": "clock.advance"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "clock_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "initial_value": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "public_label",
+              "fact_ref",
+              "value"
+            ],
+            "properties": {
+              "kind": {
+                "const": "fact.set"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "fact_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "loss_effect_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16
+    },
+    "recipe": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "recipe_ref",
+        "recipe_sha256",
+        "modes",
+        "slots",
+        "original_effect_index",
+        "original_effects_sha256",
+        "replacement_sha256"
+      ],
+      "properties": {
+        "recipe_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "recipe_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "swap",
+              "protect",
+              "leave_door",
+              "change"
+            ]
+          }
+        },
+        "slots": {
+          "type": "object",
+          "maxProperties": 4,
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        },
+        "original_effect_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "original_effects_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "replacement_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "remedy": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "entry_ref",
+        "method_ref",
+        "chain_ref",
+        "target_ref",
+        "scene_ref",
+        "preconditions",
+        "attribute_ref",
+        "difficulty",
+        "tools",
+        "expires",
+        "consumes_next_action",
+        "chain_disables_luck"
+      ],
+      "properties": {
+        "entry_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "method_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "chain_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "target_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "scene_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "preconditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        },
+        "attribute_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "difficulty": {
+          "type": "integer"
+        },
+        "tools": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        },
+        "expires": {
+          "enum": [
+            "next_action_end",
+            "scene_exit"
+          ]
+        },
+        "consumes_next_action": {
+          "const": true
+        },
+        "chain_disables_luck": {
+          "const": true
+        }
+      }
+    }
+  }
+}

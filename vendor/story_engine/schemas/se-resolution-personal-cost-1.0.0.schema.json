@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "amount"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-personal-cost/1.0.0"
+        },
+        "kind": {
+          "const": "actor.hp.damage"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "item_ref",
+        "amount"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-personal-cost/1.0.0"
+        },
+        "kind": {
+          "const": "inventory.consume"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "item_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "item_ref",
+        "amount"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-personal-cost/1.0.0"
+        },
+        "kind": {
+          "const": "inventory.damage"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "item_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "kind",
+        "public_label",
+        "item_ref"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-personal-cost/1.0.0"
+        },
+        "kind": {
+          "const": "inventory.break"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "item_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        }
+      }
+    }
+  ]
+}

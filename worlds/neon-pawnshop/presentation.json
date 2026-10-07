@@ -1,0 +1,109 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "neon-pawnshop",
+  "acts": [
+    {
+      "number": 1,
+      "title": "失忆日",
+      "lead": "当票的签名，是你们之中某个人的笔迹。",
+      "weather": "rain",
+      "ambience": [
+        "rain",
+        "hum"
+      ],
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "底城",
+      "lead": "整座城都忘了昨天，只有底城还记得一点。",
+      "weather": "rain",
+      "ambience": [
+        "rain",
+        "murmur"
+      ],
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "数据塔",
+      "lead": "睡着的人，正在替别人算账。",
+      "weather": "none",
+      "ambience": [
+        "hum"
+      ],
+      "image": "act-3"
+    },
+    {
+      "number": 4,
+      "title": "当期届满",
+      "lead": "赎回、变卖，还是公之于众。",
+      "weather": "rain",
+      "ambience": [
+        "rain",
+        "clock"
+      ],
+      "image": "act-4"
+    }
+  ],
+  "places": [
+    {
+      "entry": "echo-pawn",
+      "name": "回声典当",
+      "image": "place-echo-pawn",
+      "aliases": [
+        "回声典当",
+        "当铺"
+      ]
+    },
+    {
+      "entry": "black-clinic",
+      "name": "黑诊所",
+      "image": "place-black-clinic",
+      "aliases": [
+        "黑诊所",
+        "诊所"
+      ]
+    },
+    {
+      "entry": "pirate-radio",
+      "name": "地下电台",
+      "image": "place-pirate-radio",
+      "aliases": [
+        "电台"
+      ]
+    },
+    {
+      "entry": "data-tower",
+      "name": "恒忆数据塔",
+      "image": "place-data-tower",
+      "aliases": [
+        "数据塔"
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "redeemed",
+      "name": "赎回昨天",
+      "rule": "在当期内赎回芯片，全城想起昨天",
+      "image": "ending-redeemed"
+    },
+    {
+      "id": "sold",
+      "name": "变卖",
+      "rule": "芯片落入恒忆手中，昨天被永久销毁",
+      "image": "ending-sold"
+    },
+    {
+      "id": "broadcast",
+      "name": "公之于众",
+      "rule": "把芯片里的昨天播给整座城",
+      "image": "ending-broadcast"
+    }
+  ],
+  "shared": {
+    "place-echo-pawn": "act-1",
+    "place-data-tower": "act-3"
+  }
+}

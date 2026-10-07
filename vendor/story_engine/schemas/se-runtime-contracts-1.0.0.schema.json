@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-runtime-contracts/1.0.0",
+  "title": "SE 1 Runtime Port Contracts",
+  "$defs": {
+    "OperationEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_contract_version", "operation_ref", "trace_ref", "idempotency_key", "request_fingerprint", "deadline_at", "session_ref", "expected_revision", "operation_type"],
+      "properties": {
+        "engine_contract_version": {"type": "string", "const": "story-engine-port/1.0.0"},
+        "operation_ref": {"type": "string", "minLength": 1},
+        "trace_ref": {"type": "string", "minLength": 1},
+        "idempotency_key": {"type": "string", "minLength": 1},
+        "request_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "deadline_at": {"type": "string", "format": "date-time"},
+        "session_ref": {"type": "string", "minLength": 1},
+        "expected_revision": {"type": "integer", "minimum": 0},
+        "operation_type": {"type": "string", "minLength": 1}
+      }
+    },
+    "NarrativePolicySnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "mode", "min_visible_chars", "max_visible_chars", "mode_revision", "preset", "compiled_instruction", "world_voice_summary", "source_world_style_sha256", "style_revision", "policy_fingerprint"],
+      "properties": {
+        "contract_version": {"const": "narrative-policy/1"},
+        "mode": {"enum": ["minimal", "balanced", "epic"]},
+        "min_visible_chars": {"type": "integer", "minimum": 0},
+        "max_visible_chars": {"type": "integer", "minimum": 1},
+        "mode_revision": {"type": "integer", "minimum": 0},
+        "preset": {"enum": ["dialogue_high", "dialogue_soft", "balanced", "description_soft", "description_high"]},
+        "compiled_instruction": {"type": "string", "minLength": 1},
+        "world_voice_summary": {"type": "string", "minLength": 1},
+        "source_world_style_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "style_revision": {"type": "integer", "minimum": 0},
+        "policy_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "Problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "failed_operation", "reason", "automatic_handling", "next_action", "retryable"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^engine\\."},
+        "failed_operation": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "automatic_handling": {"type": "string", "minLength": 1},
+        "next_action": {"type": "string", "minLength": 1},
+        "retryable": {"type": "boolean"}
+      }
+    },
+    "EngineTurnRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["envelope", "story_pack_ref", "canonical_sha256", "artifact_ref", "artifact_sha256", "actor_snapshot", "action_roster_snapshot", "next_actor_ref", "player_input", "rule_and_module_snapshot", "narrative_policy", "generation_policy", "visibility_policy", "fact_snapshot"],
+      "properties": {
+        "envelope": {"$ref": "#/$defs/OperationEnvelope"},
+        "story_pack_ref": {"type": "string", "minLength": 1},
+        "canonical_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact_ref": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "actor_snapshot": {"type": "object"},
+        "action_roster_snapshot": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+        "next_actor_ref": {"type": "string", "minLength": 1},
+        "player_input": {"type": "object"},
+        "rule_and_module_snapshot": {"type": "object"},
+        "narrative_policy": {"$ref": "#/$defs/NarrativePolicySnapshot"},
+        "generation_policy": {"type": "object"},
+        "visibility_policy": {"type": "object"},
+        "fact_snapshot": {"type": "object"}
+      }
+    },
+    "NarrativePolicyReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_fingerprint", "applied_mode", "applied_preset", "visible_chars", "length_status", "instruction_summary", "safety_warnings"],
+      "properties": {
+        "policy_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "applied_mode": {"enum": ["minimal", "balanced", "epic"]},
+        "applied_preset": {"enum": ["dialogue_high", "dialogue_soft", "balanced", "description_soft", "description_high"]},
+        "visible_chars": {"type": "integer", "minimum": 0},
+        "length_status": {"enum": ["within_bounds", "below_minimum", "above_maximum"]},
+        "instruction_summary": {"type": "string", "minLength": 1},
+        "safety_warnings": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "ModelInvocationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_ref", "call_sequence", "purpose", "system_input", "user_input", "output_contract", "max_output_tokens", "sampling", "deadline_at", "idempotency_key"],
+      "properties": {
+        "operation_ref": {"type": "string", "minLength": 1},
+        "call_sequence": {"const": 1},
+        "purpose": {"const": "turn_narrative"},
+        "system_input": {"type": "string", "minLength": 1},
+        "user_input": {"type": "string", "minLength": 1},
+        "output_contract": {"const": "se-turn-narrative-proposal/1.0.0"},
+        "max_output_tokens": {"type": "integer", "minimum": 1},
+        "sampling": {"type": "object"},
+        "deadline_at": {"type": "string", "format": "date-time"},
+        "idempotency_key": {"type": "string", "minLength": 1}
+      }
+    },
+    "StoryEngineReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "provider_mode", "accepted_operations", "enabled_features", "missing_dependencies", "reason_codes", "retry_after_seconds", "components", "required_capabilities", "optional_capabilities"],
+      "properties": {
+        "status": {"enum": ["ready", "degraded", "draining", "not_ready"]},
+        "provider_mode": {"enum": ["platform_bridge", "engine_managed", "unavailable"]},
+        "accepted_operations": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "enabled_features": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "missing_dependencies": {"type": "array", "items": {"type": "string"}},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "retry_after_seconds": {"type": ["integer", "null"], "minimum": 0},
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engine_runtime", "event", "narrative", "stream", "platform_bridge", "provider", "story_artifact"],
+          "properties": {
+            "engine_runtime": {"type": "object"}, "event": {"type": "object"}, "narrative": {"type": "object"},
+            "stream": {"type": "object"}, "platform_bridge": {"type": "object"}, "provider": {"type": "object"},
+            "story_artifact": {"type": "object"}
+          }
+        },
+        "required_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "optional_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "EngineTurnResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_contract_version", "operation_ref", "request_fingerprint", "expected_revision", "status", "narrative_document", "narrative_policy_receipt", "proposals", "used_fact_refs", "used_receipt_refs", "used_capability_refs", "usage_summary", "stage_metrics", "warnings", "problems"],
+      "properties": {
+        "engine_contract_version": {"const": "story-engine-port/1.0.0"},
+        "operation_ref": {"type": "string", "minLength": 1},
+        "request_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "expected_revision": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["proposed", "no_change", "needs_input", "blocked", "cancelled", "timed_out"]},
+        "narrative_document": {"type": ["object", "null"]},
+        "narrative_policy_receipt": {"anyOf": [{"$ref": "#/$defs/NarrativePolicyReceipt"}, {"type": "null"}]},
+        "proposals": {"type": "array", "items": {"type": "object"}},
+        "used_fact_refs": {"type": "array", "items": {"type": "string"}},
+        "used_receipt_refs": {"type": "array", "items": {"type": "string"}},
+        "used_capability_refs": {"type": "array", "items": {"type": "string"}},
+        "usage_summary": {"type": "object"},
+        "stage_metrics": {"type": "array", "items": {"type": "object"}},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "problems": {"type": "array", "items": {"$ref": "#/$defs/Problem"}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["cancelled", "timed_out"]}}, "required": ["status"]},
+          "then": {
+            "properties": {
+              "narrative_document": {"type": "null"},
+              "proposals": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "proposed"}}, "required": ["status"]},
+          "then": {"properties": {"narrative_document": {"type": "object"}}}
+        }
+      ]
+    }
+  }
+}

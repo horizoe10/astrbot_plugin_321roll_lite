@@ -1,0 +1,21 @@
+{
+  "schema": "se-ability-provider-negative-vectors/1.0.0",
+  "mutations": [
+    "manifest_fingerprint",
+    "provider_contract_sha256",
+    "duplicate_exact_identity",
+    "duplicate_provider_ref",
+    "wrong_profile",
+    "wrong_author_contract",
+    "wrong_runtime_contract",
+    "wrong_embedded_entrypoint",
+    "wrong_remote_entrypoint",
+    "wrong_remote_dispatch",
+    "committing_engine",
+    "wrong_authority_owner",
+    "wrong_real_consumer",
+    "compiler_fixture_hash",
+    "consumer_profile_drift",
+    "consumer_extension_drift"
+  ]
+}

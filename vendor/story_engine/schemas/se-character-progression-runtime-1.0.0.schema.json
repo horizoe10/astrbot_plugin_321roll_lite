@@ -1,0 +1,612 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "se-character-progression-runtime/1.0.0",
+    "oneOf": [
+        {
+            "$ref": "#/$defs/snapshot"
+        },
+        {
+            "$ref": "#/$defs/request"
+        },
+        {
+            "$ref": "#/$defs/proposal"
+        },
+        {
+            "$ref": "#/$defs/result"
+        }
+    ],
+    "$defs": {
+        "ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+        },
+        "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "envelope": {
+            "type": "object", "additionalProperties": false,
+            "required": ["engine_contract_version", "operation_ref", "trace_ref", "idempotency_key", "request_fingerprint", "deadline_at", "session_ref", "expected_revision", "operation_type"],
+            "properties": {
+                "engine_contract_version": {"const": "story-engine-port/1.0.0"}, "operation_ref": {"$ref": "#/$defs/ref"},
+                "trace_ref": {"$ref": "#/$defs/ref"}, "idempotency_key": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"},
+                "deadline_at": {"type": "string"}, "session_ref": {"$ref": "#/$defs/ref"}, "expected_revision": {"type": "integer", "minimum": 0},
+                "operation_type": {"const": "evaluate_character_progression"}
+            }
+        },
+        "receipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "receipt_ref",
+                "cause_ref",
+                "cause_kind",
+                "actor_ref",
+                "room_ref",
+                "progression_ref",
+                "definition_sha256",
+                "actor_revision",
+                "room_revision",
+                "progression_revision",
+                "dedupe_key",
+                "progression_grants",
+                "committed",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "platform-progression-cause-receipt/1.0.0"
+                },
+                "receipt_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "cause_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "cause_kind": {
+                    "enum": [
+                        "reward",
+                        "milestone",
+                        "cause"
+                    ]
+                },
+                "actor_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "room_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "progression_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "actor_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "room_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "progression_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "dedupe_key": {
+                    "$ref": "#/$defs/ref"
+                },
+                "progression_grants": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "committed": {
+                    "const": true
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "gate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "receipt_ref",
+                "operation_ref",
+                "actor_ref",
+                "definition_sha256",
+                "progression_revision",
+                "respec_plan_sha256",
+                "self_confirmed",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "platform-progression-respec-gate-receipt/1.0.0"
+                },
+                "receipt_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "actor_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "progression_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "respec_plan_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "self_confirmed": {
+                    "const": true
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "actor_ref",
+                "room_ref",
+                "progression_ref",
+                "definition_sha256",
+                "actor_revision",
+                "room_revision",
+                "progression_revision",
+                "track_values",
+                "point_values",
+                "bank_values",
+                "unlocked_refs",
+                "consumed_cause_refs",
+                "consumed_dedupe_keys",
+                "expected_session_revision",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-character-progression-snapshot/1.0.0"
+                },
+                "actor_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "room_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "progression_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "actor_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "room_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "progression_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "track_values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "point_values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "bank_values": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer", "minimum": 0}
+                },
+                "unlocked_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "consumed_cause_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "consumed_dedupe_keys": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "expected_session_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "envelope",
+                "action",
+                "snapshot",
+                "input"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-character-progression-evaluation/1.0.0"
+                },
+                "envelope": {
+                    "$ref": "#/$defs/envelope"
+                },
+                "action": {
+                    "enum": [
+                        "preview_gain",
+                        "advance",
+                        "spend",
+                        "choose_unlock",
+                        "defer",
+                        "respec"
+                    ]
+                },
+                "snapshot": {
+                    "$ref": "#/$defs/snapshot"
+                },
+                "input": {
+                    "type": "object"
+                }
+            },
+            "oneOf": [
+                {
+                    "properties": {
+                        "action": {
+                            "enum": [
+                                "preview_gain",
+                                "advance",
+                                "defer"
+                            ]
+                        },
+                        "input": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "receipt"
+                            ],
+                            "properties": {
+                                "receipt": {
+                                    "$ref": "#/$defs/receipt"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "action": {
+                            "const": "spend"
+                        },
+                        "input": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "pool_ref",
+                                "amount"
+                            ],
+                            "properties": {
+                                "pool_ref": {
+                                    "$ref": "#/$defs/ref"
+                                },
+                                "amount": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "action": {
+                            "const": "choose_unlock"
+                        },
+                        "input": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "unlock_ref"
+                            ],
+                            "properties": {
+                                "unlock_ref": {
+                                    "$ref": "#/$defs/ref"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "action": {
+                            "const": "respec"
+                        },
+                        "input": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "self_confirmed",
+                                "gate_receipt",
+                                "respec_plan"
+                            ],
+                            "properties": {
+                                "receipt": {
+                                    "$ref": "#/$defs/receipt"
+                                },
+                                "self_confirmed": {
+                                    "const": true
+                                },
+                                "gate_receipt": {
+                                    "$ref": "#/$defs/gate"
+                                },
+                                "respec_plan": {
+                                    "type": "object", "additionalProperties": false,
+                                    "required": ["remove_unlock_refs", "set_track_values"],
+                                    "properties": {
+                                        "remove_unlock_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+                                        "set_track_values": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "valueMap": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "privateAdvance": {
+            "type": "object", "additionalProperties": false,
+            "required": ["actor_ref", "room_ref", "base_actor_revision", "base_room_revision", "base_progression_revision", "consume_cause", "platform_commit_required", "cause_ref", "receipt_ref", "dedupe_key", "set_track_values", "set_point_values", "set_bank_values", "crossed_thresholds", "overflow"],
+            "properties": {
+                "actor_ref": {"$ref": "#/$defs/ref"}, "room_ref": {"$ref": "#/$defs/ref"},
+                "base_actor_revision": {"type": "integer", "minimum": 0}, "base_room_revision": {"type": "integer", "minimum": 0}, "base_progression_revision": {"type": "integer", "minimum": 0},
+                "consume_cause": {"type": "boolean"}, "platform_commit_required": {"const": true},
+                "cause_ref": {"$ref": "#/$defs/ref"}, "receipt_ref": {"$ref": "#/$defs/ref"}, "dedupe_key": {"$ref": "#/$defs/ref"},
+                "set_track_values": {"$ref": "#/$defs/valueMap"}, "set_point_values": {"$ref": "#/$defs/valueMap"}, "set_bank_values": {"$ref": "#/$defs/valueMap"},
+                "crossed_thresholds": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["track_ref", "value"], "properties": {"track_ref": {"$ref": "#/$defs/ref"}, "value": {"type": "integer", "minimum": 0}}}},
+                "overflow": {"type": "object", "additionalProperties": {"type": "object", "additionalProperties": false, "required": ["amount", "policy"], "properties": {"amount": {"type": "integer", "minimum": 1}, "policy": {"enum": ["discard", "bank"]}}}}
+            }
+        },
+        "privateSpend": {
+            "type": "object", "additionalProperties": false,
+            "required": ["actor_ref", "room_ref", "base_actor_revision", "base_room_revision", "base_progression_revision", "consume_cause", "platform_commit_required", "set_point_values"],
+            "properties": {"actor_ref": {"$ref": "#/$defs/ref"}, "room_ref": {"$ref": "#/$defs/ref"}, "base_actor_revision": {"type": "integer", "minimum": 0}, "base_room_revision": {"type": "integer", "minimum": 0}, "base_progression_revision": {"type": "integer", "minimum": 0}, "consume_cause": {"const": false}, "platform_commit_required": {"const": true}, "set_point_values": {"$ref": "#/$defs/valueMap"}}
+        },
+        "privateUnlock": {
+            "type": "object", "additionalProperties": false,
+            "required": ["actor_ref", "room_ref", "base_actor_revision", "base_room_revision", "base_progression_revision", "consume_cause", "platform_commit_required", "append_unlock_ref", "set_point_values"],
+            "properties": {"actor_ref": {"$ref": "#/$defs/ref"}, "room_ref": {"$ref": "#/$defs/ref"}, "base_actor_revision": {"type": "integer", "minimum": 0}, "base_room_revision": {"type": "integer", "minimum": 0}, "base_progression_revision": {"type": "integer", "minimum": 0}, "consume_cause": {"const": false}, "platform_commit_required": {"const": true}, "append_unlock_ref": {"$ref": "#/$defs/ref"}, "set_point_values": {"$ref": "#/$defs/valueMap"}}
+        },
+        "privateDefer": {
+            "type": "object", "additionalProperties": false,
+            "required": ["actor_ref", "room_ref", "base_actor_revision", "base_room_revision", "base_progression_revision", "consume_cause", "platform_commit_required", "cause_ref", "receipt_ref", "dedupe_key", "deferred"],
+            "properties": {"actor_ref": {"$ref": "#/$defs/ref"}, "room_ref": {"$ref": "#/$defs/ref"}, "base_actor_revision": {"type": "integer", "minimum": 0}, "base_room_revision": {"type": "integer", "minimum": 0}, "base_progression_revision": {"type": "integer", "minimum": 0}, "consume_cause": {"const": false}, "platform_commit_required": {"const": true}, "cause_ref": {"$ref": "#/$defs/ref"}, "receipt_ref": {"$ref": "#/$defs/ref"}, "dedupe_key": {"$ref": "#/$defs/ref"}, "deferred": {"const": true}}
+        },
+        "privateRespec": {
+            "type": "object", "additionalProperties": false,
+            "required": ["actor_ref", "room_ref", "base_actor_revision", "base_room_revision", "base_progression_revision", "consume_cause", "platform_commit_required", "respec_candidate", "remove_unlock_refs", "set_track_values", "derived_refund_points", "set_point_values", "self_confirmed", "gate_receipt_ref", "respec_plan_sha256", "permanent_change_committed"],
+            "properties": {"actor_ref": {"$ref": "#/$defs/ref"}, "room_ref": {"$ref": "#/$defs/ref"}, "base_actor_revision": {"type": "integer", "minimum": 0}, "base_room_revision": {"type": "integer", "minimum": 0}, "base_progression_revision": {"type": "integer", "minimum": 0}, "consume_cause": {"const": false}, "platform_commit_required": {"const": true}, "respec_candidate": {"const": true}, "remove_unlock_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "set_track_values": {"$ref": "#/$defs/valueMap"}, "derived_refund_points": {"$ref": "#/$defs/valueMap"}, "set_point_values": {"$ref": "#/$defs/valueMap"}, "self_confirmed": {"const": true}, "gate_receipt_ref": {"$ref": "#/$defs/ref"}, "respec_plan_sha256": {"$ref": "#/$defs/hash"}, "permanent_change_committed": {"const": false}}
+        },
+        "privateNoChange": {
+            "type": "object", "additionalProperties": false,
+            "required": ["cause_ref", "dedupe_key", "reason", "consume_cause", "deferred", "platform_commit_required"],
+            "properties": {"cause_ref": {"$ref": "#/$defs/ref"}, "dedupe_key": {"$ref": "#/$defs/ref"}, "reason": {"const": "model_none"}, "consume_cause": {"type": "boolean"}, "deferred": {"type": "boolean"}, "platform_commit_required": {"const": true}}
+        },
+        "proposal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "proposal_ref",
+                "operation_ref",
+                "source_progression_revision",
+                "kind",
+                "public_preview",
+                "private_reconciliation",
+                "validation_errors",
+                "requires_platform_commit",
+                "commits_state"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-character-progression-proposal/1.0.0"
+                },
+                "proposal_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "source_progression_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "kind": {
+                    "enum": [
+                        "preview",
+                        "progression",
+                        "unlock",
+                        "defer",
+                        "respec_gate",
+                        "no_change",
+                        "validation"
+                    ]
+                },
+                "public_preview": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["model", "source_kind", "track_count", "unlock_choices", "defer_allowed", "respec_available"],
+                    "properties": {
+                        "model": {"enum": ["none", "xp", "level", "milestone", "rank", "mixed"]},
+                        "source_kind": {"type": ["string", "null"], "enum": [null, "reward", "milestone", "cause"]},
+                        "track_count": {"type": "integer", "minimum": 0},
+                        "unlock_choices": {"type": "integer", "minimum": 0},
+                        "defer_allowed": {"type": "boolean"},
+                        "respec_available": {"type": "boolean"}
+                    }
+                },
+                "private_reconciliation": {},
+                "validation_errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requires_platform_commit": {
+                    "const": true
+                },
+                "commits_state": {
+                    "const": false
+                }
+            },
+            "oneOf": [
+                {"properties": {"kind": {"const": "validation"}, "private_reconciliation": {"type": "null"}}},
+                {"properties": {"kind": {"const": "preview"}, "private_reconciliation": {"$ref": "#/$defs/privateAdvance"}}},
+                {"properties": {"kind": {"const": "progression"}, "private_reconciliation": {"oneOf": [{"$ref": "#/$defs/privateAdvance"}, {"$ref": "#/$defs/privateSpend"}]}}},
+                {"properties": {"kind": {"const": "unlock"}, "private_reconciliation": {"$ref": "#/$defs/privateUnlock"}}},
+                {"properties": {"kind": {"const": "defer"}, "private_reconciliation": {"$ref": "#/$defs/privateDefer"}}},
+                {"properties": {"kind": {"const": "respec_gate"}, "private_reconciliation": {"$ref": "#/$defs/privateRespec"}}},
+                {"properties": {"kind": {"const": "no_change"}, "private_reconciliation": {"$ref": "#/$defs/privateNoChange"}}}
+            ]
+        },
+        "problem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "code",
+                "failed_operation",
+                "reason",
+                "automatic_handling",
+                "next_action",
+                "retryable"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "failed_operation": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "automatic_handling": {
+                    "type": "string"
+                },
+                "next_action": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "operation_ref",
+                "request_fingerprint",
+                "expected_revision",
+                "source_progression_revision",
+                "status",
+                "proposal",
+                "problems",
+                "result_fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-character-progression-result/1.0.0"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "request_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                },
+                "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "source_progression_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "status": {
+                    "enum": [
+                        "proposed",
+                        "invalid",
+                        "blocked",
+                        "cancelled",
+                        "timed_out"
+                    ]
+                },
+                "proposal": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/proposal"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "problems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/problem"
+                    }
+                },
+                "result_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            },
+            "oneOf": [
+                {"properties": {"status": {"const": "proposed"}, "proposal": {"allOf": [{"$ref": "#/$defs/proposal"}, {"properties": {"kind": {"enum": ["preview", "progression", "unlock", "defer", "respec_gate", "no_change"]}}}]}, "problems": {"maxItems": 0}}},
+                {"properties": {"status": {"const": "invalid"}, "proposal": {"allOf": [{"$ref": "#/$defs/proposal"}, {"properties": {"kind": {"const": "validation"}}}]}, "problems": {"maxItems": 0}}},
+                {"properties": {"status": {"enum": ["blocked", "cancelled", "timed_out"]}, "proposal": {"type": "null"}, "problems": {"minItems": 1}}}
+            ]
+        }
+    }
+}

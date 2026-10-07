@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/v02/collective-event-snapshot-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "room_ref",
+    "event_ref",
+    "generation",
+    "source_receipt_ref",
+    "rule_source",
+    "cadence",
+    "scene",
+    "goal",
+    "leader",
+    "party",
+    "roster_digest",
+    "npcs",
+    "public_facts",
+    "recent_public",
+    "snapshot_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-collective-event-snapshot/1.0.0"
+    },
+    "room_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "event_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_receipt_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "rule_source": {
+      "type": "object"
+    },
+    "cadence": {
+      "type": "object"
+    },
+    "scene": {
+      "type": "object"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "leader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display_name",
+        "unit"
+      ],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 16
+        }
+      }
+    },
+    "party": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "roster_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "npcs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object"
+      }
+    },
+    "public_facts": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object"
+      }
+    },
+    "recent_public": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object"
+      }
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

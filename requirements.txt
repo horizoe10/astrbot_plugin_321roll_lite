@@ -1,0 +1,2 @@
+# 321Roll Lite has no third-party runtime dependencies beyond AstrBot itself.
+# The world engine is vendored under vendor/story_engine (pure Python, >=3.11).

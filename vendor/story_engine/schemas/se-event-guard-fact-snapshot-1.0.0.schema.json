@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "se-event-guard-fact-snapshot/1.0.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "artifact_ref", "artifact_sha256", "definition_ref", "definition_sha256", "guard_tree_sha256", "fact_catalog_sha256", "event_revision", "rule_revision", "facts", "snapshot_fingerprint"],
+  "properties": {
+    "schema": {"const": "se-event-guard-fact-snapshot/1.0.0"}, "artifact_ref": {"$ref": "#/$defs/ref"}, "artifact_sha256": {"$ref": "#/$defs/hash"},
+    "definition_ref": {"$ref": "#/$defs/ref"}, "definition_sha256": {"$ref": "#/$defs/hash"}, "guard_tree_sha256": {"$ref": "#/$defs/hash"}, "fact_catalog_sha256": {"$ref": "#/$defs/hash"},
+    "event_revision": {"type": "integer", "minimum": 0}, "rule_revision": {"type": "integer", "minimum": 0},
+    "facts": {"type": "object", "propertyNames": {"$ref": "#/$defs/ref"}, "additionalProperties": {"oneOf": [{"type": "boolean"}, {"type": "integer"}, {"$ref": "#/$defs/ref"}, {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}]}},
+    "snapshot_fingerprint": {"$ref": "#/$defs/hash"}
+  }, "$defs": {"ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}, "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

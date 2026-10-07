@@ -1,0 +1,41 @@
+{
+  "schema": "se-platform-event-positive-vectors/1.0.0",
+  "contract_schema": "se-platform-event-extension/1.0.0",
+  "vectors": [
+    {
+      "id": "visit-counts-bounded-loop",
+      "contract": "EventStateSnapshotAdditions",
+      "value": {"visit_counts": {"start": 1, "retry": 2}}
+    },
+    {
+      "id": "gate-response-accepted",
+      "contract": "GateResponseSnapshot",
+      "value": {
+        "contract_version": "event-gate-response/1.0.0",
+        "gate_ref": "gate.event.runtime.1.start",
+        "gate_type": "player_choice",
+        "decision": "accepted",
+        "source_revision": 5,
+        "decided_by_ref": "actor.1",
+        "decision_receipt_ref": "receipt.gate.1",
+        "decided_at": "2026-08-27T00:00:00Z",
+        "response_fingerprint": "sha256:85bf2ba66fd9f92a06928454e335077ae979f218bb7358ab5e0767222f7a0a24"
+      }
+    },
+    {
+      "id": "gate-response-rejected",
+      "contract": "GateResponseSnapshot",
+      "value": {
+        "contract_version": "event-gate-response/1.0.0",
+        "gate_ref": "gate.event.runtime.1.start",
+        "gate_type": "player_choice",
+        "decision": "rejected",
+        "source_revision": 5,
+        "decided_by_ref": "actor.1",
+        "decision_receipt_ref": "receipt.gate.2",
+        "decided_at": "2026-08-27T00:00:00Z",
+        "response_fingerprint": "sha256:3abc9d3abf71b4276830213ace4ea6d4ae52525dcce088c9e761936beba3ed25"
+      }
+    }
+  ]
+}

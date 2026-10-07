@@ -1,0 +1,22 @@
+{
+  "schema": "se-catastrophic-profile-negative-vectors/1.0.0",
+  "vectors": [
+    {"id": "missing-omen", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "omens", "value": []}, "expected_error": "catastrophic.omen_missing"},
+    {"id": "invalid-category", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.category", "value": "local"}, "expected_error": "catastrophic.category_invalid"},
+    {"id": "deadline-zero", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.deadline.maximum_rounds", "value": 0}, "expected_error": "catastrophic.deadline_invalid"},
+    {"id": "one-response-route", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.response_routes", "value": [{"route_ref": "route.challenge", "kind": "challenge"}]}, "expected_error": "catastrophic.response_routes_insufficient"},
+    {"id": "no-non-combat", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.response_routes", "value": [{"route_ref": "route.challenge", "kind": "challenge"}, {"route_ref": "route.fate_terminal", "kind": "tactical"}]}, "expected_error": "catastrophic.non_combat_route_missing"},
+    {"id": "no-safe-exit", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.response_routes", "value": [{"route_ref": "route.challenge", "kind": "challenge"}, {"route_ref": "route.consequence_fate", "kind": "procedure"}]}, "expected_error": "catastrophic.safe_exit_missing"},
+    {"id": "maximum-no-terminal-class", "base": "catastrophic.maximum-chain", "mutation": {"op": "replace", "path": "profile_data.consequence_classes", "value": ["persistent", "consent_required", "host_confirmation_required"]}, "expected_error": "catastrophic.maximum_consequence_missing"},
+    {"id": "subset-smuggles-terminal", "base": "catastrophic.subset-without-fate-terminal", "mutation": {"op": "replace", "path": "profile_data.consequence_classes", "value": ["persistent", "terminal_candidate"]}, "expected_error": "catastrophic.subset_fate_terminal_forbidden"},
+    {"id": "human-dm-without-host-gate", "base": "catastrophic.subset-without-fate-terminal", "mutation": {"op": "remove", "path": "checkpoints.human_dm.required_gate"}, "expected_error": "catastrophic.human_dm_gate_missing"},
+    {"id": "aftermath-not-exit", "base": "catastrophic.subset-without-fate-terminal", "mutation": {"op": "remove", "path": "checkpoints.aftermath.exit_kind"}, "expected_error": "compiler.graph_node_without_exit"},
+    {"id": "safe-route-pruned", "base": "catastrophic.subset-without-fate-terminal", "mutation": {"op": "replace", "path": "routes.route.safe_exit.required_capability", "value": "event.pressure"}, "expected_error": "catastrophic.response_route_pruned"},
+    {"id": "missing-required-capability", "base": "catastrophic.subset-without-fate-terminal", "mutation": {"op": "remove-capability", "path": "event.aftermath"}, "expected_error": "profile.capability_missing"}
+  ],
+  "runtime_mutations": [
+    {"id": "compiled-contract-hash", "path": "catastrophic_contract.contract_sha256", "value": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "expected_error": "catastrophic.compiled_fingerprint_mismatch"},
+    {"id": "compiled-unknown-checkpoint", "path": "catastrophic_contract.aftermath_checkpoint_ref", "value": "unknown", "recompute_contract_hash": true, "recompute_event_hash": true, "expected_error": "catastrophic.checkpoint_unknown"},
+    {"id": "compiled-capability-divergence", "path": "catastrophic_contract.required_capability_refs", "value": ["event.aftermath/1.0.0", "event.consequence/1.0.0", "event.omen/1.0.0", "event.orchestrate/9.9.9"], "recompute_contract_hash": true, "recompute_event_hash": true, "expected_error": "catastrophic.compiled_capability_mismatch"}
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema": "se-story-engine-entrypoints/1.2.0",
+  "status": "source_implemented_local_release_not_built",
+  "engine_id": "party321.story_engine",
+  "engine_version": "1.0.0.dev4",
+  "contract_version": "story-engine-port/1.0.0",
+  "compatibility": {
+    "preserved_entrypoints_contract": "se-story-engine-entrypoints/1.1.0",
+    "preserved_narrative_remote_dispatch": "se-remote-dispatch/1.2.0",
+    "selection_policy": "primary narrative remains exact; extensions are explicitly negotiated by name and dispatch contract"
+  },
+  "embedded": {
+    "entry_point_group": "party321.story_engine.embedded", "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_embedded_story_engine",
+    "factory_signature": "create_embedded_story_engine(*, artifact: Artifact | Mapping[str, Any] | None = None, artifact_ref: str | None = None, provider_status: str = \"unavailable\", clock: Callable[[], Any] | None = None, cancellation_poll_seconds: float = 0.01) -> EmbeddedStoryEngine",
+    "methods": ["describe", "readiness", "capabilities", "resolve_turn", "resolve_turn_stream", "evaluate_event"],
+    "handshake_methods": ["describe", "readiness", "capabilities"], "bridge_owner": "321_platform"
+  },
+  "remote": {
+    "entry_point_group": "party321.story_engine.remote", "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_remote_story_engine",
+    "factory_signature": "create_remote_story_engine(*, artifact: Artifact | Mapping[str, Any] | None = None, artifact_ref: str | None = None, provider_status: str = \"unavailable\", clock: Callable[[], Any] | None = None, cancellation_poll_seconds: float = 0.01) -> RemoteStoryEngine",
+    "dispatch_contract": "se-remote-dispatch/1.2.0",
+    "methods": ["health", "describe", "readiness", "capabilities", "resolve_turn", "resolve_turn_stream", "evaluate_event"],
+    "handshake_methods": ["health", "describe", "readiness", "capabilities"], "stream_dispatch_method": "dispatch_stream",
+    "transport_auth_tls_owner": "321_platform", "bridge_owner": "321_platform"
+  },
+  "extensions": {
+    "resource_effect_evaluator": {
+      "extension_contract": "se-resource-effect-evaluation/1.0.0",
+      "capability": "actor.resource_pool.evaluate_effect/1.0.0",
+      "embedded": {
+        "entry_point_group": "party321.story_engine.embedded", "entry_point_name": "resource",
+        "callable": "story_engine.entrypoints:create_embedded_resource_story_engine",
+        "factory_signature": "create_embedded_resource_story_engine(*, artifact: Artifact | Mapping[str, Any] | None = None, artifact_ref: str | None = None, clock: Callable[[], Any] | None = None) -> EmbeddedResourceStoryEngine",
+        "methods": ["describe", "readiness", "capabilities", "evaluate_resource_effect"],
+        "handshake_methods": ["describe", "readiness", "capabilities"], "bridge_owner": "321_platform"
+      },
+      "remote": {
+        "entry_point_group": "party321.story_engine.remote", "entry_point_name": "resource",
+        "callable": "story_engine.entrypoints:create_remote_resource_story_engine",
+        "factory_signature": "create_remote_resource_story_engine(*, artifact: Artifact | Mapping[str, Any] | None = None, artifact_ref: str | None = None, clock: Callable[[], Any] | None = None) -> RemoteResourceStoryEngine",
+        "dispatch_contract": "se-remote-dispatch/1.3.0",
+        "methods": ["health", "describe", "readiness", "capabilities", "evaluate_resource_effect"],
+        "handshake_methods": ["health", "describe", "readiness", "capabilities"],
+        "transport_auth_tls_owner": "321_platform", "bridge_owner": "321_platform"
+      },
+      "requires": ["story_artifact", "platform_bridge", "actor.resource_pool/1.0.0", "character.state.effects/1"],
+      "unknown_required_policy": "fail_closed"
+    }
+  },
+  "manifest_shape": {
+    "entrypoints": "entrypoints.json",
+    "entrypoints_schema": "se-story-engine-entrypoints/1.2.0",
+    "required_primary": "narrative",
+    "optional_extensions": ["resource_effect_evaluator"]
+  },
+  "factory_argument_rules": {"artifact_and_ref": "both_present_or_both_absent", "no_argument_mode": "handshake_only", "provider_credentials_accepted": false, "platform_bridge_accepted_by_factory": false},
+  "operation_dependencies": {
+    "describe": [], "readiness": [], "capabilities": [],
+    "resolve_turn": ["story_artifact", "platform_bridge", "provider:structured_output"],
+    "resolve_turn_stream": ["story_artifact", "platform_bridge", "provider:structured_output"],
+    "evaluate_event": ["story_artifact", "platform_bridge"],
+    "evaluate_resource_effect": ["story_artifact", "platform_bridge", "actor.resource_pool/1.0.0", "character.state.effects/1"]
+  },
+  "dependency_check_order": ["story_artifact", "platform_bridge", "provider", "request_contract", "capability", "revision"],
+  "legacy_event_entrypoints_preserved": true,
+  "legacy_event_entrypoints": {
+    "embedded": {"entry_point_group": "party321.story_engine.embedded", "entry_point_name": "event", "callable": "story_engine.entrypoints:create_embedded_event_engine"},
+    "remote": {"entry_point_group": "party321.story_engine.remote", "entry_point_name": "event", "callable": "story_engine.entrypoints:create_remote_event_engine", "dispatch_contract": "se-remote-dispatch/1.0.0", "methods": ["health", "describe", "readiness", "capabilities", "evaluate_event"]}
+  },
+  "required_platform_features": ["event.choice_set/1.0.0", "operation-envelope/1", "proposal-validation/1", "platform-bridge/1.0.0"],
+  "optional_platform_features": ["artifact-slice/1", "authoritative-turn-commit/1", "event-gate-response/1", "event-visit-counts/1", "late-result-rejection/1", "provider-native-streaming/1"],
+  "required_engine_capabilities": ["base.handshake/1"],
+  "optional_engine_capabilities": ["actor.resource_pool.evaluate_effect/1.0.0", "actor.resource_pool/1.0.0", "actor.vitality/1.0.0", "base.narrative/1", "character.state.effects/1", "event.evaluate/1", "event.guard.evaluate/1.0.0", "narrative.stream/1"],
+  "required_provider_capabilities": [], "optional_provider_capabilities": ["streaming", "structured_output"],
+  "unknown_required_policy": "fail_closed", "unknown_optional_policy": "ignore_with_warning",
+  "release_index_built": false,
+  "bundle_built": false,
+  "wheel_built": false,
+  "authority_owner": "321_platform"
+}

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-resource-effect-evaluation/1.0.0",
+  "title": "Pack-bound deterministic resource effect evaluation Port extension",
+  "oneOf": [{"$ref": "#/$defs/Request"}, {"$ref": "#/$defs/Result"}],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "capability": {"enum": ["actor.resource_pool/1.0.0", "actor.vitality/1.0.0", "character.state.effects/1"]},
+    "Envelope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["engine_contract_version", "operation_ref", "trace_ref", "idempotency_key", "request_fingerprint", "deadline_at", "session_ref", "expected_revision", "operation_type"],
+      "properties": {
+        "engine_contract_version": {"const": "story-engine-port/1.0.0"}, "operation_ref": {"$ref": "#/$defs/ref"}, "trace_ref": {"$ref": "#/$defs/ref"},
+        "idempotency_key": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"}, "deadline_at": {"type": "string", "format": "date-time"},
+        "session_ref": {"$ref": "#/$defs/ref"}, "expected_revision": {"type": "integer", "minimum": 0}, "operation_type": {"const": "evaluate_resource_effect"}
+      }
+    },
+    "ExpectedRevisions": {"type": "object", "additionalProperties": false, "required": ["actor_revision", "room_revision"], "properties": {"actor_revision": {"type": "integer", "minimum": 0}, "room_revision": {"type": "integer", "minimum": 0}}},
+    "ResourceDeltaIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "amount"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "amount": {"type": "integer"}}},
+    "ResourceSetIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "amount", "layer"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "amount": {"type": "integer"}, "layer": {"enum": ["base", "temporary"]}}},
+    "ResourceLimitIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "maximum", "current_overflow"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "maximum": {"type": "integer"}, "current_overflow": {"enum": ["clamp", "reject"]}}},
+    "VitalityDamageIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "operation", "base_amount", "damage_tags", "modifier_policy", "threshold_handling"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "operation": {"const": "damage"}, "base_amount": {"type": "integer", "minimum": 1}, "damage_tags": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "modifier_policy": {"const": "consume_frozen_rule_receipts"}, "threshold_handling": {"const": "emit_signals"}}},
+    "VitalityHealIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "operation", "base_amount", "modifier_policy", "threshold_handling"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "operation": {"const": "heal"}, "base_amount": {"type": "integer", "minimum": 1}, "modifier_policy": {"const": "consume_frozen_rule_receipts"}, "threshold_handling": {"const": "emit_signals"}}},
+    "VitalityTemporaryAddIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "operation", "base_amount", "temporary_layer_ref", "temporary_priority", "modifier_policy", "threshold_handling"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "operation": {"const": "temporary_add"}, "base_amount": {"type": "integer", "minimum": 1}, "temporary_layer_ref": {"$ref": "#/$defs/ref"}, "temporary_priority": {"type": "integer", "minimum": 0}, "modifier_policy": {"const": "consume_frozen_rule_receipts"}, "threshold_handling": {"const": "emit_signals"}}},
+    "VitalityTemporaryRemoveIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code", "operation", "base_amount", "temporary_layer_ref", "modifier_policy", "threshold_handling"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "operation": {"const": "temporary_remove"}, "base_amount": {"type": "integer", "minimum": 1}, "temporary_layer_ref": {"$ref": "#/$defs/ref"}, "modifier_policy": {"const": "consume_frozen_rule_receipts"}, "threshold_handling": {"const": "emit_signals"}}},
+    "VitalityDepletedIntentPayload": {"type": "object", "additionalProperties": false, "required": ["resource_ref", "source_ref", "reason_code"], "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}}},
+    "Intent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capability_ref", "intent_type", "target_binding", "payload", "expected_revisions", "operation_ref", "request_fingerprint"],
+      "properties": {
+        "capability_ref": {"enum": ["actor.resource_pool/1.0.0", "actor.vitality/1.0.0"]},
+        "intent_type": {"enum": ["actor.resource_pool.delta", "actor.resource_pool.set", "actor.resource_pool.set_limit", "actor.vitality.damage", "actor.vitality.heal", "actor.vitality.temporary.add", "actor.vitality.temporary.remove", "actor.vitality.depleted"]},
+        "target_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]}, "payload": {"type": "object"},
+        "expected_revisions": {"$ref": "#/$defs/ExpectedRevisions"}, "operation_ref": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"}
+      },
+      "oneOf": [
+        {"properties": {"capability_ref": {"const": "actor.resource_pool/1.0.0"}, "intent_type": {"const": "actor.resource_pool.delta"}, "payload": {"$ref": "#/$defs/ResourceDeltaIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.resource_pool/1.0.0"}, "intent_type": {"const": "actor.resource_pool.set"}, "payload": {"$ref": "#/$defs/ResourceSetIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.resource_pool/1.0.0"}, "intent_type": {"const": "actor.resource_pool.set_limit"}, "payload": {"$ref": "#/$defs/ResourceLimitIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}, "intent_type": {"const": "actor.vitality.damage"}, "payload": {"$ref": "#/$defs/VitalityDamageIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}, "intent_type": {"const": "actor.vitality.heal"}, "payload": {"$ref": "#/$defs/VitalityHealIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}, "intent_type": {"const": "actor.vitality.temporary.add"}, "payload": {"$ref": "#/$defs/VitalityTemporaryAddIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}, "intent_type": {"const": "actor.vitality.temporary.remove"}, "payload": {"$ref": "#/$defs/VitalityTemporaryRemoveIntentPayload"}}},
+        {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}, "intent_type": {"const": "actor.vitality.depleted"}, "payload": {"$ref": "#/$defs/VitalityDepletedIntentPayload"}}}
+      ]
+    },
+    "TemporaryLayer": {"type": "object", "additionalProperties": false, "required": ["layer_ref", "amount", "priority", "created_order"], "properties": {"layer_ref": {"$ref": "#/$defs/ref"}, "amount": {"type": "integer", "minimum": 0}, "priority": {"type": "integer", "minimum": 0}, "created_order": {"type": "integer", "minimum": 0}}},
+    "Snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "actor_binding", "resource_ref", "definition_sha256", "base_current", "base_maximum", "effective_maximum", "temporary_layers", "modifier_receipt_refs", "threshold_states", "audience_policy_sha256", "actor_revision", "snapshot_fingerprint"],
+      "properties": {
+        "schema": {"const": "se-actor-resource-snapshot/1.0.0"}, "actor_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]}, "resource_ref": {"$ref": "#/$defs/ref"},
+        "definition_sha256": {"$ref": "#/$defs/hash"}, "base_current": {"type": "integer"}, "base_maximum": {"type": "integer"}, "effective_maximum": {"type": "integer"},
+        "temporary_layers": {"type": "array", "items": {"$ref": "#/$defs/TemporaryLayer"}}, "modifier_receipt_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "threshold_states": {"type": "object", "additionalProperties": {"type": "boolean"}}, "audience_policy_sha256": {"$ref": "#/$defs/hash"}, "actor_revision": {"type": "integer", "minimum": 0}, "snapshot_fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "ResourceValuePayload": {
+      "type": "object", "additionalProperties": false, "required": ["resource_ref", "amount", "layer", "threshold_handling"],
+      "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "amount": {"type": "integer"}, "layer": {"enum": ["base", "temporary"]}, "threshold_handling": {"const": "propose_crossing_signals"}, "temporary_layer_ref": {"$ref": "#/$defs/ref"}, "temporary_priority": {"type": "integer", "minimum": 0}}
+    },
+    "ResourceLimitPayload": {
+      "type": "object", "additionalProperties": false, "required": ["resource_ref", "maximum", "current_overflow"],
+      "properties": {"resource_ref": {"$ref": "#/$defs/ref"}, "maximum": {"type": "integer"}, "current_overflow": {"enum": ["clamp", "reject"]}}
+    },
+    "StatusUpsertPayload": {
+      "type": "object", "additionalProperties": false, "required": ["status_ref", "state", "stacks"],
+      "properties": {"status_ref": {"$ref": "#/$defs/ref"}, "state": {"enum": ["active", "suppressed"]}, "stacks": {"type": "integer", "minimum": 1}}
+    },
+    "TypedProposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "proposal_ref", "operation_ref", "request_fingerprint", "source_capability_ref", "effect_contract", "effect_type", "target_binding", "expected_revisions", "payload", "source", "reversible", "dedupe_key", "atomic_group_ref"],
+      "properties": {
+        "schema": {"const": "se-character-effect-proposal/1.0.0"}, "proposal_ref": {"$ref": "#/$defs/ref"}, "operation_ref": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"},
+        "source_capability_ref": {"enum": ["actor.resource_pool/1.0.0", "actor.vitality/1.0.0"]}, "effect_contract": {"const": "character.state.effects/1"},
+        "effect_type": {"enum": ["actor.resource.set", "actor.resource.delta", "actor.resource.set_limit", "actor.status.upsert"]}, "target_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]},
+        "expected_revisions": {"$ref": "#/$defs/ExpectedRevisions"}, "payload": {"oneOf": [{"$ref": "#/$defs/ResourceValuePayload"}, {"$ref": "#/$defs/ResourceLimitPayload"}, {"$ref": "#/$defs/StatusUpsertPayload"}]},
+        "source": {"type": "object", "additionalProperties": false, "required": ["source_ref", "reason_code", "cause_refs"], "properties": {"source_ref": {"$ref": "#/$defs/ref"}, "reason_code": {"$ref": "#/$defs/ref"}, "cause_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}}},
+        "reversible": {"type": "boolean"}, "dedupe_key": {"$ref": "#/$defs/ref"}, "atomic_group_ref": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "Preview": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "resource_ref", "actor_binding", "actor_revision", "base_before", "base_after", "temporary_absorbed", "temporary_layers_after", "threshold_signal_proposals", "authoritative"],
+      "properties": {
+        "schema": {"const": "se-actor-resource-change-preview/1.0.0"}, "resource_ref": {"$ref": "#/$defs/ref"}, "actor_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]},
+        "actor_revision": {"type": "integer", "minimum": 0}, "base_before": {"type": "integer"}, "base_after": {"type": "integer"}, "temporary_absorbed": {"type": "integer", "minimum": 0},
+        "temporary_layers_after": {"type": "array", "items": {"$ref": "#/$defs/TemporaryLayer"}}, "threshold_signal_proposals": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "authoritative": {"const": false}
+      }
+    },
+    "Problem": {"type": "object", "additionalProperties": false, "required": ["code", "failed_operation", "reason", "automatic_handling", "next_action", "retryable"], "properties": {"code": {"type": "string"}, "failed_operation": {"type": "string"}, "reason": {"type": "string"}, "automatic_handling": {"type": "string"}, "next_action": {"type": "string"}, "retryable": {"type": "boolean"}}},
+    "Request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "envelope", "artifact_ref", "artifact_sha256", "allowed_capability_refs", "capability_closure_sha256", "intent", "resource_snapshot", "proposal_ref", "dedupe_key", "atomic_group_ref"],
+      "properties": {
+        "schema": {"const": "se-resource-effect-evaluation/1.0.0"}, "envelope": {"$ref": "#/$defs/Envelope"}, "artifact_ref": {"$ref": "#/$defs/ref"}, "artifact_sha256": {"$ref": "#/$defs/hash"},
+        "allowed_capability_refs": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}}, "capability_closure_sha256": {"$ref": "#/$defs/hash"},
+        "intent": {"$ref": "#/$defs/Intent"}, "resource_snapshot": {"$ref": "#/$defs/Snapshot"}, "proposal_ref": {"$ref": "#/$defs/ref"}, "dedupe_key": {"$ref": "#/$defs/ref"}, "atomic_group_ref": {"$ref": "#/$defs/ref"}
+      },
+      "allOf": [
+        {"properties": {"allowed_capability_refs": {"contains": {"const": "character.state.effects/1"}}}},
+        {"if": {"properties": {"intent": {"properties": {"capability_ref": {"const": "actor.resource_pool/1.0.0"}}}}}, "then": {"properties": {"allowed_capability_refs": {"contains": {"const": "actor.resource_pool/1.0.0"}}}}},
+        {"if": {"properties": {"intent": {"properties": {"capability_ref": {"const": "actor.vitality/1.0.0"}}}}}, "then": {"properties": {"allowed_capability_refs": {"contains": {"const": "actor.vitality/1.0.0"}}}}}
+      ]
+    },
+    "Result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "engine_contract_version", "operation_ref", "request_fingerprint", "expected_revision", "status", "character_effect_proposal", "preview", "problems", "result_fingerprint"],
+      "properties": {
+        "schema": {"const": "se-resource-effect-evaluation/1.0.0"}, "engine_contract_version": {"const": "story-engine-port/1.0.0"}, "operation_ref": {"$ref": "#/$defs/ref"},
+        "request_fingerprint": {"$ref": "#/$defs/hash"}, "expected_revision": {"type": "integer", "minimum": 0}, "status": {"enum": ["proposed", "cancelled", "timed_out"]},
+        "character_effect_proposal": {"oneOf": [{"$ref": "#/$defs/TypedProposal"}, {"type": "null"}]}, "preview": {"oneOf": [{"$ref": "#/$defs/Preview"}, {"type": "null"}]},
+        "problems": {"type": "array", "items": {"$ref": "#/$defs/Problem"}}, "result_fingerprint": {"$ref": "#/$defs/hash"}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "proposed"}}}, "then": {"properties": {"character_effect_proposal": {"$ref": "#/$defs/TypedProposal"}, "preview": {"$ref": "#/$defs/Preview"}}}},
+        {"if": {"properties": {"status": {"enum": ["cancelled", "timed_out"]}}}, "then": {"properties": {"character_effect_proposal": {"type": "null"}, "preview": {"type": "null"}}}}
+      ]
+    }
+  }
+}

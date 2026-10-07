@@ -1,0 +1,1320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-luck-preparation-proposal/1.0.0",
+  "description": "Engine 掷前一次生成的 20 面机运候选提案。不含随机、不调用 Provider、不写入状态、不替玩家选择；平台只执行玩家最终确认的那一个候选。预览态（selection.state=preview）返回全部合法候选且不得开窗；确认态（confirmed）按本人已选方案集合给出不超过 5 个含 original 的候选，不静默丢弃合法选项。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "committed",
+    "operation_ref",
+    "snapshot_sha256",
+    "artifact",
+    "selection",
+    "policy",
+    "prepared_modes",
+    "all_in",
+    "maximum_extra_echo",
+    "faces",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-preparation-proposal/1.0.0"
+    },
+    "committed": {
+      "const": false
+    },
+    "operation_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_ref",
+        "artifact_sha256",
+        "intervention_rules_sha256",
+        "recipe_catalog_sha256",
+        "resolution_rule_ref",
+        "resolution_rule_definition_sha256",
+        "offer_ref",
+        "offer_sha256"
+      ],
+      "properties": {
+        "artifact_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "intervention_rules_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "recipe_catalog_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "resolution_rule_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "resolution_rule_definition_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "offer_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "offer_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "acquisition_allowed",
+        "maximum_prepared_choices",
+        "window_candidate_limit",
+        "prepared_choices"
+      ],
+      "properties": {
+        "state": {
+          "description": "preview 只给预览；confirmed 表示本人已掷前确认方案集合（可为空集合，即明确选择原规则），宿主可据此封存一次 D20。确认空集合时 20 面只给 original，不产生窗口。",
+          "enum": [
+            "preview",
+            "confirmed"
+          ]
+        },
+        "acquisition_allowed": {
+          "description": "是否允许宿主据此取得一次封存随机。预览下为 false，且预览候选可超过窗口上限。确认空集合时为 true，但没有可执行的干预候选，平台直接结算原结果。",
+          "type": "boolean"
+        },
+        "maximum_prepared_choices": {
+          "const": 4
+        },
+        "window_candidate_limit": {
+          "description": "开窗时候选上限，含免费的 original。确认态每面候选不超过该值。",
+          "const": 5
+        },
+        "prepared_choices": {
+          "description": "确认态回显本人掷前已选方案；空数组表示明确选择原规则。",
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "recipe_ref",
+              "entry_ref"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "swap",
+                  "protect",
+                  "leave_door",
+                  "change"
+                ]
+              },
+              "recipe_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "entry_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "swap",
+                        "protect"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "recipe_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "entry_ref": {
+                      "type": "null"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "leave_door"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "recipe_ref": {
+                      "type": "null"
+                    },
+                    "entry_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "change"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "recipe_ref": {
+                      "type": "null"
+                    },
+                    "entry_ref": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "preview"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisition_allowed": {
+                "const": false
+              },
+              "prepared_choices": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "confirmed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisition_allowed": {
+                "const": true
+              },
+              "prepared_choices": {
+                "maxItems": 4
+              }
+            }
+          }
+        }
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason",
+        "modes",
+        "maximum_extra_echo"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "eligible",
+            "unavailable",
+            "not_applicable"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "modes": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "fee",
+              "empty",
+              "coin_waiver",
+              "reaction"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "swap",
+                  "protect",
+                  "leave_door",
+                  "change",
+                  "all_in"
+                ]
+              },
+              "fee": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "empty": {
+                "type": "boolean"
+              },
+              "coin_waiver": {
+                "type": "boolean"
+              },
+              "reaction": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "maximum_extra_echo": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        }
+      }
+    },
+    "prepared_modes": {
+      "description": "进入掷后窗口的模式清单：预览态列出全部可准备模式，确认态只列本人已选模式。",
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "fee",
+          "empty",
+          "coin_waiver",
+          "reaction",
+          "option_refs"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "swap",
+              "protect",
+              "leave_door",
+              "change"
+            ]
+          },
+          "fee": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "empty": {
+            "type": "boolean"
+          },
+          "coin_waiver": {
+            "type": "boolean"
+          },
+          "reaction": {
+            "type": "boolean"
+          },
+          "option_refs": {
+            "description": "本模式的方案身份：换价／护注为 recipe_ref，留门为 entry_ref，改面为空数组。预览时给出全部可用身份，确认时只给本人已选身份。",
+            "type": "array",
+            "maxItems": 24,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          }
+        }
+      }
+    },
+    "all_in": {
+      "oneOf": [
+        {
+          "description": "掷前孤注的冻结块：两项已登记收益、一次费用与败兆提交，以及与掷后干预的互斥。平台整体冻结本块，按 all_in_sha256 证明提交的赌注与引擎提案一致，再让本人在两项 benefit_ref 中选一；本块不替玩家选择。",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "mode",
+            "extra_echo",
+            "empty",
+            "coin_waiver",
+            "reaction",
+            "benefits",
+            "benefit_choice_required",
+            "benefit_results",
+            "doom_results",
+            "doom_added",
+            "exclusive_with_post_roll",
+            "all_in_sha256"
+          ],
+          "properties": {
+            "schema": {
+              "const": "se-luck-all-in-bet/1.0.0"
+            },
+            "mode": {
+              "const": "all_in"
+            },
+            "extra_echo": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "description": "掷前支付的回响费用，最后由平台按实际结算扣除。"
+            },
+            "empty": {
+              "const": false
+            },
+            "coin_waiver": {
+              "const": false
+            },
+            "reaction": {
+              "const": false,
+              "description": "孤注不消耗反应权限。"
+            },
+            "benefits": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "benefit_ref",
+                  "source_ref",
+                  "permission_ref",
+                  "object_ref"
+                ],
+                "properties": {
+                  "benefit_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "source_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "permission_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "object_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  }
+                }
+              },
+              "description": "掷前已初始化、未领取的收益；平台只允许本人选其中一项。"
+            },
+            "benefit_choice_required": {
+              "const": true
+            },
+            "benefit_results": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "critical_failure",
+                  "normal_failure",
+                  "success_with_cost",
+                  "full_success",
+                  "critical_success"
+                ]
+              }
+            },
+            "doom_results": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "critical_failure",
+                  "normal_failure",
+                  "success_with_cost",
+                  "full_success",
+                  "critical_success"
+                ]
+              }
+            },
+            "doom_added": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "exclusive_with_post_roll": {
+              "const": true
+            },
+            "all_in_sha256": {
+              "description": "本块去掉该字段后的 canonical 摘要。",
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "maximum_extra_echo": {
+      "description": "本次需要预留的最大回响费用，含孤注；平台按此冻结可用余额。",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "faces": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "face",
+          "raw",
+          "band",
+          "candidates",
+          "unprepared_candidate_count"
+        ],
+        "properties": {
+          "face": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "raw": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "face",
+              "modifier",
+              "difficulty",
+              "total",
+              "margin",
+              "result"
+            ],
+            "properties": {
+              "face": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              "modifier": {
+                "type": "integer"
+              },
+              "difficulty": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "margin": {
+                "type": "integer"
+              },
+              "result": {
+                "enum": [
+                  "critical_failure",
+                  "normal_failure",
+                  "success_with_cost",
+                  "full_success",
+                  "critical_success"
+                ]
+              }
+            }
+          },
+          "band": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "band_ref",
+              "outcome",
+              "degree",
+              "public_label"
+            ],
+            "properties": {
+              "band_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "outcome": {
+                "enum": [
+                  "success",
+                  "failure"
+                ]
+              },
+              "degree": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "public_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          },
+          "candidates": {
+            "description": "预览态给出该骰面全部合法候选（不截断）；确认态为 original 加本人已选且该面合法的方案，按本人登记顺序排列，最多 5 个。候选只有 original 时该骰面没有合法干预窗口，直接结算原结果。",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "candidate_ref",
+                "mode",
+                "extra_echo",
+                "proposal",
+                "proposal_sha256"
+              ],
+              "properties": {
+                "candidate_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "mode": {
+                  "enum": [
+                    "original",
+                    "swap",
+                    "protect",
+                    "leave_door",
+                    "change"
+                  ]
+                },
+                "extra_echo": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 6
+                },
+                "proposal": {
+                  "description": "一次机运窗口候选的正式嵌套合同：原始骰面与最终带、完整效果、以及配方或补救入口来源。候选由 Engine 掷前准备、平台在本人确认后执行，本身不代表已提交。",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "mode",
+                    "extra_echo",
+                    "empty",
+                    "coin_waiver",
+                    "reaction",
+                    "raw",
+                    "original_band",
+                    "final_band",
+                    "effects",
+                    "loss_effect_count",
+                    "recipe",
+                    "remedy"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-luck-candidate-proposal/1.0.0"
+                    },
+                    "mode": {
+                      "description": "本次候选的用法；original 是免费的保留原结果，永远排在首位。",
+                      "enum": [
+                        "original",
+                        "swap",
+                        "protect",
+                        "leave_door",
+                        "change"
+                      ]
+                    },
+                    "extra_echo": {
+                      "description": "本候选预留的回响费用，等于本次已选模式的 fee。",
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "empty": {
+                      "type": "boolean"
+                    },
+                    "coin_waiver": {
+                      "type": "boolean"
+                    },
+                    "reaction": {
+                      "description": "是否消耗本轮反应权限；换价与护注消耗，改面与留门不消耗。",
+                      "type": "boolean"
+                    },
+                    "raw": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "face",
+                        "modifier",
+                        "difficulty",
+                        "total",
+                        "margin",
+                        "result"
+                      ],
+                      "properties": {
+                        "face": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20
+                        },
+                        "modifier": {
+                          "type": "integer"
+                        },
+                        "difficulty": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "margin": {
+                          "type": "integer"
+                        },
+                        "result": {
+                          "enum": [
+                            "critical_failure",
+                            "normal_failure",
+                            "success_with_cost",
+                            "full_success",
+                            "critical_success"
+                          ]
+                        }
+                      }
+                    },
+                    "original_band": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "band_ref",
+                        "outcome",
+                        "degree",
+                        "effects_sha256"
+                      ],
+                      "properties": {
+                        "band_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "outcome": {
+                          "enum": [
+                            "success",
+                            "failure"
+                          ]
+                        },
+                        "degree": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "effects_sha256": {
+                          "type": "string",
+                          "pattern": "^sha256:[0-9a-f]{64}$"
+                        }
+                      }
+                    },
+                    "final_band": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "band_ref",
+                        "outcome",
+                        "degree"
+                      ],
+                      "properties": {
+                        "band_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "outcome": {
+                          "enum": [
+                            "success",
+                            "failure"
+                          ]
+                        },
+                        "degree": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        }
+                      }
+                    },
+                    "effects": {
+                      "description": "最终结算的完整效果；空数组表示本次结算没有效果。换价／护注保留原带其它后果，改面采用已有带完整效果，留门在原后果之外只保留既有补救入口。",
+                      "type": "array",
+                      "minItems": 0,
+                      "maxItems": 16,
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "amount"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-personal-cost/1.0.0"
+                              },
+                              "kind": {
+                                "const": "actor.hp.damage"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "item_ref",
+                              "amount"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-personal-cost/1.0.0"
+                              },
+                              "kind": {
+                                "const": "inventory.consume"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "item_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "item_ref",
+                              "amount"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-personal-cost/1.0.0"
+                              },
+                              "kind": {
+                                "const": "inventory.damage"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "item_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "item_ref"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-personal-cost/1.0.0"
+                              },
+                              "kind": {
+                                "const": "inventory.break"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "item_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "fact_ref",
+                              "value"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-actor-scene-effect/1.0.0"
+                              },
+                              "kind": {
+                                "const": "actor.scene.fact.set"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "fact_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "value": {
+                                "oneOf": [
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 240
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label",
+                              "clock_ref",
+                              "amount",
+                              "initial_value"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-actor-scene-effect/1.0.0"
+                              },
+                              "kind": {
+                                "const": "actor.scene.clock.advance"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "clock_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              },
+                              "initial_value": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "schema",
+                              "kind",
+                              "public_label"
+                            ],
+                            "properties": {
+                              "schema": {
+                                "const": "se-resolution-action-obligation/1.0.0"
+                              },
+                              "kind": {
+                                "const": "actor.rope.entangle"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "public_label",
+                              "clock_ref",
+                              "initial_value",
+                              "amount"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "clock.advance"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "clock_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "initial_value": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "public_label",
+                              "fact_ref",
+                              "value"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "fact.set"
+                              },
+                              "public_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "fact_ref": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                              },
+                              "value": {
+                                "oneOf": [
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 240
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "loss_effect_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16
+                    },
+                    "recipe": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "required": [
+                        "recipe_ref",
+                        "recipe_sha256",
+                        "modes",
+                        "slots",
+                        "original_effect_index",
+                        "original_effects_sha256",
+                        "replacement_sha256"
+                      ],
+                      "properties": {
+                        "recipe_ref": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "recipe_sha256": {
+                          "type": "string",
+                          "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "modes": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "enum": [
+                              "swap",
+                              "protect",
+                              "leave_door",
+                              "change"
+                            ]
+                          }
+                        },
+                        "slots": {
+                          "type": "object",
+                          "maxProperties": 4,
+                          "additionalProperties": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                          }
+                        },
+                        "original_effect_index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "original_effects_sha256": {
+                          "type": "string",
+                          "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "replacement_sha256": {
+                          "type": "string",
+                          "pattern": "^sha256:[0-9a-f]{64}$"
+                        }
+                      }
+                    },
+                    "remedy": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "required": [
+                        "entry_ref",
+                        "method_ref",
+                        "chain_ref",
+                        "target_ref",
+                        "scene_ref",
+                        "preconditions",
+                        "attribute_ref",
+                        "difficulty",
+                        "tools",
+                        "expires",
+                        "consumes_next_action",
+                        "chain_disables_luck"
+                      ],
+                      "properties": {
+                        "entry_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "method_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "chain_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "target_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "scene_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "preconditions": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 8,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                          }
+                        },
+                        "attribute_ref": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                        },
+                        "difficulty": {
+                          "type": "integer"
+                        },
+                        "tools": {
+                          "type": "array",
+                          "maxItems": 8,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                          }
+                        },
+                        "expires": {
+                          "enum": [
+                            "next_action_end",
+                            "scene_exit"
+                          ]
+                        },
+                        "consumes_next_action": {
+                          "const": true
+                        },
+                        "chain_disables_luck": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                },
+                "proposal_sha256": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "unprepared_candidate_count": {
+            "description": "该骰面合法但本次未进入窗口的候选数；预览态恒为 0。",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          }
+        }
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "selection": {
+            "properties": {
+              "state": {
+                "const": "confirmed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          }
+        },
+        "required": [
+          "selection"
+        ]
+      },
+      "then": {
+        "properties": {
+          "faces": {
+            "type": "array",
+            "minItems": 20,
+            "maxItems": 20,
+            "items": {
+              "properties": {
+                "candidates": {
+                  "maxItems": 5
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "room_ref",
+    "actor_ref",
+    "event_ref",
+    "checkpoint_ref",
+    "artifact_sha256",
+    "room_revision",
+    "actor_revision",
+    "event_revision",
+    "offer",
+    "definition",
+    "difficulty_policy",
+    "facts",
+    "statement",
+    "context_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-pack-check-plan-context/1.0.0"
+    },
+    "room_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "event_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "checkpoint_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "room_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "actor_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offer_ref",
+        "offer_sha256",
+        "choice_ref",
+        "label",
+        "purpose",
+        "risk",
+        "cost",
+        "limitations"
+      ],
+      "properties": {
+        "offer_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "offer_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "choice_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "risk": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "cost": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definition_ref",
+        "definition_sha256",
+        "difficulty_source",
+        "selected_input_ref"
+      ],
+      "properties": {
+        "definition_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "definition_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "difficulty_source": {
+          "const": "host_confirm"
+        },
+        "selected_input_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "difficulty_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "rule_ref",
+        "rule_version",
+        "rule_sha256",
+        "difficulties",
+        "model_budget",
+        "policy_sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-pack-check-plan-options/1.0.0"
+        },
+        "rule_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "rule_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "rule_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "difficulties": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 16,
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "model_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "narrative"
+          ],
+          "properties": {
+            "plan": {
+              "const": 1
+            },
+            "narrative": {
+              "const": 1
+            }
+          }
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fact_ref",
+          "kind",
+          "text",
+          "source_receipt_refs"
+        ],
+        "properties": {
+          "fact_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "enum": [
+              "world_fact",
+              "npc_statement",
+              "player_declaration",
+              "hypothesis"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "source_receipt_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      }
+    },
+    "statement": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "utterance",
+            "references"
+          ],
+          "properties": {
+            "utterance": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "references": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "entity_ref",
+                  "kind",
+                  "label",
+                  "description",
+                  "source_receipt_refs",
+                  "start",
+                  "end"
+                ],
+                "properties": {
+                  "entity_ref": {
+                    "type": "string",
+                    "pattern": "^entity\\.[a-f0-9]{64}$"
+                  },
+                  "kind": {
+                    "enum": [
+                      "person",
+                      "place",
+                      "item",
+                      "quest",
+                      "ability",
+                      "status"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "source_receipt_refs": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/pack-check-plan-context/1.0.0"
+}

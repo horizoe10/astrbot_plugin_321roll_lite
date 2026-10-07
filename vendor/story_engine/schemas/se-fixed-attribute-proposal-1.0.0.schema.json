@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "committed",
+    "operation_ref",
+    "context_sha256",
+    "attribute_ref",
+    "attribute_reason",
+    "attribute_source_refs",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-fixed-attribute-proposal/1.0.0"
+    },
+    "committed": {
+      "const": false
+    },
+    "operation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "context_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "attribute_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "attribute_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "attribute_source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/se-fixed-attribute-proposal-1.0.0.schema.json"
+}

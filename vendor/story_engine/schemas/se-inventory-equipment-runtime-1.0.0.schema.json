@@ -1,0 +1,812 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "se-inventory-equipment-runtime/1.0.0",
+    "oneOf": [
+        {
+            "$ref": "#/$defs/request"
+        },
+        {
+            "$ref": "#/$defs/result"
+        }
+    ],
+    "$defs": {
+        "ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+        },
+        "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "rev": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "envelope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "engine_contract_version",
+                "operation_ref",
+                "trace_ref",
+                "idempotency_key",
+                "request_fingerprint",
+                "deadline_at",
+                "session_ref",
+                "expected_revision",
+                "operation_type"
+            ],
+            "properties": {
+                "engine_contract_version": {
+                    "const": "story-engine-port/1.0.0"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "trace_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "idempotency_key": {
+                    "$ref": "#/$defs/ref"
+                },
+                "request_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                },
+                "deadline_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "session_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "expected_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "operation_type": {
+                    "const": "evaluate_inventory_equipment"
+                }
+            }
+        },
+        "instance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "item_ref",
+                "definition_sha256",
+                "owner_ref",
+                "container_ref",
+                "quantity",
+                "durability",
+                "equipped_slot",
+                "binding_receipt_ref"
+            ],
+            "properties": {
+                "item_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "owner_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "container_ref": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/ref"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "durability": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "equipped_slot": {
+                    "oneOf": [
+                        {
+                            "enum": [
+                                "body",
+                                "main_hand",
+                                "utility"
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "binding_receipt_ref": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/ref"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "permissionReceipt": {"type":"object","additionalProperties":false,"required":["schema","receipt_ref","actor_ref","owner_ref","inventory_ref","room_revision","actor_revision","inventory_revision","allowed_actions","expires_at","dedupe_key","fingerprint"],"properties":{"schema":{"const":"platform-inventory-permission-receipt/1.0.0"},"receipt_ref":{"$ref":"#/$defs/ref"},"actor_ref":{"$ref":"#/$defs/ref"},"owner_ref":{"$ref":"#/$defs/ref"},"inventory_ref":{"$ref":"#/$defs/ref"},"room_revision":{"$ref":"#/$defs/rev"},"actor_revision":{"$ref":"#/$defs/rev"},"inventory_revision":{"$ref":"#/$defs/rev"},"allowed_actions":{"type":"array","uniqueItems":true,"items":{"enum":["inspect","transfer","split","merge","equip","unequip","use","consume","drop","repair"]}},"expires_at":{"type":"string","format":"date-time"},"dedupe_key":{"$ref":"#/$defs/ref"},"fingerprint":{"$ref":"#/$defs/hash"}}},
+        "causeReceipt": {"type":"object","additionalProperties":false,"required":["schema","receipt_ref","cause_ref","room_ref","actor_ref","inventory_ref","room_revision","actor_revision","inventory_revision","dedupe_key","committed","fingerprint"],"properties":{"schema":{"const":"platform-inventory-cause-receipt/1.0.0"},"receipt_ref":{"$ref":"#/$defs/ref"},"cause_ref":{"$ref":"#/$defs/ref"},"room_ref":{"$ref":"#/$defs/ref"},"actor_ref":{"$ref":"#/$defs/ref"},"inventory_ref":{"$ref":"#/$defs/ref"},"room_revision":{"$ref":"#/$defs/rev"},"actor_revision":{"$ref":"#/$defs/rev"},"inventory_revision":{"$ref":"#/$defs/rev"},"dedupe_key":{"$ref":"#/$defs/ref"},"committed":{"const":true},"fingerprint":{"$ref":"#/$defs/hash"}}},
+        "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "room_ref",
+                "actor_ref",
+                "owner_ref",
+                "inventory_ref",
+                "room_revision",
+                "actor_revision",
+                "inventory_revision",
+                "instances",
+                "equipment",
+                "permissions",
+                "permission_receipt",
+                "cause_receipts",
+                "consumed_dedupe_keys",
+                "expected_session_revision",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-inventory-equipment-snapshot/1.0.0"
+                },
+                "room_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "actor_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "owner_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "inventory_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "room_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "actor_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "inventory_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "instances": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/$defs/instance"
+                    }
+                },
+                "equipment": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "body",
+                        "main_hand",
+                        "utility"
+                    ],
+                    "properties": {
+                        "body": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/ref"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        },
+                        "main_hand": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/ref"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        },
+                        "utility": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/ref"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "permissions": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "inspect",
+                        "transfer",
+                        "split",
+                        "merge",
+                        "equip",
+                        "unequip",
+                        "use",
+                        "consume",
+                        "drop",
+                        "repair"
+                    ],
+                    "properties": {
+                        "inspect": {
+                            "type": "boolean"
+                        },
+                        "transfer": {
+                            "type": "boolean"
+                        },
+                        "split": {
+                            "type": "boolean"
+                        },
+                        "merge": {
+                            "type": "boolean"
+                        },
+                        "equip": {
+                            "type": "boolean"
+                        },
+                        "unequip": {
+                            "type": "boolean"
+                        },
+                        "use": {
+                            "type": "boolean"
+                        },
+                        "consume": {
+                            "type": "boolean"
+                        },
+                        "drop": {
+                            "type": "boolean"
+                        },
+                        "repair": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "permission_receipt": {"$ref":"#/$defs/permissionReceipt"},
+                "cause_receipts": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"$ref":"#/$defs/causeReceipt"}
+                },
+                "consumed_dedupe_keys": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "expected_session_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "envelope",
+                "action",
+                "snapshot",
+                "input"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-inventory-equipment-evaluation/1.0.0"
+                },
+                "envelope": {
+                    "$ref": "#/$defs/envelope"
+                },
+                "action": {
+                    "enum": [
+                        "inspect",
+                        "transfer",
+                        "split",
+                        "merge",
+                        "equip",
+                        "unequip",
+                        "use",
+                        "consume",
+                        "drop",
+                        "repair"
+                    ]
+                },
+                "snapshot": {
+                    "$ref": "#/$defs/snapshot"
+                },
+                "input": {
+                    "type": "object"
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "enum": [
+                                    "inspect",
+                                    "unequip",
+                                    "repair"
+                                ]
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "instance_ref"
+                                ],
+                                "properties": {
+                                    "instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "transfer"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "instance_ref",
+                                    "target_owner_ref"
+                                ],
+                                "properties": {
+                                    "instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "target_owner_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "enum": [
+                                    "split",
+                                    "consume",
+                                    "drop"
+                                ]
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "instance_ref",
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "quantity": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "merge"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "source_instance_ref",
+                                    "target_instance_ref"
+                                ],
+                                "properties": {
+                                    "source_instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "target_instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "equip"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "instance_ref",
+                                    "slot"
+                                ],
+                                "properties": {
+                                    "instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "slot": {
+                                        "enum": [
+                                            "body",
+                                            "main_hand",
+                                            "utility"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "use"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "instance_ref",
+                                    "target_ref",
+                                    "target_kind",
+                                    "effect_index"
+                                ],
+                                "properties": {
+                                    "instance_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "target_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "target_kind": {
+                                        "enum": [
+                                            "actor",
+                                            "objective",
+                                            "zone"
+                                        ]
+                                    },
+                                    "effect_index": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "public": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "item_label",
+                "action",
+                "availability",
+                "quantity",
+                "durability",
+                "slot",
+                "visibility"
+            ],
+            "properties": {
+                "item_label": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "action": {
+                    "enum": [
+                        "inspect",
+                        "transfer",
+                        "split",
+                        "merge",
+                        "equip",
+                        "unequip",
+                        "use",
+                        "consume",
+                        "drop",
+                        "repair"
+                    ]
+                },
+                "availability": {
+                    "type": "boolean"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "durability": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "slot": {
+                    "oneOf": [
+                        {
+                            "enum": [
+                                "body",
+                                "main_hand",
+                                "utility"
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "visibility": {
+                    "enum": [
+                        "public",
+                        "owner",
+                        "party",
+                        "dm"
+                    ]
+                }
+            }
+        },
+        "basePrivate": {
+            "type": "object",
+            "required":["base_inventory_revision","instance_ref","item_ref","definition_sha256","owner_ref","platform_commit_required"],
+            "properties": {
+                "base_inventory_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "instance_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "item_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "owner_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "platform_commit_required": {
+                    "const": true
+                }
+            }
+        },
+        "privateInspect":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["read_only"],"properties":{"read_only":{"const":true}}}],"unevaluatedProperties":false},
+        "privateTransfer":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","target_owner_ref","preserve_instance_ref"],"properties":{"operation":{"const":"transfer"},"target_owner_ref":{"$ref":"#/$defs/ref"},"preserve_instance_ref":{"const":true}}}],"unevaluatedProperties":false},
+        "privateSplit":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","split_quantity","new_instance_ref"],"properties":{"operation":{"const":"split"},"split_quantity":{"type":"integer","minimum":1},"new_instance_ref":{"type":"null"}}}],"unevaluatedProperties":false},
+        "privateMerge":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","target_instance_ref","source_quantity","target_quantity","merged_quantity","remove_source_after_commit"],"properties":{"operation":{"const":"merge"},"target_instance_ref":{"$ref":"#/$defs/ref"},"source_quantity":{"type":"integer","minimum":1},"target_quantity":{"type":"integer","minimum":1},"merged_quantity":{"type":"integer","minimum":2},"remove_source_after_commit":{"const":true}}}],"unevaluatedProperties":false},
+        "privateEquip":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","slot","expected_slot_instance_ref"],"properties":{"operation":{"const":"equip"},"slot":{"enum":["body","main_hand","utility"]},"expected_slot_instance_ref":{"oneOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}}}],"unevaluatedProperties":false},
+        "privateUnequip":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","slot"],"properties":{"operation":{"const":"unequip"},"slot":{"enum":["body","main_hand","utility"]}}}],"unevaluatedProperties":false},
+        "privateDrop":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","quantity","physical_visibility_preserved"],"properties":{"operation":{"const":"drop"},"quantity":{"type":"integer","minimum":1},"physical_visibility_preserved":{"const":true}}}],"unevaluatedProperties":false},
+        "privateEffect":{"allOf":[{"$ref":"#/$defs/basePrivate"},{"type":"object","required":["operation","effect","target_ref","target_kind","set_durability","atomic_effect_and_cost"],"properties":{"operation":{"const":"use"},"effect":{"type":"object","additionalProperties":false,"required":["kind","target_kinds","effect","failure_effect","durability_cost"],"properties":{"kind":{"enum":["aid","guard","interact","maneuver","parley"]},"target_kinds":{"type":"array","uniqueItems":true,"items":{"enum":["actor","objective","zone"]}},"effect":{"type":"string"},"failure_effect":{"type":"string"},"durability_cost":{"const":1}}},"target_ref":{"$ref":"#/$defs/ref"},"target_kind":{"enum":["actor","objective","zone"]},"set_durability":{"type":"integer","minimum":0},"atomic_effect_and_cost":{"const":true}}}],"unevaluatedProperties":false},
+        "proposal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "proposal_ref",
+                "operation_ref",
+                "source_inventory_revision",
+                "kind",
+                "public_preview",
+                "private_reconciliation",
+                "validation_errors",
+                "requires_platform_commit",
+                "commits_state"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-inventory-equipment-proposal/1.0.0"
+                },
+                "proposal_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "source_inventory_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "kind": {
+                    "enum": [
+                        "inspect",
+                        "mutation",
+                        "effect",
+                        "validation"
+                    ]
+                },
+                "public_preview": {
+                    "$ref": "#/$defs/public"
+                },
+                "private_reconciliation": {},
+                "validation_errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requires_platform_commit": {
+                    "const": true
+                },
+                "commits_state": {
+                    "const": false
+                }
+            },
+            "oneOf": [
+                {
+                    "properties": {
+                        "kind": {
+                            "const": "validation"
+                        },
+                        "private_reconciliation": {
+                            "type": "null"
+                        }
+                    }
+                },
+                {"properties":{"kind":{"const":"inspect"},"private_reconciliation":{"$ref":"#/$defs/privateInspect"}}},
+                {"properties":{"kind":{"const":"effect"},"private_reconciliation":{"$ref":"#/$defs/privateEffect"}}},
+                {"properties":{"kind":{"const":"mutation"},"private_reconciliation":{"oneOf":[{"$ref":"#/$defs/privateTransfer"},{"$ref":"#/$defs/privateSplit"},{"$ref":"#/$defs/privateMerge"},{"$ref":"#/$defs/privateEquip"},{"$ref":"#/$defs/privateUnequip"},{"$ref":"#/$defs/privateDrop"}]}}}
+            ]
+        },
+        "problem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "code",
+                "failed_operation",
+                "reason",
+                "automatic_handling",
+                "next_action",
+                "retryable"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "failed_operation": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "automatic_handling": {
+                    "type": "string"
+                },
+                "next_action": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "operation_ref",
+                "request_fingerprint",
+                "expected_revision",
+                "source_inventory_revision",
+                "status",
+                "proposal",
+                "problems",
+                "result_fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-inventory-equipment-result/1.0.0"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "request_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                },
+                "expected_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "source_inventory_revision": {
+                    "$ref": "#/$defs/rev"
+                },
+                "status": {
+                    "enum": [
+                        "proposed",
+                        "invalid",
+                        "blocked",
+                        "cancelled",
+                        "timed_out"
+                    ]
+                },
+                "proposal": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/proposal"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "problems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/problem"
+                    }
+                },
+                "result_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        }
+    }
+}

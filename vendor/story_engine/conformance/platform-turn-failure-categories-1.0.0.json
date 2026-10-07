@@ -1,0 +1,16 @@
+{
+  "schema": "se-platform-turn-failure-categories/1.0.0",
+  "categories": [
+    {"problem": "engine.cancelled", "engine_status": "cancelled", "platform_commit": false},
+    {"problem": "engine.deadline_exceeded", "engine_status": "timed_out", "platform_commit": false},
+    {"problem": "engine.provider_timeout", "engine_status": "timed_out", "platform_commit": false},
+    {"problem": "engine.provider_rate_limited", "engine_status": "blocked", "platform_commit": false},
+    {"problem": "engine.provider_unavailable", "engine_status": "blocked", "platform_commit": false},
+    {"problem": "engine.output_invalid", "engine_status": "blocked", "platform_commit": false},
+    {"problem": "engine.contract_incompatible", "engine_status": "blocked", "platform_commit": false},
+    {"problem": "engine.result_stale", "engine_status": "blocked", "platform_commit": false},
+    {"platform_category": "late_result_discarded", "platform_commit": false},
+    {"platform_category": "revision_conflict", "platform_commit": false},
+    {"platform_category": "engine_unavailable", "platform_commit": false}
+  ]
+}

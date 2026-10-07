@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "story-flow-recipe/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "recipe_ref", "recipe_version", "required_capabilities", "optional_capabilities", "entry_phase_ref", "phase_nodes", "transitions", "cycle_guards", "ending_modes", "absence_defaults", "public_summary"],
+  "properties": {
+    "schema": {"const": "story-flow-recipe/1.0.0"},
+    "recipe_ref": {"$ref": "#/$defs/ref"},
+    "recipe_version": {"$ref": "#/$defs/ref"},
+    "required_capabilities": {"$ref": "#/$defs/refs"},
+    "optional_capabilities": {"$ref": "#/$defs/refs"},
+    "entry_phase_ref": {"$ref": "#/$defs/ref"},
+    "phase_nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/phase"}},
+    "transitions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/transition"}},
+    "cycle_guards": {"type": "array", "items": {"$ref": "#/$defs/cycle_guard"}},
+    "ending_modes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/ending"}},
+    "absence_defaults": {"$ref": "#/$defs/absence"},
+    "public_summary": {"$ref": "#/$defs/summary"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"},
+    "refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 600, "pattern": "\\S"},
+    "absence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["suggested_action", "maximum_wait_seconds", "requires_actor_consent"],
+      "properties": {
+        "suggested_action": {"enum": ["wait", "pass", "delegate_human", "temporary_ai", "pause"]},
+        "maximum_wait_seconds": {"type": ["integer", "null"], "minimum": 1},
+        "requires_actor_consent": {"type": "boolean"}
+      }
+    },
+    "phase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["phase_ref", "kind", "label", "summary", "participant_policy_ref", "interaction_policy_ref", "content_hook_refs", "completion_policy", "deadline_policy", "absence_policy", "result_publication_policy", "operation_budget", "required_capabilities", "optional_capabilities", "fallback"],
+      "properties": {
+        "phase_ref": {"$ref": "#/$defs/ref"},
+        "kind": {"enum": ["cooperative", "private_parallel", "regroup", "public_conflict", "finale", "epilogue"]},
+        "label": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S"},
+        "summary": {"$ref": "#/$defs/summary"},
+        "participant_policy_ref": {"$ref": "#/$defs/ref"},
+        "interaction_policy_ref": {"$ref": "#/$defs/ref"},
+        "content_hook_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "completion_policy": {"type": "object", "additionalProperties": false, "required": ["kind", "threshold", "on_unmet"], "properties": {"kind": {"enum": ["all_required", "quorum", "selected_subset", "deadline", "explicit_host_transition", "interrupt_condition"]}, "threshold": {"type": ["integer", "null"], "minimum": 1}, "on_unmet": {"enum": ["stay", "pause", "fallback"]}}},
+        "deadline_policy": {"type": "object", "additionalProperties": false, "required": ["mode", "seconds", "expiry_action"], "properties": {"mode": {"enum": ["none", "bounded"]}, "seconds": {"type": ["integer", "null"], "minimum": 1}, "expiry_action": {"enum": ["stay", "pause", "fallback", "transition"]}}},
+        "absence_policy": {"$ref": "#/$defs/absence"},
+        "result_publication_policy": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["private_only", "deferred_public", "mechanical_shared", "immediate_public_interrupt", "invalid_or_unresolved"]}},
+        "operation_budget": {"type": "object", "additionalProperties": false, "required": ["max_interactions", "max_input_chars", "max_context_tokens", "max_model_calls", "wall_clock_ms", "repair_attempts"], "properties": {"max_interactions": {"type": "integer", "minimum": 0}, "max_input_chars": {"type": "integer", "minimum": 0}, "max_context_tokens": {"type": "integer", "minimum": 0}, "max_model_calls": {"type": "integer", "minimum": 0}, "wall_clock_ms": {"type": "integer", "minimum": 0}, "repair_attempts": {"type": "integer", "minimum": 0}}},
+        "required_capabilities": {"$ref": "#/$defs/refs"},
+        "optional_capabilities": {"$ref": "#/$defs/refs"},
+        "fallback": {"type": "object", "additionalProperties": false, "required": ["mode", "phase_ref", "public_summary"], "properties": {"mode": {"enum": ["block", "phase"]}, "phase_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]}, "public_summary": {"$ref": "#/$defs/summary"}}}
+      }
+    },
+    "transition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["transition_ref", "from_phase_ref", "to_phase_ref", "trigger_kind", "condition_refs", "rule_receipt_requirements", "priority", "consent_policy", "host_gate", "public_summary", "on_failure", "failure_phase_ref"],
+      "properties": {
+        "transition_ref": {"$ref": "#/$defs/ref"}, "from_phase_ref": {"$ref": "#/$defs/ref"}, "to_phase_ref": {"$ref": "#/$defs/ref"},
+        "trigger_kind": {"enum": ["phase_complete", "rule_receipt", "player_choice", "host_confirm", "interrupt"]},
+        "condition_refs": {"$ref": "#/$defs/refs"}, "rule_receipt_requirements": {"$ref": "#/$defs/refs"},
+        "priority": {"type": "integer", "minimum": 0}, "consent_policy": {"enum": ["none", "all_participants", "affected_participants", "explicit_pvp"]},
+        "host_gate": {"type": "boolean"}, "public_summary": {"$ref": "#/$defs/summary"}, "on_failure": {"enum": ["stay", "pause", "fallback_phase"]},
+        "failure_phase_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]}
+      }
+    },
+    "cycle_guard": {
+      "type": "object", "additionalProperties": false,
+      "required": ["guard_ref", "transition_refs", "max_repetitions", "progress_condition_refs", "no_progress_exit_ref", "public_summary"],
+      "properties": {"guard_ref": {"$ref": "#/$defs/ref"}, "transition_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "max_repetitions": {"type": "integer", "minimum": 1}, "progress_condition_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "no_progress_exit_ref": {"$ref": "#/$defs/ref"}, "public_summary": {"$ref": "#/$defs/summary"}}
+    },
+    "ending": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "finale_phase_ref", "epilogue_phase_ref", "required_capabilities", "consent_policy"],
+      "properties": {"mode": {"enum": ["cooperative", "public_conflict", "hybrid", "epilogue"]}, "finale_phase_ref": {"$ref": "#/$defs/ref"}, "epilogue_phase_ref": {"$ref": "#/$defs/ref"}, "required_capabilities": {"$ref": "#/$defs/refs"}, "consent_policy": {"enum": ["none", "all_participants", "explicit_pvp"]}}
+    }
+  }
+}

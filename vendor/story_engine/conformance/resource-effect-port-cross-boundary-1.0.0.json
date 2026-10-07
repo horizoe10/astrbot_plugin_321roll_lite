@@ -1,0 +1,45 @@
+{
+  "schema": "se-resource-effect-port-cross-boundary-vectors/1.0.0",
+  "entrypoints_contract": "se-story-engine-entrypoints/1.2.0",
+  "remote_dispatch_contract": "se-remote-dispatch/1.3.0",
+  "platform_contract": "321roll-public-contracts/0.1.0",
+  "request": {
+    "schema": "se-resource-effect-evaluation/1.0.0",
+    "envelope": {"engine_contract_version": "story-engine-port/1.0.0", "operation_ref": "op.resource.rc2", "trace_ref": "trace.resource.rc2", "idempotency_key": "idem.resource.rc2", "request_fingerprint": "sha256:ad5d6c8056b864840db241df2993a52d98793636288ff6cc282510b9a7f461c6", "deadline_at": "2026-08-28T11:00:00Z", "session_ref": "room.rc2", "expected_revision": 7, "operation_type": "evaluate_resource_effect"},
+    "artifact_ref": "artifact.rc2",
+    "artifact_sha256": "sha256:7aa388495fc1e22d38599014ea07ac7abf60075498bfd8daf09c9c34dfc3edcc",
+    "allowed_capability_refs": ["actor.vitality/1.0.0", "character.state.effects/1"],
+    "capability_closure_sha256": "sha256:72b4b31306b7ebde80ed733324838b280f6fe692a6eb93675895aafa3a93ffc7",
+    "intent": {
+      "capability_ref": "actor.vitality/1.0.0", "intent_type": "actor.vitality.damage", "target_binding": "binding.actor.current",
+      "payload": {"resource_ref": "vitality.hp", "operation": "damage", "base_amount": 4, "damage_tags": ["impact"], "source_ref": "event.rc2", "reason_code": "gate_crush", "modifier_policy": "consume_frozen_rule_receipts", "threshold_handling": "emit_signals"},
+      "expected_revisions": {"actor_revision": 7, "room_revision": 18}, "operation_ref": "op.resource.rc2", "request_fingerprint": "sha256:ad5d6c8056b864840db241df2993a52d98793636288ff6cc282510b9a7f461c6"
+    },
+    "resource_snapshot": {
+      "schema": "se-actor-resource-snapshot/1.0.0", "actor_binding": "binding.actor.current", "resource_ref": "vitality.hp",
+      "definition_sha256": "sha256:0e256423003a7121fc0edcb1fe0f473de36645e109baf148a99fb2cbc95fe05b", "base_current": 8, "base_maximum": 12, "effective_maximum": 12,
+      "temporary_layers": [{"layer_ref": "temp.guard", "amount": 2, "priority": 10, "created_order": 1}], "modifier_receipt_refs": [], "threshold_states": {"bloodied": false, "depleted": false},
+      "audience_policy_sha256": "sha256:adf0e0999386dae758e1d6ae48e7a28a1acfb26dd73dbc91ad134cec70ca7aa0", "actor_revision": 7,
+      "snapshot_fingerprint": "sha256:0e477d6bef8613d1b3e6f078d3a97de6a2d4bf1fe0d1eee6130f9a2997dcae4f"
+    },
+    "proposal_ref": "proposal.resource.rc2", "dedupe_key": "dedupe.resource.rc2", "atomic_group_ref": "atomic.resource.rc2"
+  },
+  "expected_result": {
+    "schema": "se-resource-effect-evaluation/1.0.0", "engine_contract_version": "story-engine-port/1.0.0", "operation_ref": "op.resource.rc2",
+    "request_fingerprint": "sha256:ad5d6c8056b864840db241df2993a52d98793636288ff6cc282510b9a7f461c6", "expected_revision": 7, "status": "proposed",
+    "character_effect_proposal": {
+      "schema": "se-character-effect-proposal/1.0.0", "proposal_ref": "proposal.resource.rc2", "operation_ref": "op.resource.rc2", "request_fingerprint": "sha256:ad5d6c8056b864840db241df2993a52d98793636288ff6cc282510b9a7f461c6",
+      "source_capability_ref": "actor.vitality/1.0.0", "effect_contract": "character.state.effects/1", "effect_type": "actor.resource.delta", "target_binding": "binding.actor.current",
+      "expected_revisions": {"actor_revision": 7, "room_revision": 18}, "payload": {"resource_ref": "vitality.hp", "amount": -4, "layer": "base", "threshold_handling": "propose_crossing_signals"},
+      "source": {"source_ref": "event.rc2", "reason_code": "gate_crush", "cause_refs": ["op.resource.rc2"]}, "reversible": true, "dedupe_key": "dedupe.resource.rc2", "atomic_group_ref": "atomic.resource.rc2"
+    },
+    "preview": {"schema": "se-actor-resource-change-preview/1.0.0", "resource_ref": "vitality.hp", "actor_binding": "binding.actor.current", "actor_revision": 7, "base_before": 8, "base_after": 6, "temporary_absorbed": 2, "temporary_layers_after": [{"layer_ref": "temp.guard", "amount": 0, "priority": 10, "created_order": 1}], "threshold_signal_proposals": ["vitality.bloodied"], "authoritative": false},
+    "problems": [], "result_fingerprint": "sha256:5f0de5b709bdfd974de67ca2b9f83d1f2f9940cc342c660ddca290b89b6539e3"
+  },
+  "platform_acceptance": {
+    "prepare_character_effects_source_capability_ref": "actor.vitality/1.0.0",
+    "allowed_capability_ref": "actor.vitality/1.0.0",
+    "generic_resource_or_vitality_effect_allowed": false,
+    "commit_owner": "321_platform"
+  }
+}

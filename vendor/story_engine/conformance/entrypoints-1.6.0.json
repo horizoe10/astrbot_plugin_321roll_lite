@@ -1,0 +1,422 @@
+{
+  "schema": "se-story-engine-entrypoints/1.6.0",
+  "status": "isolated_source_candidate_not_installable",
+  "engine_id": "party321.story_engine",
+  "engine_version": "1.0.0.dev4",
+  "contract_version": "story-engine-port/1.0.0",
+  "compatibility": {
+    "preserved_entrypoints_contract": "se-story-engine-entrypoints/1.3.0",
+    "preserved_narrative_remote_dispatch": "se-remote-dispatch/1.2.0",
+    "selection_policy": "primary narrative remains exact; versioned extensions are negotiated by exact entry point name and dispatch contract"
+  },
+  "provider_registry": {
+    "manifest": "provider_contracts-1.1.0.json",
+    "schema": "se-provider-contracts/1.1.0",
+    "revision": "provider.contracts.2",
+    "ability_provider_ref": "provider.ability.execution.1",
+    "ability_provider_contract_sha256": "sha256:2e7e0f72fd87fbc329dd20479272df3dfbbf453a97b1ed1e1262fe7db2810c7d"
+  },
+  "embedded": {
+    "entry_point_group": "party321.story_engine.embedded",
+    "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_embedded_story_engine",
+    "methods": [
+      "describe",
+      "readiness",
+      "capabilities",
+      "resolve_turn",
+      "resolve_turn_stream",
+      "evaluate_event"
+    ],
+    "bridge_owner": "321_platform"
+  },
+  "remote": {
+    "entry_point_group": "party321.story_engine.remote",
+    "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_remote_story_engine",
+    "dispatch_contract": "se-remote-dispatch/1.2.0",
+    "methods": [
+      "health",
+      "describe",
+      "readiness",
+      "capabilities",
+      "resolve_turn",
+      "resolve_turn_stream",
+      "evaluate_event"
+    ],
+    "transport_auth_tls_owner": "321_platform",
+    "bridge_owner": "321_platform"
+  },
+  "entrypoint_inventory": {
+    "party321.story_engine.embedded": {
+      "ability_execution": "story_engine.entrypoints:create_embedded_ability_execution_engine",
+      "activation": "story_engine.entrypoints:create_embedded_event_activation_engine",
+      "character_build": "story_engine.entrypoints:create_embedded_character_build_engine",
+      "character_progression": "story_engine.entrypoints:create_embedded_character_progression_engine",
+      "event": "story_engine.entrypoints:create_embedded_event_engine",
+      "inventory_equipment": "story_engine.entrypoints:create_embedded_inventory_equipment_engine",
+      "narrative": "story_engine.entrypoints:create_embedded_story_engine",
+      "recovery_cycle": "story_engine.entrypoints:create_embedded_recovery_cycle_engine",
+      "recovery_cycle_v2": "story_engine.entrypoints:create_embedded_recovery_cycle_v2_engine",
+      "resolution_check": "story_engine.entrypoints:create_embedded_resolution_check_engine",
+      "resource": "story_engine.entrypoints:create_embedded_resource_story_engine",
+      "reward_settlement": "story_engine.entrypoints:create_embedded_reward_settlement_engine",
+      "conflict_procedure": "story_engine.entrypoints:create_embedded_conflict_procedure_engine"
+    },
+    "party321.story_engine.remote": {
+      "ability_execution": "story_engine.entrypoints:create_remote_ability_execution_engine",
+      "activation": "story_engine.entrypoints:create_remote_event_activation_engine",
+      "character_build": "story_engine.entrypoints:create_remote_character_build_engine",
+      "character_progression": "story_engine.entrypoints:create_remote_character_progression_engine",
+      "event": "story_engine.entrypoints:create_remote_event_engine",
+      "inventory_equipment": "story_engine.entrypoints:create_remote_inventory_equipment_engine",
+      "narrative": "story_engine.entrypoints:create_remote_story_engine",
+      "recovery_cycle": "story_engine.entrypoints:create_remote_recovery_cycle_engine",
+      "recovery_cycle_v2": "story_engine.entrypoints:create_remote_recovery_cycle_v2_engine",
+      "resolution_check": "story_engine.entrypoints:create_remote_resolution_check_engine",
+      "resource": "story_engine.entrypoints:create_remote_resource_story_engine",
+      "reward_settlement": "story_engine.entrypoints:create_remote_reward_settlement_engine",
+      "conflict_procedure": "story_engine.entrypoints:create_remote_conflict_procedure_engine"
+    }
+  },
+  "extensions": {
+    "ability_execution": {
+      "extension_contract": "se-ability-execution-evaluation/1.0.0",
+      "capability": "ability.execution/1.0.0",
+      "embedded_entrypoint": "ability_execution",
+      "remote_entrypoint": "ability_execution",
+      "remote_dispatch_contract": "se-remote-dispatch/1.11.0",
+      "operation": "evaluate_ability_execution",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "character_build": {
+      "extension_contract": "se-character-build-evaluation/1.0.0",
+      "capability": "character.build/1.0.0",
+      "embedded_entrypoint": "character_build",
+      "remote_entrypoint": "character_build",
+      "remote_dispatch_contract": "se-remote-dispatch/1.7.0",
+      "operation": "evaluate_character_build",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "character_progression": {
+      "extension_contract": "se-character-progression-evaluation/1.0.0",
+      "capability": "character.progression/1.0.0",
+      "embedded_entrypoint": "character_progression",
+      "remote_entrypoint": "character_progression",
+      "remote_dispatch_contract": "se-remote-dispatch/1.8.0",
+      "operation": "evaluate_character_progression",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "inventory_equipment": {
+      "extension_contract": "se-inventory-equipment-evaluation/1.0.0",
+      "capability": "inventory.equipment/1.0.0",
+      "embedded_entrypoint": "inventory_equipment",
+      "remote_entrypoint": "inventory_equipment",
+      "remote_dispatch_contract": "se-remote-dispatch/1.10.0",
+      "operation": "evaluate_inventory_equipment",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "resolution_check": {
+      "extension_contract": "se-resolution-check-evaluation/1.0.0",
+      "capability": "resolution.check/1.0.0",
+      "embedded_entrypoint": "resolution_check",
+      "remote_entrypoint": "resolution_check",
+      "remote_dispatch_contract": "se-remote-dispatch/1.6.0",
+      "operation": "evaluate_resolution_check",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "resource_effect_evaluator": {
+      "extension_contract": "se-resource-effect-evaluation/1.0.0",
+      "capability": "actor.resource_pool.evaluate_effect/1.0.0",
+      "embedded_entrypoint": "resource",
+      "remote_entrypoint": "resource",
+      "remote_dispatch_contract": "se-remote-dispatch/1.3.0",
+      "operation": "evaluate_resource_effect",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "reward_settlement": {
+      "extension_contract": "se-reward-settlement-evaluation/1.0.0",
+      "capability": "reward.settlement/1.0.0",
+      "embedded_entrypoint": "reward_settlement",
+      "remote_entrypoint": "reward_settlement",
+      "remote_dispatch_contract": "se-remote-dispatch/1.9.0",
+      "operation": "evaluate_reward_settlement",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "conflict_procedure": {
+      "extension_contract": "se-conflict-procedure-runtime/1.0.0",
+      "capability": "conflict.procedure/1.0.0",
+      "embedded_entrypoint": "conflict_procedure",
+      "remote_entrypoint": "conflict_procedure",
+      "remote_dispatch_contract": "se-remote-dispatch/1.12.0",
+      "operation": "evaluate_conflict_procedure",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "real_sp_active_consumer": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "recovery_cycle": {
+      "extension_contract": "se-recovery-cycle-runtime/1.1.0",
+      "capability": "recovery.cycle/1.1.0",
+      "embedded_entrypoint": "recovery_cycle",
+      "remote_entrypoint": "recovery_cycle",
+      "remote_dispatch_contract": "se-remote-dispatch/1.13.0",
+      "operation": "evaluate_recovery_cycle",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "real_sp_active_consumer": false,
+      "unknown_required_policy": "fail_closed"
+    },
+    "recovery_cycle_v2": {
+      "extension_contract": "se-recovery-cycle-runtime/2.0.0",
+      "capability": "recovery.cycle/2.0.0",
+      "embedded_entrypoint": "recovery_cycle_v2",
+      "remote_entrypoint": "recovery_cycle_v2",
+      "remote_dispatch_contract": "se-remote-dispatch/1.14.0",
+      "operation": "evaluate_recovery_cycle",
+      "authority_owner": "321_platform",
+      "engine_role": "proposal_only",
+      "commits_state": false,
+      "real_sp_active_consumer": false,
+      "unknown_required_policy": "fail_closed"
+    }
+  },
+  "manifest_shape": {
+    "entrypoints": "entrypoints.json",
+    "entrypoints_schema": "se-story-engine-entrypoints/1.6.0",
+    "required_primary": "narrative",
+    "optional_extensions": [
+      "ability_execution",
+      "character_build",
+      "character_progression",
+      "conflict_procedure",
+      "inventory_equipment",
+      "recovery_cycle",
+      "recovery_cycle_v2",
+      "resolution_check",
+      "resource_effect_evaluator",
+      "reward_settlement"
+    ]
+  },
+  "factory_argument_rules": {
+    "extension_parameters": {
+      "ability_execution": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "character_build": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "character_progression": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "inventory_equipment": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "recovery_cycle": {
+        "artifact": "required",
+        "artifact_ref": "required"
+      },
+      "recovery_cycle_v2": {
+        "artifact": "required",
+        "artifact_ref": "required"
+      },
+      "resolution_check": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "resource_effect_evaluator": {
+        "artifact": "optional",
+        "artifact_ref": "optional"
+      },
+      "reward_settlement": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      },
+      "conflict_procedure": {
+        "artifact": "required",
+        "artifact_ref": "unsupported"
+      }
+    },
+    "entrypoint_parameters": {
+      "ability_execution": {"artifact": "required", "artifact_ref": "unsupported"},
+      "activation": {"artifact": "required", "artifact_ref": "required"},
+      "character_build": {"artifact": "required", "artifact_ref": "unsupported"},
+      "character_progression": {"artifact": "required", "artifact_ref": "unsupported"},
+      "conflict_procedure": {"artifact": "required", "artifact_ref": "unsupported"},
+      "event": {"artifact": "required", "artifact_ref": "required"},
+      "inventory_equipment": {"artifact": "required", "artifact_ref": "unsupported"},
+      "narrative": {"artifact": "optional", "artifact_ref": "optional"},
+      "recovery_cycle": {"artifact": "required", "artifact_ref": "required"},
+      "recovery_cycle_v2": {"artifact": "required", "artifact_ref": "required"},
+      "resolution_check": {"artifact": "required", "artifact_ref": "unsupported"},
+      "resource": {"artifact": "optional", "artifact_ref": "optional"},
+      "reward_settlement": {"artifact": "required", "artifact_ref": "unsupported"}
+    },
+    "provider_credentials_accepted": false,
+    "platform_bridge_accepted_by_factory": false
+  },
+  "operation_dependencies": {
+    "describe": [],
+    "readiness": [],
+    "capabilities": [],
+    "resolve_turn": [
+      "story_artifact",
+      "platform_bridge",
+      "provider:structured_output"
+    ],
+    "resolve_turn_stream": [
+      "story_artifact",
+      "platform_bridge",
+      "provider:structured_output"
+    ],
+    "evaluate_event": [
+      "story_artifact",
+      "platform_bridge"
+    ],
+    "evaluate_ability_execution": [
+      "story_artifact",
+      "platform_bridge",
+      "ability.execution/1.0.0",
+      "platform committed actor/resource/status/inventory facts and receipts"
+    ],
+    "evaluate_character_build": [
+      "story_artifact",
+      "platform_bridge",
+      "character.build/1.0.0",
+      "platform committed character draft facts and receipts"
+    ],
+    "evaluate_character_progression": [
+      "story_artifact",
+      "platform_bridge",
+      "character.progression/1.0.0",
+      "platform committed progression cause and receipts"
+    ],
+    "evaluate_inventory_equipment": [
+      "story_artifact",
+      "platform_bridge",
+      "inventory.equipment/1.0.0",
+      "platform committed inventory facts and receipts"
+    ],
+    "evaluate_resolution_check": [
+      "story_artifact",
+      "platform_bridge",
+      "resolution.check/1.0.0",
+      "platform committed check facts and receipts"
+    ],
+    "evaluate_resource_effect": [
+      "story_artifact",
+      "platform_bridge",
+      "actor.resource_pool/1.0.0",
+      "character.state.effects/1"
+    ],
+    "evaluate_recovery_cycle": [
+      "story_artifact",
+      "platform_bridge",
+      "recovery.cycle/1.1.0",
+      "platform committed recovery facts and receipts"
+    ],
+    "evaluate_reward_settlement": [
+      "story_artifact",
+      "platform_bridge",
+      "reward.settlement/1.0.0",
+      "platform committed reward cause and receipts"
+    ],
+    "evaluate_conflict_procedure": [
+      "story_artifact",
+      "platform_bridge",
+      "conflict.procedure/1.0.0",
+      "platform committed conflict facts and receipts"
+    ]
+  },
+  "dependency_check_order": [
+    "story_artifact",
+    "platform_bridge",
+    "request_contract",
+    "definition_and_source_pins",
+    "receipt_binding",
+    "revision",
+    "policy"
+  ],
+  "legacy_event_entrypoints_preserved": true,
+  "required_platform_features": [
+    "event.choice_set/1.0.0",
+    "operation-envelope/1",
+    "proposal-validation/1",
+    "platform-bridge/1.0.0"
+  ],
+  "optional_platform_features": [
+    "artifact-slice/1",
+    "authoritative-turn-commit/1",
+    "event-gate-response/1",
+    "late-result-rejection/1",
+    "recovery-authority/1"
+  ],
+  "required_engine_capabilities": [
+    "base.handshake/1"
+  ],
+  "optional_engine_capabilities": [
+    "ability.execution/1.0.0",
+    "actor.resource_pool.evaluate_effect/1.0.0",
+    "actor.resource_pool/1.0.0",
+    "actor.vitality/1.0.0",
+    "base.narrative/1",
+    "character.build/1.0.0",
+    "character.progression/1.0.0",
+    "character.state.effects/1",
+    "conflict.procedure/1.0.0",
+    "event.evaluate/1",
+    "event.guard.evaluate/1.0.0",
+    "inventory.equipment/1.0.0",
+    "narrative.stream/1",
+    "recovery.cycle/1.1.0",
+    "recovery.cycle/2.0.0",
+    "resolution.check/1.0.0",
+    "reward.settlement/1.0.0"
+  ],
+  "required_provider_capabilities": [],
+  "optional_provider_capabilities": [
+    "streaming",
+    "structured_output"
+  ],
+  "unknown_required_policy": "fail_closed",
+  "unknown_optional_policy": "ignore_with_warning",
+  "release_index_built": false,
+  "bundle_built": false,
+  "wheel_built": false,
+  "authority_owner": "321_platform",
+  "candidate_identity": {
+    "scope": "internal_next_candidate",
+    "id": "party321.story_engine.ability-provider-v7",
+    "profile_registry_revision": "se1-p0-conflict-recovery-union/2",
+    "distribution_version": null,
+    "installable": false
+  },
+  "installable": false
+}

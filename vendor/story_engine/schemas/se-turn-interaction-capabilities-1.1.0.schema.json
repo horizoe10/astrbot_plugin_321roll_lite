@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-turn-interaction-capabilities/1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "capability",
+    "modes",
+    "hybrid_submission_policies",
+    "writes",
+    "platform_commit_required",
+    "supported_input_contracts",
+    "features"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-turn-interaction-capabilities/1.1.0"
+    },
+    "capability": {
+      "const": "turn.interaction/1.0.0"
+    },
+    "modes": {
+      "const": [
+        "choice_only",
+        "dialogue_only",
+        "hybrid"
+      ]
+    },
+    "hybrid_submission_policies": {
+      "const": [
+        "one_of",
+        "choice_with_optional_dialogue"
+      ]
+    },
+    "writes": {
+      "const": false
+    },
+    "platform_commit_required": {
+      "const": true
+    },
+    "supported_input_contracts": {
+      "const": [
+        "se-player-turn-input/1.0.0",
+        "se-player-turn-input/1.1.0"
+      ]
+    },
+    "features": {
+      "const": [
+        "turn_interaction.entity_refs/1.0.0"
+      ]
+    }
+  }
+}

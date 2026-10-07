@@ -1,0 +1,157 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "choice_ref",
+    "interpretation",
+    "clarification",
+    "difficulty_tier",
+    "attribute_ref",
+    "attribute_reason",
+    "attribute_source_refs",
+    "source_fact_refs"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "action",
+        "clarify"
+      ]
+    },
+    "choice_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "interpretation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "clarification": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "difficulty_tier": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attribute_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attribute_reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attribute_source_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "uniqueItems": true
+    },
+    "source_fact_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "clarify"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "choice_ref": {
+            "type": "null"
+          },
+          "difficulty_tier": {
+            "type": "null"
+          },
+          "attribute_ref": {
+            "type": "null"
+          },
+          "attribute_reason": {
+            "type": "null"
+          },
+          "clarification": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "attribute_source_refs": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "choice_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "clarification": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/se-pack-dialogue-plan-model-output-1.0.0.schema.json"
+}

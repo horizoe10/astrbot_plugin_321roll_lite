@@ -1,0 +1,75 @@
+{
+  "schema": "se-resolution-check-positive-vectors/1.0.0",
+  "definition_document": {
+    "schema": "se-resolution-check-definitions/1.0.0",
+    "definitions": [
+      {
+        "definition_ref": "check.harbor_climb", "check_kind": "combined", "rule_ref": "rule.d20",
+        "difficulty": {"source": "platform_snapshot", "fixed_rating": null, "public_label": "Risky climb"},
+        "actor_inputs": {"ability_refs": ["ability.agility"], "skill_refs": ["skill.athletics"], "tool_refs": ["tool.rope"], "require_actor": true},
+        "modifier_policy": {"allow_advantage": true, "allow_disadvantage": true, "stacking": "cancel_each_other", "maximum_receipts": 4},
+        "assist_policy": {"allowed": true, "maximum_assists": 2},
+        "retry_policy": {"allowed": true, "maximum_retries": 1, "cost_required": true},
+        "opposed_policy": {"allowed": false, "target_snapshot_required": false},
+        "seed_policy": "platform_provided",
+        "result_bands": [
+          {"outcome": "success", "degree": "full", "public_label": "You clear the hazard."},
+          {"outcome": "success", "degree": "partial", "public_label": "You advance with a cost candidate."},
+          {"outcome": "failure", "degree": "setback", "public_label": "The route changes; play continues."}
+        ],
+        "no_roll_policy": "allow_preview_only", "fallback_policy": "no_roll"
+      },
+      {
+        "definition_ref": "check.host_ruling", "check_kind": "ability", "rule_ref": "rule.host",
+        "difficulty": {"source": "host_confirm", "fixed_rating": null, "public_label": "Host ruling required"},
+        "actor_inputs": {"ability_refs": ["ability.insight"], "skill_refs": [], "tool_refs": [], "require_actor": true},
+        "modifier_policy": {"allow_advantage": false, "allow_disadvantage": false, "stacking": "cancel_each_other", "maximum_receipts": 0},
+        "assist_policy": {"allowed": false, "maximum_assists": 0},
+        "retry_policy": {"allowed": false, "maximum_retries": 0, "cost_required": false},
+        "opposed_policy": {"allowed": false, "target_snapshot_required": false},
+        "seed_policy": "platform_provided",
+        "result_bands": [
+          {"outcome": "success", "degree": "full", "public_label": "The ruling succeeds."},
+          {"outcome": "failure", "degree": "setback", "public_label": "The ruling adds a setback."}
+        ],
+        "no_roll_policy": "block", "fallback_policy": "host_confirm"
+      },
+      {
+        "definition_ref": "check.fixed_strength", "check_kind": "ability", "rule_ref": "rule.d20",
+        "difficulty": {"source": "fixed", "fixed_rating": 10, "public_label": "Routine lift"},
+        "actor_inputs": {"ability_refs": ["ability.strength"], "skill_refs": [], "tool_refs": [], "require_actor": true},
+        "modifier_policy": {"allow_advantage": true, "allow_disadvantage": true, "stacking": "cancel_each_other", "maximum_receipts": 2},
+        "assist_policy": {"allowed": false, "maximum_assists": 0},
+        "retry_policy": {"allowed": false, "maximum_retries": 0, "cost_required": false},
+        "opposed_policy": {"allowed": false, "target_snapshot_required": false}, "seed_policy": "platform_provided",
+        "result_bands": [{"outcome": "success", "degree": "full", "public_label": "The lift succeeds."}, {"outcome": "failure", "degree": "setback", "public_label": "The lift creates a setback."}],
+        "no_roll_policy": "block", "fallback_policy": "block"
+      },
+      {
+        "definition_ref": "check.opposed_feint", "check_kind": "opposed", "rule_ref": "rule.d20",
+        "difficulty": {"source": "platform_snapshot", "fixed_rating": null, "public_label": "Opposed feint"},
+        "actor_inputs": {"ability_refs": [], "skill_refs": ["skill.deception"], "tool_refs": [], "require_actor": true},
+        "modifier_policy": {"allow_advantage": true, "allow_disadvantage": true, "stacking": "cancel_each_other", "maximum_receipts": 2},
+        "assist_policy": {"allowed": false, "maximum_assists": 0},
+        "retry_policy": {"allowed": false, "maximum_retries": 0, "cost_required": false},
+        "opposed_policy": {"allowed": true, "target_snapshot_required": true}, "seed_policy": "platform_provided",
+        "result_bands": [{"outcome": "success", "degree": "full", "public_label": "The feint succeeds."}, {"outcome": "failure", "degree": "setback", "public_label": "The opponent reads the feint."}],
+        "no_roll_policy": "block", "fallback_policy": "block"
+      }
+    ]
+  },
+  "event": {
+    "schema": "se-event-composition/1.0.0", "profile": "crisis_event", "profile_version": "1.0.0",
+    "requires_engine": ">=1.0.0 <2.0.0",
+    "requires_capabilities": [{"id": "event.orchestrate", "version": ">=1.0.0 <2.0.0"}],
+    "optional_capabilities": [],
+    "identity": {"id": "resolution.harbor.event", "label": "Harbor check", "summary": "A deterministic proposal-only resolution check."},
+    "scope": {"kind": "site", "refs": ["site.harbor"]}, "visibility": {"default": "public", "audiences": {}},
+    "trigger": {"event": "world.clock.advanced", "when": {}}, "guards": [], "omens": [],
+    "checkpoints": [{"id": "open", "kind": "open", "public_summary": "Preview the climb."}, {"id": "done", "kind": "complete", "public_summary": "Continue after the check.", "exit_kind": "continue_with_cost"}],
+    "routes": [{"id": "route.resolve", "from": "open", "to": "done", "outcome": "resolved", "public_meaning": "Apply only a later platform commit."}],
+    "effects": [], "budgets": {}, "extensions": {"resolution.check/1.0.0": {"definition_ref": "check.harbor_climb"}},
+    "profile_data": {"risk_summary": "The climb may change the route."}, "tags": ["resolution"], "once": false, "cooldown": 1,
+    "density_group": "resolution", "minimum_round": 1, "cancellation_policy": "until_irreversible"
+  }
+}

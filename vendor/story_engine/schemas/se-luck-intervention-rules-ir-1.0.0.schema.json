@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sources",
+    "results",
+    "windows",
+    "limits",
+    "doom",
+    "echo",
+    "empty",
+    "all_in",
+    "event_modifier",
+    "modes",
+    "rating_rules_sha256",
+    "rules_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-intervention-rules-ir/1.0.0"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "talents",
+        "skills"
+      ],
+      "properties": {
+        "talents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "T01",
+            "T02",
+            "T03",
+            "T04",
+            "T05",
+            "T06",
+            "T07",
+            "T08",
+            "T09",
+            "T10"
+          ],
+          "properties": {
+            "T01": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T02": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T03": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T04": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T05": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T06": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T07": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T08": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T09": {
+              "type": "string",
+              "minLength": 1
+            },
+            "T10": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "skills": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "K1",
+            "K2",
+            "K3",
+            "K4",
+            "K5"
+          ],
+          "properties": {
+            "K1": {
+              "type": "string",
+              "minLength": 1
+            },
+            "K2": {
+              "type": "string",
+              "minLength": 1
+            },
+            "K3": {
+              "type": "string",
+              "minLength": 1
+            },
+            "K4": {
+              "type": "string",
+              "minLength": 1
+            },
+            "K5": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "results": {
+      "const": {
+        "natural_failure": 1,
+        "natural_success": 20,
+        "bands": [
+          {
+            "result": "critical_failure",
+            "minimum": null,
+            "maximum": -10
+          },
+          {
+            "result": "normal_failure",
+            "minimum": -9,
+            "maximum": -5
+          },
+          {
+            "result": "success_with_cost",
+            "minimum": -4,
+            "maximum": -1
+          },
+          {
+            "result": "full_success",
+            "minimum": 0,
+            "maximum": 9
+          },
+          {
+            "result": "critical_success",
+            "minimum": 10,
+            "maximum": null
+          }
+        ]
+      }
+    },
+    "windows": {
+      "const": {
+        "1": [
+          -5
+        ],
+        "2": [
+          -5,
+          -4
+        ],
+        "3": [
+          -6,
+          -5,
+          -4
+        ],
+        "4": [
+          -6,
+          -5,
+          -4,
+          -3
+        ]
+      }
+    },
+    "limits": {
+      "const": {
+        "per_check": 1,
+        "per_scene": 1,
+        "chapter_by_initial_rating": {
+          "1": 1,
+          "2": 1,
+          "3": 2,
+          "4": 2
+        },
+        "fallback_completed_actions": 12,
+        "change_per_chapter": 1,
+        "empty_per_chapter": 1,
+        "all_in_per_chapter": 1,
+        "window_seconds": 90,
+        "maximum_candidates_including_original": 5
+      }
+    },
+    "doom": {
+      "const": {
+        "maximum": 3,
+        "paid_surcharge_from": 1,
+        "restricted_from": 2,
+        "restricted_modes": [
+          "protect",
+          "change",
+          "all_in"
+        ],
+        "disabled_from": 3
+      }
+    },
+    "echo": {
+      "const": {
+        "initial": 4,
+        "maximum": 6,
+        "long_rest_floor": 2,
+        "shouchou_amount": 1,
+        "shouchou_per_chapter": 1
+      }
+    },
+    "empty": {
+      "const": {
+        "talent": "T07",
+        "echo_exact": 0,
+        "maximum_doom": 1,
+        "modes": [
+          "swap",
+          "leave_door"
+        ],
+        "doom_added": 1
+      }
+    },
+    "all_in": {
+      "const": {
+        "fee": 1,
+        "benefit_count": 2,
+        "benefit_results": [
+          "full_success",
+          "critical_success"
+        ],
+        "doom_results": [
+          "normal_failure",
+          "critical_failure"
+        ],
+        "doom_added": 1
+      }
+    },
+    "event_modifier": {
+      "const": {
+        "attribute_offset": 5,
+        "divisor": 3,
+        "minimum": -2,
+        "maximum": 5,
+        "usable_tool_bonus": 1,
+        "maximum_tools": 1
+      }
+    },
+    "modes": {
+      "const": {
+        "swap": {
+          "skill": "K1",
+          "talents": [
+            "T01"
+          ],
+          "fee": 1,
+          "reaction": true,
+          "results": [
+            "normal_failure",
+            "success_with_cost"
+          ],
+          "target_result": null,
+          "margin_exact": null
+        },
+        "protect": {
+          "skill": "K1",
+          "talents": [
+            "T01",
+            "T03"
+          ],
+          "fee": 2,
+          "reaction": true,
+          "results": [
+            "normal_failure",
+            "success_with_cost"
+          ],
+          "target_result": null,
+          "margin_exact": null
+        },
+        "leave_door": {
+          "skill": "K4",
+          "talents": [
+            "T01"
+          ],
+          "fee": 2,
+          "reaction": false,
+          "results": [
+            "normal_failure"
+          ],
+          "target_result": null,
+          "margin_exact": null
+        },
+        "change": {
+          "skill": "K3",
+          "talents": [
+            "T01",
+            "T04"
+          ],
+          "fee": 3,
+          "reaction": false,
+          "results": [
+            "normal_failure"
+          ],
+          "target_result": "success_with_cost",
+          "margin_exact": -5
+        }
+      }
+    },
+    "rating_rules_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "rules_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

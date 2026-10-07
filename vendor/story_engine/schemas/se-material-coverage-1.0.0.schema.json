@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "documentation-coverage/1.0.0",
+  "title": "DocumentationCoverage 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "records"],
+  "properties": {
+    "schema": {"const": "documentation-coverage/1.0.0"},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["ref", "status", "material_ids"],
+        "properties": {
+          "ref": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$"},
+          "status": {"enum": ["documented", "intentionally_internal", "not_applicable"]},
+          "material_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 160}}
+        }
+      }
+    }
+  }
+}

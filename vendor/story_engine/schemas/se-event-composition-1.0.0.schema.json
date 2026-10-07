@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-event-composition/1.0.0",
+  "title": "SE 1 Event Composition Author Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile", "profile_version", "requires_engine", "requires_capabilities", "identity", "scope", "trigger"],
+  "properties": {
+    "schema": {"const": "se-event-composition/1.0.0"},
+    "profile": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "profile_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "requires_engine": {"type": "string", "minLength": 1, "maxLength": 96},
+    "requires_capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}, "uniqueItems": true},
+    "optional_capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}, "uniqueItems": true},
+    "identity": {"$ref": "#/$defs/identity"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "visibility": {"$ref": "#/$defs/visibility"},
+    "trigger": {"$ref": "#/$defs/trigger"},
+    "guards": {"type": "array", "items": {"type": "object"}, "maxItems": 10000},
+    "omens": {"type": "array", "items": {"type": "object"}, "maxItems": 10000},
+    "checkpoints": {"type": "array", "items": {"type": "object"}, "maxItems": 10000},
+    "routes": {"type": "array", "items": {"type": "object"}, "maxItems": 10000},
+    "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}, "maxItems": 10000},
+    "budgets": {"$ref": "#/$defs/budgets"},
+    "extensions": {"type": "object"},
+    "profile_data": {"type": "object"},
+    "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "uniqueItems": true},
+    "once": {"type": "boolean"},
+    "cooldown": {"type": "integer", "minimum": 0},
+    "density_group": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+    "minimum_round": {"type": "integer", "minimum": 0},
+    "cancellation_policy": {"enum": ["until_triggered", "until_irreversible", "host_only_after_trigger"]}
+  },
+  "$defs": {
+    "capability": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version"],
+      "properties": {"id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "version": {"type": "string", "minLength": 1, "maxLength": 96}}
+    },
+    "identity": {
+      "type": "object", "additionalProperties": false, "required": ["id", "label", "summary"],
+      "properties": {"id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "label": {"type": "string", "minLength": 1, "maxLength": 80}, "summary": {"type": "string", "minLength": 1, "maxLength": 600}}
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "refs"],
+      "properties": {"kind": {"enum": ["scene", "site", "region", "faction", "quest", "actor_group", "campaign"]}, "refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}}}
+    },
+    "visibility": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"default": {"$ref": "#/$defs/audience"}, "audiences": {"type": "object", "additionalProperties": {"$ref": "#/$defs/audience"}}}
+    },
+    "audience": {"enum": ["public", "party", "actor", "dm", "admin", "author"]},
+    "trigger": {
+      "type": "object", "additionalProperties": false, "required": ["event"],
+      "properties": {"event": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "when": {"type": "object"}}
+    },
+    "effect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "route_id", "capability_id", "effect_type", "target_ref", "revision_source", "payload", "reversible"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+        "route_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+        "capability_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+        "effect_type": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+        "target_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+        "revision_source": {"enum": ["event", "world", "actor"]},
+        "payload": {"type": "object"}, "reversible": {"type": "boolean"},
+        "gate_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}
+      }
+    },
+    "budgets": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "max_rounds": {"type": "integer", "minimum": 1}, "max_checkpoints": {"type": "integer", "minimum": 1},
+        "max_loop_iterations": {"type": "integer", "minimum": 1}, "max_concurrent_fronts": {"type": "integer", "minimum": 1},
+        "max_cascade_events": {"type": "integer", "minimum": 1}, "max_cross_module_effects": {"type": "integer", "minimum": 1},
+        "max_local_ms": {"type": "integer", "minimum": 1}, "max_context_tokens": {"type": "integer", "minimum": 1},
+        "max_pressure_rounds": {"type": "integer", "minimum": 1}, "recovery_window_rounds": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

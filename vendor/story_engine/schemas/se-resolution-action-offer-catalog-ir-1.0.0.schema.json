@@ -1,0 +1,862 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-resolution-action-offer-catalog-ir/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "resolution_definition_catalog_sha256",
+    "resolution_rule_catalog_sha256",
+    "offers",
+    "catalog_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-resolution-action-offer-catalog-ir/1.0.0"
+    },
+    "resolution_definition_catalog_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "resolution_rule_catalog_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "catalog_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "offers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/offer"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "choice_ref",
+        "route_ref",
+        "label"
+      ],
+      "properties": {
+        "choice_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "route_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "modifierValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "ref",
+        "value"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "action",
+            "scene",
+            "target",
+            "actor"
+          ]
+        },
+        "ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "resultBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "band_ref",
+        "outcome",
+        "degree",
+        "public_label"
+      ],
+      "properties": {
+        "band_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "degree": {
+          "type": "string"
+        },
+        "public_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "consequences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "fact_ref",
+                  "value",
+                  "public_label"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fact.set"
+                  },
+                  "fact_ref": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      }
+                    ]
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "clock_ref",
+                  "initial_value",
+                  "amount",
+                  "public_label"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "clock.advance"
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "clock_ref": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "initial_value": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "amount"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-personal-cost/1.0.0"
+                  },
+                  "kind": {
+                    "const": "actor.hp.damage"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "item_ref",
+                  "amount"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-personal-cost/1.0.0"
+                  },
+                  "kind": {
+                    "const": "inventory.consume"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "item_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "item_ref",
+                  "amount"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-personal-cost/1.0.0"
+                  },
+                  "kind": {
+                    "const": "inventory.damage"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "item_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "item_ref"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-personal-cost/1.0.0"
+                  },
+                  "kind": {
+                    "const": "inventory.break"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "item_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "fact_ref",
+                  "value"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-actor-scene-effect/1.0.0"
+                  },
+                  "kind": {
+                    "const": "actor.scene.fact.set"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "fact_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label",
+                  "clock_ref",
+                  "amount",
+                  "initial_value"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-actor-scene-effect/1.0.0"
+                  },
+                  "kind": {
+                    "const": "actor.scene.clock.advance"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "clock_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "initial_value": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "kind",
+                  "public_label"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "se-resolution-action-obligation/1.0.0"
+                  },
+                  "kind": {
+                    "const": "actor.rope.entangle"
+                  },
+                  "public_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "offer_ref",
+        "source_event",
+        "resolution",
+        "actor_input_selector",
+        "modifier_context",
+        "modifier_source_evaluations",
+        "receipt_policy",
+        "legal_followup_intents",
+        "result_bands",
+        "narrative_policy",
+        "story_pack_slice",
+        "offer_sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-resolution-action-offer-ir/1.0.0"
+        },
+        "offer_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "offer_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_event": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_source_path",
+            "event_ref",
+            "checkpoint_ref",
+            "choice_ref",
+            "route_ref",
+            "choice_label"
+          ],
+          "properties": {
+            "event_source_path": {
+              "type": "string",
+              "pattern": "^(?![A-Za-z]:|/|.*(?:^|/)\\.\\.(?:/|$)).+$"
+            },
+            "event_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "checkpoint_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "choice_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "route_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "choice_label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resolution_definition_ref",
+            "resolution_definition_sha256",
+            "resolution_rule_ref",
+            "resolution_rule_definition_sha256"
+          ],
+          "properties": {
+            "resolution_definition_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "resolution_definition_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "resolution_rule_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "resolution_rule_definition_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        },
+        "actor_input_selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selector_kind",
+            "actor_binding",
+            "allowed_input_refs",
+            "selected_input_refs",
+            "require_actor"
+          ],
+          "properties": {
+            "selector_kind": {
+              "enum": [
+                "ability",
+                "skill",
+                "tool",
+                "combined"
+              ]
+            },
+            "actor_binding": {
+              "const": "binding.actor.current"
+            },
+            "allowed_input_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/ref"
+              }
+            },
+            "selected_input_refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ability_ref",
+                "skill_ref",
+                "tool_ref"
+              ],
+              "properties": {
+                "ability_ref": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/ref"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "skill_ref": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/ref"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tool_ref": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/ref"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "require_actor": {
+              "type": "boolean"
+            },
+            "modifier_formula": {
+              "description": "属性换算公式；两种已注册种类互斥。",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "baseline"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "attribute_minus_baseline"
+                    },
+                    "baseline": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "attribute_offset",
+                    "divisor",
+                    "minimum",
+                    "maximum",
+                    "usable_tool_bonus",
+                    "maximum_tools",
+                    "tool_refs"
+                  ],
+                  "description": "事件动作换算：floor((有效属性 - attribute_offset) / divisor)，再叠加至多一件已声明可用工具的一档加值。全部常数必须与已编译的机运事件修正定义逐字段一致，Engine 不复述算法。",
+                  "properties": {
+                    "kind": {
+                      "const": "attribute_event_step"
+                    },
+                    "attribute_offset": {
+                      "type": "integer"
+                    },
+                    "divisor": {
+                      "type": "integer"
+                    },
+                    "minimum": {
+                      "type": "integer"
+                    },
+                    "maximum": {
+                      "type": "integer"
+                    },
+                    "usable_tool_bonus": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "maximum_tools": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "tool_refs": {
+                      "description": "可提供加值的真实工具来源；为空表示本行动没有工具列，加值恒为 0。",
+                      "type": "array",
+                      "maxItems": 8,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "modifier_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scene_ref",
+            "target_ref",
+            "action_values",
+            "scene_values",
+            "target_values",
+            "actor_values"
+          ],
+          "properties": {
+            "scene_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "target_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "action_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/modifierValue"
+              }
+            },
+            "scene_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/modifierValue"
+              }
+            },
+            "target_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/modifierValue"
+              }
+            },
+            "actor_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/modifierValue"
+              }
+            }
+          }
+        },
+        "modifier_source_evaluations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "modifier_source_ref",
+              "evaluation"
+            ],
+            "properties": {
+              "modifier_source_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "evaluation": {
+                "enum": [
+                  "applicable",
+                  "suppressed"
+                ]
+              }
+            }
+          }
+        },
+        "receipt_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authority",
+            "required_receipt_fields",
+            "recovery_policy"
+          ],
+          "properties": {
+            "authority": {
+              "const": "platform_committed_resolution_receipt"
+            },
+            "required_receipt_fields": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/ref"
+              }
+            },
+            "recovery_policy": {
+              "const": "same_committed_receipt_no_reroll"
+            }
+          }
+        },
+        "legal_followup_intents": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/intent"
+          }
+        },
+        "result_bands": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/resultBand"
+          }
+        },
+        "narrative_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input_policy",
+            "narrative_may_not_reinterpret_outcome",
+            "generation_policy"
+          ],
+          "properties": {
+            "input_policy": {
+              "const": "committed_receipt_only"
+            },
+            "narrative_may_not_reinterpret_outcome": {
+              "const": true
+            },
+            "generation_policy": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "policy_ref",
+                "policy_sha256",
+                "instruction",
+                "world_voice"
+              ],
+              "properties": {
+                "policy_ref": {
+                  "$ref": "#/$defs/ref"
+                },
+                "policy_sha256": {
+                  "$ref": "#/$defs/digest"
+                },
+                "instruction": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "world_voice": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              }
+            }
+          }
+        },
+        "story_pack_slice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "slice_ref",
+            "slice_sha256",
+            "content"
+          ],
+          "properties": {
+            "slice_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "slice_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "content": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "scene_ref",
+                "narrative_constraints"
+              ],
+              "properties": {
+                "scene_ref": {
+                  "$ref": "#/$defs/ref"
+                },
+                "narrative_constraints": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

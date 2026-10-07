@@ -1,0 +1,1 @@
+{"schema":"se-ability-execution-positive-vectors/1.0.0","real_authority":"modules/capability_effects/definitions.json","real_projection":"author/se1/ability_execution_definitions.json","real_consumer":"events/openings/05_opening_hearing.json","ability_ref":"capability:knight.wall_guard","target_ref":"actor.ally","positive_actions":["preview","select_target","activate","cancel"]}

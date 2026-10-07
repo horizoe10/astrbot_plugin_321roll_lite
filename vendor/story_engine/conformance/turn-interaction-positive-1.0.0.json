@@ -1,0 +1,57 @@
+{
+  "schema": "se-turn-interaction-positive-vectors/1.0.0",
+  "policy_document": {
+    "schema": "se-turn-interaction-policies/1.0.0",
+    "policies": [{
+      "policy_ref": "interaction.crisis",
+      "applicable_profiles": ["crisis_event@1.0.0"],
+      "phases": {
+        "open": {
+          "allowed_modes": ["dialogue_only", "hybrid"], "default_mode": "dialogue_only",
+          "hybrid_submission_policy": "one_of", "choice_cardinality": {"minimum": 1, "maximum": 1},
+          "dialogue_constraints": {"maximum_characters": 500, "allow_empty": false, "allow_ooc": false},
+          "ambiguity_policy": "needs_clarification", "transition_targets": ["risk", "complete"], "fallback_mode": "choice_only"
+        },
+        "risk": {
+          "allowed_modes": ["choice_only", "hybrid"], "default_mode": "choice_only",
+          "hybrid_submission_policy": "choice_with_optional_dialogue", "choice_cardinality": {"minimum": 1, "maximum": 1},
+          "dialogue_constraints": {"maximum_characters": 240, "allow_empty": false, "allow_ooc": false},
+          "ambiguity_policy": "needs_clarification", "transition_targets": ["complete"], "fallback_mode": "choice_only"
+        }
+      },
+      "locale_text_limits": {"en-US": 500, "zh-Hans": 500},
+      "accessibility": {"stable_order": true, "non_color_labels": true},
+      "fallback": {"web": "semantic_controls", "qq": "numbered_choices_and_text", "headless": "typed_dto", "reserved_meta_commands": ["cancel", "exit", "help", "取消", "退出", "帮助"]},
+      "conformance_cases": ["choice-only", "dialogue-only", "hybrid-one-of", "hybrid-choice-dialogue", "stale", "ambiguous", "fallback", "cross-surface"]
+    }]
+  },
+  "event": {
+    "schema": "se-event-composition/1.0.0", "profile": "crisis_event", "profile_version": "1.0.0",
+    "requires_engine": ">=1.0.0 <2.0.0", "requires_capabilities": [{"id": "event.orchestrate", "version": ">=1.0.0 <2.0.0"}], "optional_capabilities": [],
+    "identity": {"id": "interaction.crisis.event", "label": "Crisis interaction", "summary": "A deterministic interaction conformance event."},
+    "scope": {"kind": "site", "refs": ["site.harbor"]}, "visibility": {"default": "public", "audiences": {}},
+    "trigger": {"event": "world.clock.advanced", "when": {}}, "guards": [], "omens": [],
+    "checkpoints": [
+      {"id": "open", "kind": "open", "public_summary": "Choose or describe a safe approach."},
+      {"id": "risk", "kind": "risk", "public_summary": "Confirm the high-risk route."},
+      {"id": "done", "kind": "complete", "public_summary": "The interaction is complete.", "exit_kind": "complete"}
+    ],
+    "routes": [
+      {"id": "route.observe", "from": "open", "to": "risk", "outcome": "observed", "public_meaning": "Observe the hazard."},
+      {"id": "route.withdraw", "from": "open", "to": "done", "outcome": "withdrawn", "public_meaning": "Withdraw safely."},
+      {"id": "route.commit", "from": "risk", "to": "done", "outcome": "committed", "public_meaning": "Commit to the declared route."}
+    ],
+    "effects": [], "budgets": {}, "extensions": {"turn.interaction/1.0.0": {"policy_ref": "interaction.crisis"}},
+    "profile_data": {"risk_summary": "The harbor route is unstable."}, "tags": ["interaction"], "once": false, "cooldown": 1,
+    "density_group": "interaction", "minimum_round": 1, "cancellation_policy": "until_irreversible"
+  },
+  "choices": [
+    {"choice_ref": "route.observe", "label": "Observe", "purpose": "Study the hazard", "cost": "One action", "risk": "Delay", "limitations": "Current actor only", "next_phase_ref": "risk", "allow_optional_dialogue": true},
+    {"choice_ref": "route.withdraw", "label": "Withdraw", "purpose": "Leave safely", "cost": "Lose time", "risk": "Opportunity closes", "limitations": "Current actor only", "next_phase_ref": "complete", "allow_optional_dialogue": false},
+    {"choice_ref": "route.commit", "label": "Commit", "purpose": "Confirm the risky route", "cost": "One action", "risk": "Declared consequences apply", "limitations": "Current actor only", "next_phase_ref": "complete", "allow_optional_dialogue": true}
+  ],
+  "dialogue_intents": [
+    {"intent_ref": "intent.observe", "accepted_utterances": ["look around", "观察四周"], "next_phase_ref": "risk"},
+    {"intent_ref": "intent.withdraw", "accepted_utterances": ["fall back", "撤退"], "next_phase_ref": "complete"}
+  ]
+}

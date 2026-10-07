@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-character-build-runtime/1.1.0",
+  "oneOf": [
+    {"$ref": "#/$defs/snapshot"},
+    {"$ref": "#/$defs/request"},
+    {"$ref": "#/$defs/proposal"},
+    {"$ref": "#/$defs/result"}
+  ],
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"},
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "answer": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": {"kind": {"const": "text"}, "value": {"type": "string", "minLength": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "selection_ref", "source_ref"], "properties": {"kind": {"const": "choice"}, "selection_ref": {"$ref": "#/$defs/ref"}, "source_ref": {"$ref": "#/$defs/ref"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind"], "properties": {"kind": {"const": "skipped"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "computation_ref", "dependency_fingerprint", "summary"], "properties": {"kind": {"const": "computed_checkpoint"}, "computation_ref": {"$ref": "#/$defs/ref"}, "dependency_fingerprint": {"$ref": "#/$defs/hash"}, "summary": {"type": "object"}}}
+      ]
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "draft_ref", "draft_revision", "recipe_ref", "recipe_sha256", "current_step_ref", "answers", "paused", "ready_to_confirm", "fingerprint"],
+      "properties": {
+        "schema": {"const": "se-character-build-answer-snapshot/1.1.0"}, "draft_ref": {"$ref": "#/$defs/ref"},
+        "draft_revision": {"type": "integer", "minimum": 0}, "recipe_ref": {"$ref": "#/$defs/ref"}, "recipe_sha256": {"$ref": "#/$defs/hash"},
+        "current_step_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+        "answers": {"type": "object", "propertyNames": {"$ref": "#/$defs/ref"}, "additionalProperties": {"$ref": "#/$defs/answer"}},
+        "paused": {"type": "boolean"}, "ready_to_confirm": {"type": "boolean"}, "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "operation_ref", "request_fingerprint", "expected_draft_revision", "action", "snapshot", "input"],
+      "properties": {
+        "schema": {"const": "se-character-build-evaluation/1.1.0"}, "operation_ref": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"},
+        "expected_draft_revision": {"type": "integer", "minimum": 0}, "action": {"enum": ["preview", "submit_text", "choose", "skip", "back", "reset", "pause", "resume", "confirm_candidate"]},
+        "snapshot": {"$ref": "#/$defs/snapshot"}, "input": {"type": "object"}
+      }
+    },
+    "patch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "base_draft_ref", "base_draft_revision", "base_snapshot_fingerprint", "action", "set_current_step_ref", "set_answers", "remove_answer_refs", "set_paused", "set_ready_to_confirm", "platform_persist_required"],
+      "properties": {
+        "schema": {"const": "platform-character-build-draft-patch/1.1.0"}, "base_draft_ref": {"$ref": "#/$defs/ref"}, "base_draft_revision": {"type": "integer", "minimum": 0}, "base_snapshot_fingerprint": {"$ref": "#/$defs/hash"},
+        "action": {"type": "string"}, "set_current_step_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]}, "set_answers": {"type": "object", "additionalProperties": {"$ref": "#/$defs/answer"}},
+        "remove_answer_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}, "set_paused": {"type": "boolean"}, "set_ready_to_confirm": {"type": "boolean"}, "platform_persist_required": {"const": true}
+      }
+    },
+    "create": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "draft_ref", "draft_revision", "snapshot_fingerprint", "recipe_ref", "recipe_sha256", "answers", "authoritative_create"],
+      "properties": {"schema": {"const": "platform-character-create-candidate/1.1.0"}, "draft_ref": {"$ref": "#/$defs/ref"}, "draft_revision": {"type": "integer", "minimum": 0}, "snapshot_fingerprint": {"$ref": "#/$defs/hash"}, "recipe_ref": {"$ref": "#/$defs/ref"}, "recipe_sha256": {"$ref": "#/$defs/hash"}, "answers": {"type": "object", "additionalProperties": {"$ref": "#/$defs/answer"}}, "authoritative_create": {"const": false}}
+    },
+    "proposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "proposal_ref", "operation_ref", "source_draft_ref", "source_draft_revision", "source_snapshot_fingerprint", "kind", "public_view", "platform_patch", "create_candidate", "requires_platform_commit", "creates_actor"],
+      "properties": {"schema": {"const": "se-character-build-proposal/1.1.0"}, "proposal_ref": {"$ref": "#/$defs/ref"}, "operation_ref": {"$ref": "#/$defs/ref"}, "source_draft_ref": {"$ref": "#/$defs/ref"}, "source_draft_revision": {"type": "integer", "minimum": 0}, "source_snapshot_fingerprint": {"$ref": "#/$defs/hash"}, "kind": {"enum": ["preview", "draft_patch", "create_candidate"]}, "public_view": {"type": "object"}, "platform_patch": {"anyOf": [{"$ref": "#/$defs/patch"}, {"type": "null"}]}, "create_candidate": {"anyOf": [{"$ref": "#/$defs/create"}, {"type": "null"}]}, "requires_platform_commit": {"type": "boolean"}, "creates_actor": {"const": false}}
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "operation_ref", "request_fingerprint", "status", "proposal", "problems", "result_fingerprint"],
+      "properties": {"schema": {"const": "se-character-build-result/1.1.0"}, "operation_ref": {"$ref": "#/$defs/ref"}, "request_fingerprint": {"$ref": "#/$defs/hash"}, "status": {"enum": ["proposed", "blocked"]}, "proposal": {"anyOf": [{"$ref": "#/$defs/proposal"}, {"type": "null"}]}, "problems": {"type": "array", "items": {"type": "object"}}, "result_fingerprint": {"$ref": "#/$defs/hash"}}
+    }
+  }
+}

@@ -1,0 +1,515 @@
+{
+  "format": "321roll.world-template/1",
+  "id": "neon-pawnshop",
+  "revision": 1,
+  "title": "霓虹典当行 · 今夜有人当掉了整座城的昨天",
+  "worldview": "澜湾是一座建在填海地上的巨城，高架轨道把天空切成碎片，雨几乎从不停。在这里，记忆是可以交易的东西：\n\n- 植入颈后的\"忆匣\"能把一段记忆抽出来，存成一枚琥珀色的芯片；\n- 穷人典当快乐的回忆换房租，富人买下别人的童年当收藏；\n- 企业收购员工的技能记忆，再按小时租给下一个员工。\n\n澜湾所有的典当都必须登记在\"恒忆集团\"的中央账本上，只有底城的几家老当铺还在做不登记的生意。你们这家\"回声典当\"就是其中之一。它挤在高架桥下，招牌缺了一个灯管。\n\n今天早上，整座澜湾醒来时，所有人都想不起昨天发生了什么：交易所停摆，警署的案卷是空的，恒忆集团的股价跌了一半。而回声典当的柜台上，多了一张手写的当票：\n\n当物：澜湾全城，昨日一天。当期：三日。逾期不赎，即行变卖。\n\n当票的签名，是你们之中某个人的笔迹。",
+  "seed": "卷帘门拉开一半，雨水灌进来。柜台上的老式收银机自己弹开了抽屉，里面躺着一张当票和一枚滚烫的芯片。\n\n门外，一辆恒忆集团的黑色厢车停在积水里，车灯照着当铺的招牌。车门打开之前，你们还有一点时间决定：把芯片藏起来，还是先看看里面装着什么。",
+  "style": "霓虹与雨夜的黑色都市：冷硬的企业、温热的街头人情；悬疑推动、动作点缀，关注记忆与身份的代价，保留一点黑色幽默。",
+  "boundaries": "- 不写酷刑与过度的身体改造细节；义体与伤害点到为止。\n- 不写真实企业、品牌与地名。\n- 不出现毒品使用的具体描写，可以提到\"记忆成瘾\"这类虚构概念。\n- 角色的记忆可以被篡改，但玩家角色的核心身份由玩家本人决定，主持不替玩家改写。",
+  "guidance": "真相（不公开）：\n\n- 恒忆集团昨天在全城上传了一次\"记忆校准\"更新，想悄悄抹掉一桩丑闻：集团把底城居民的睡眠时间偷偷租给外包算力。\n- 回声典当的一位玩家角色（建议由第一个入座的人承担，可在开局后由主持询问本人意愿）昨天察觉了这件事，抢在更新前把全城的\"昨天\"整段当掉，存进了那枚芯片。之后他也忘了自己做过这件事。\n- 芯片在三天内赎回，全城就能想起昨天；被恒忆拿到，就会被永久销毁。\n\n节奏：\n- 第一幕：当铺与厢车，确认芯片是什么\n- 第二幕：底城追查昨天发生了什么\n- 第三幕：潜入恒忆的数据塔或公开记忆\n- 第四幕：赎回、变卖或公之于众的抉择",
+  "attributes": [
+    {
+      "id": "body",
+      "name": "体魄",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "reflex",
+      "name": "反应",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "hack",
+      "name": "骇入",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "talk",
+      "name": "交涉",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "will",
+      "name": "意志",
+      "min": 6,
+      "max": 16
+    }
+  ],
+  "budget": 55,
+  "modifier": {
+    "baseline": 10,
+    "divisor": 2
+  },
+  "resources": [
+    {
+      "id": "health",
+      "name": "体力",
+      "min": 0,
+      "max": 10,
+      "initial": 10
+    },
+    {
+      "id": "bandwidth",
+      "name": "带宽",
+      "min": 0,
+      "max": 6,
+      "initial": 6
+    }
+  ],
+  "rules": {
+    "dcMin": 5,
+    "dcMax": 25,
+    "dc": 12,
+    "difficulties": [
+      8,
+      12,
+      15,
+      18
+    ],
+    "seats": 16,
+    "minPlayers": 1,
+    "recommendedMin": 2,
+    "recommendedMax": 4,
+    "mode": "hybrid",
+    "expectedResults": true,
+    "skillSlots": 2,
+    "failureCost": 1,
+    "failureResource": "health",
+    "restCost": 0,
+    "restCostResource": "",
+    "restGain": 3,
+    "restGainResource": "health"
+  },
+  "skills": [
+    {
+      "id": "overclock",
+      "name": "义体超频",
+      "text": "短时间爆发出远超常人的力量或速度",
+      "attribute": "body",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "bandwidth",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "cover-fire",
+      "name": "压制射击",
+      "text": "火力压制，掩护同伴转移",
+      "attribute": "reflex",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "breach",
+      "name": "破墙代码",
+      "text": "突破一道防火墙或电子锁",
+      "attribute": "hack",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "bandwidth",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "ghost",
+      "name": "幽灵接入",
+      "text": "不留痕迹地读取监控或账本",
+      "attribute": "hack",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "appraise",
+      "name": "鉴忆",
+      "text": "读一枚记忆芯片，分辨真伪与被篡改之处",
+      "attribute": "will",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "bandwidth",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "haggle",
+      "name": "压价",
+      "text": "在交易与谈判里多争一分",
+      "attribute": "talk",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "patch-up",
+      "name": "街头缝合",
+      "text": "处理伤口，恢复同伴 2 点体力",
+      "attribute": "will",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "black-clinic",
+      "name": "黑诊所人脉",
+      "text": "弄到药品、义体零件或一处藏身地",
+      "attribute": "talk",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "case-file",
+      "name": "旧案卷",
+      "text": "回想警署时期的案子与线人，找到一条调查方向",
+      "attribute": "will",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "badge",
+      "name": "旧警徽",
+      "text": "亮出过期的警徽，唬住门卫或问出口供",
+      "attribute": "talk",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "broadcast",
+      "name": "插播",
+      "text": "劫持一段频道，把消息播给整座城",
+      "attribute": "talk",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "bandwidth",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "crowd",
+      "name": "粉丝应援",
+      "text": "召集街头听众制造混乱或掩护",
+      "attribute": "reflex",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    }
+  ],
+  "items": [
+    {
+      "id": "stim",
+      "name": "急救针",
+      "text": "体力 +3",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 3,
+      "gainResource": "health",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    },
+    {
+      "id": "battery",
+      "name": "备用电池",
+      "text": "带宽 +2",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 2,
+      "gainResource": "bandwidth",
+      "uses": 0,
+      "reset": "never",
+      "initial": 1,
+      "consume": 1
+    },
+    {
+      "id": "burner",
+      "name": "一次性终端",
+      "text": "骇入检定 +1，每幕 2 次",
+      "attribute": "hack",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "merc",
+      "name": "义体佣兵",
+      "text": "正面与掩护（专精型）",
+      "attributes": {
+        "body": 16,
+        "reflex": 13,
+        "hack": 8,
+        "talk": 8,
+        "will": 10
+      },
+      "skills": [
+        "overclock",
+        "cover-fire"
+      ]
+    },
+    {
+      "id": "netrunner",
+      "name": "网络行者",
+      "text": "入侵与侦察（偏科型）",
+      "attributes": {
+        "body": 8,
+        "reflex": 12,
+        "hack": 16,
+        "talk": 8,
+        "will": 11
+      },
+      "skills": [
+        "breach",
+        "ghost"
+      ]
+    },
+    {
+      "id": "appraiser",
+      "name": "典当鉴忆师",
+      "text": "记忆与交易（双修型）",
+      "attributes": {
+        "body": 8,
+        "reflex": 8,
+        "hack": 10,
+        "talk": 14,
+        "will": 15
+      },
+      "skills": [
+        "appraise",
+        "haggle"
+      ]
+    },
+    {
+      "id": "ripper",
+      "name": "街头医生",
+      "text": "救治与门路（均衡型）",
+      "attributes": {
+        "body": 8,
+        "reflex": 10,
+        "hack": 12,
+        "talk": 12,
+        "will": 13
+      },
+      "skills": [
+        "patch-up",
+        "black-clinic"
+      ]
+    },
+    {
+      "id": "ex-cop",
+      "name": "前企业警探",
+      "text": "追查与施压（全才型）",
+      "attributes": {
+        "body": 12,
+        "reflex": 11,
+        "hack": 10,
+        "talk": 10,
+        "will": 12
+      },
+      "skills": [
+        "case-file",
+        "badge"
+      ]
+    },
+    {
+      "id": "host",
+      "name": "地下电台主播",
+      "text": "舆论与人群（双修型）",
+      "attributes": {
+        "body": 8,
+        "reflex": 14,
+        "hack": 10,
+        "talk": 15,
+        "will": 8
+      },
+      "skills": [
+        "broadcast",
+        "crowd"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "lanwan",
+      "name": "澜湾",
+      "kind": "region",
+      "public": true,
+      "summary": "填海巨城，上城是企业塔，底城在高架桥下",
+      "secret": "",
+      "links": [
+        "echo-pawn",
+        "data-tower"
+      ]
+    },
+    {
+      "id": "echo-pawn",
+      "name": "回声典当",
+      "kind": "place",
+      "public": true,
+      "summary": "底城老当铺，只做不登记的生意",
+      "secret": "后间的老式忆匣能读取未登记的芯片",
+      "links": [
+        "lanwan"
+      ]
+    },
+    {
+      "id": "data-tower",
+      "name": "恒忆数据塔",
+      "kind": "place",
+      "public": true,
+      "summary": "恒忆集团的总部与中央账本所在地",
+      "secret": "塔底的冷却层里堆着\"睡眠租赁\"的服务器",
+      "links": [
+        "hengyi"
+      ]
+    },
+    {
+      "id": "hengyi",
+      "name": "恒忆集团",
+      "kind": "faction",
+      "public": true,
+      "summary": "垄断记忆登记与交易的巨型企业",
+      "secret": "昨天的\"记忆校准\"是为了掩盖睡眠租赁",
+      "links": [
+        "data-tower"
+      ]
+    },
+    {
+      "id": "granny-mei",
+      "name": "梅婆",
+      "kind": "npc",
+      "public": true,
+      "summary": "回声典当的老板，九十岁，从不典当自己的记忆",
+      "secret": "她记得昨天：她的忆匣是旧款，没收到更新",
+      "links": [
+        "echo-pawn"
+      ]
+    },
+    {
+      "id": "agent-k",
+      "name": "收账人 K",
+      "kind": "npc",
+      "public": true,
+      "summary": "恒忆的回收专员，礼貌而危险",
+      "secret": "他自己的记忆也被租出去过，对集团并不忠心",
+      "links": [
+        "hengyi"
+      ]
+    },
+    {
+      "id": "clue-ticket",
+      "name": "手写当票",
+      "kind": "clue",
+      "public": true,
+      "summary": "签名是某位玩家角色的笔迹",
+      "secret": "签名的人昨天发现了睡眠租赁",
+      "links": [
+        "goal-redeem"
+      ]
+    },
+    {
+      "id": "goal-redeem",
+      "name": "三日当期",
+      "kind": "goal",
+      "public": true,
+      "summary": "在当期届满前决定芯片的去向，找回昨天",
+      "secret": "",
+      "links": [
+        "clue-ticket"
+      ]
+    },
+    {
+      "id": "pirate-radio",
+      "name": "地下电台",
+      "kind": "place",
+      "public": true,
+      "summary": "藏在高架桥墩里的地下电台",
+      "secret": "",
+      "links": [
+        "lanwan"
+      ]
+    },
+    {
+      "id": "black-clinic",
+      "name": "黑诊所",
+      "kind": "place",
+      "public": true,
+      "summary": "底城地下室里的无照诊所，卖药品与二手义体零件，也收留躲债的人",
+      "secret": "帘子后的病人是睡眠租赁里逃出来的员工，颈后的忆匣还在发烫",
+      "links": [
+        "lanwan",
+        "data-tower"
+      ]
+    }
+  ],
+  "initial": {
+    "place": "回声典当",
+    "time": "\"失忆日\"清晨 · 雨",
+    "state": "全城忘记了昨天；柜台上有一张当票与一枚芯片；恒忆的厢车停在门外",
+    "links": [
+      "echo-pawn",
+      "hengyi",
+      "goal-redeem"
+    ]
+  }
+}

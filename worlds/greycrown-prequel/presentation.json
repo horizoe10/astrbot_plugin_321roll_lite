@@ -1,0 +1,108 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "greycrown-prequel",
+  "acts": [
+    {
+      "number": 1,
+      "title": "山门告示",
+      "lead": "凡愿下井者，入石环之籍，葬于山心。",
+      "weather": "mist",
+      "ambience": [
+        "wind",
+        "murmur"
+      ],
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "下井",
+      "lead": "火泵转起来之前，水不会让路。",
+      "weather": "dust",
+      "ambience": [
+        "drip",
+        "hum"
+      ],
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "议约",
+      "lead": "止于本身，还是及于子嗣。",
+      "weather": "none",
+      "ambience": [
+        "room",
+        "murmur"
+      ],
+      "image": "act-3"
+    },
+    {
+      "number": 4,
+      "title": "录约之日",
+      "lead": "一旦打孔，冠机会照章执行，直到永远。",
+      "weather": "none",
+      "ambience": [
+        "clock",
+        "hum"
+      ],
+      "image": "act-4"
+    }
+  ],
+  "places": [
+    {
+      "entry": "fire-pump",
+      "name": "『火泵』",
+      "image": "place-fire-pump",
+      "aliases": [
+        "火泵"
+      ]
+    },
+    {
+      "entry": "drifter-slope",
+      "name": "〔流民坡〕",
+      "image": "place-drifter-slope",
+      "aliases": [
+        "流民坡"
+      ]
+    },
+    {
+      "entry": "flooded-shafts",
+      "name": "〔水淹旧矿道〕",
+      "image": "place-flooded-shafts",
+      "aliases": [
+        "旧矿道",
+        "水淹"
+      ]
+    },
+    {
+      "entry": "ancestral-tomb",
+      "name": "〔山心祖墓〕",
+      "image": "place-ancestral-tomb",
+      "aliases": [
+        "祖墓"
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "names-carved",
+      "name": "名字刻进石壁",
+      "rule": "祖约录入，迁葬完成，流民的名字刻进山心",
+      "image": "ending-names-carved"
+    },
+    {
+      "id": "sealed-card",
+      "name": "锁进柜里",
+      "rule": "祖约录入，但打孔卡未经核对就被锁进柜里，条文成为日后的争议",
+      "image": "ending-sealed-card"
+    },
+    {
+      "id": "tomb-kept",
+      "name": "山心不开",
+      "rule": "祖约未能录入，祖墓重新封上，流民下山另寻出路",
+      "image": "ending-tomb-kept"
+    }
+  ],
+  "shared": {
+    "place-ancestral-tomb": "act-1"
+  }
+}

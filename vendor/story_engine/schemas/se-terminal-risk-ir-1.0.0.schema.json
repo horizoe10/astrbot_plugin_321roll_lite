@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:se:terminal-risk-ir:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "story_pack_ref",
+    "policy",
+    "events",
+    "flow_bindings",
+    "author_sha256",
+    "ir_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-terminal-risk-ir/1.0.0"
+    },
+    "story_pack_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trigger_numerator",
+        "trigger_denominator",
+        "check_every_world_advances",
+        "minimum_gap_world_advances",
+        "maximum_per_chapter",
+        "maximum_active"
+      ],
+      "properties": {
+        "trigger_numerator": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "trigger_denominator": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "check_every_world_advances": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "minimum_gap_world_advances": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maximum_per_chapter": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maximum_active": {
+          "const": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_ref",
+          "region_ref",
+          "public_warning",
+          "response_window_rounds",
+          "terminal_conditions",
+          "terminal_outcome",
+          "source_refs",
+          "response_actions",
+          "failure_epilogue"
+        ],
+        "properties": {
+          "event_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+          },
+          "region_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+          },
+          "public_warning": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200
+          },
+          "response_window_rounds": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 100
+          },
+          "terminal_conditions": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "public_warning_committed",
+                "critical_warning_committed",
+                "intervention_failed",
+                "evacuation_unavailable",
+                "rescue_exhausted",
+                "all_party_exposed"
+              ]
+            }
+          },
+          "terminal_outcome": {
+            "const": "party_wipe"
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "response_actions": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "action_ref",
+                "condition",
+                "label",
+                "ability_ref",
+                "difficulty",
+                "resolution_rule_ref",
+                "modifier_formula"
+              ],
+              "properties": {
+                "action_ref": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+                },
+                "condition": {
+                  "enum": [
+                    "intervention_failed",
+                    "evacuation_unavailable",
+                    "rescue_exhausted"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "ability_ref": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+                },
+                "difficulty": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "resolution_rule_ref": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+                },
+                "modifier_formula": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "baseline"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "attribute_minus_baseline"
+                    },
+                    "baseline": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "failure_epilogue": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200
+          }
+        }
+      }
+    },
+    "flow_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recipe_ref",
+          "region_ref",
+          "chapter_ref"
+        ],
+        "properties": {
+          "recipe_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+          },
+          "region_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+          },
+          "chapter_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$"
+          }
+        }
+      }
+    },
+    "author_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ir_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

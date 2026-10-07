@@ -1,0 +1,61 @@
+{
+  "schema": "se-dev3-resource-effects-negative-vectors/1.0.0",
+  "vectors": [
+    {
+      "id": "registry.duplicate_exact_pair",
+      "mutation": {"kind": "duplicate_profile_pair", "profile_id": "crisis_event", "version": "1.1.0"},
+      "expected_error": "engine.profile_version_unsupported"
+    },
+    {
+      "id": "registry.implicit_default_forbidden",
+      "mutation": {"kind": "resolve_without_version", "profile_id": "crisis_event"},
+      "expected_error": "engine.profile_version_unsupported"
+    },
+    {
+      "id": "registry.fingerprint_mismatch",
+      "mutation": {"kind": "replace_registry_fingerprint", "value": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+      "expected_error": "engine.profile_fingerprint_mismatch"
+    },
+    {
+      "id": "resource.minimum_above_maximum",
+      "mutation": {"kind": "replace_resource_field", "resource_ref": "vitality.hp", "field": "minimum", "value": 13},
+      "expected_error": "engine.resource_definition_invalid"
+    },
+    {
+      "id": "resource.band_gap",
+      "mutation": {"kind": "replace_band_minimum", "resource_ref": "vitality.hp", "band_id": "steady", "value": 5002},
+      "expected_error": "engine.resource_definition_invalid"
+    },
+    {
+      "id": "resource.duplicate_definition",
+      "mutation": {"kind": "duplicate_resource", "resource_ref": "vitality.hp"},
+      "expected_error": "engine.resource_definition_invalid"
+    },
+    {
+      "id": "vitality.resource_pool_dependency_missing",
+      "mutation": {"kind": "remove_vitality_requirement", "value": "actor.resource_pool/1.0.0"},
+      "expected_error": "engine.vitality_dependency_missing"
+    },
+    {
+      "id": "vitality.non_vitality_resource",
+      "mutation": {"kind": "replace_resource_kind", "resource_ref": "vitality.hp", "value": "mana"},
+      "expected_error": "engine.resource_definition_invalid"
+    },
+    {
+      "id": "effect.damage_negative_base_amount",
+      "mutation": {"kind": "replace_damage_base_amount", "value": -4},
+      "expected_error": "engine.effect_payload_invalid"
+    },
+    {
+      "id": "effect.internal_actor_id_forbidden",
+      "mutation": {"kind": "replace_target_binding", "value": "actor.internal.42"},
+      "expected_error": "engine.target_binding_invalid"
+    },
+    {
+      "id": "vitality.depletion_death_forbidden",
+      "mutation": {"kind": "replace_depletion_policy", "value": "death"},
+      "expected_error": "engine.vitality_terminal_forbidden"
+    }
+  ]
+}
+

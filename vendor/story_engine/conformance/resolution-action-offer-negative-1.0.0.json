@@ -1,0 +1,16 @@
+{
+  "schema": "se-resolution-action-offer-negative-vectors/1.0.0",
+  "mutations": [
+    {"id": "unknown_field", "expected_code": "action_offer.fields_invalid"},
+    {"id": "definition_unknown", "expected_code": "action_offer.resolution_definition_unresolved"},
+    {"id": "route_drift", "expected_code": "action_offer.choice_route_mismatch"},
+    {"id": "actor_selector_drift", "expected_code": "action_offer.actor_selector_mismatch"},
+    {"id": "actor_selection_drift", "expected_code": "action_offer.actor_selection_invalid"},
+    {"id": "followup_duplicate", "expected_code": "action_offer.followup_invalid"},
+    {"id": "result_band_missing", "expected_code": "action_offer.result_band_count_invalid"},
+    {"id": "modifier_context_missing", "expected_code": "action_offer.modifier_context_drift"},
+    {"id": "receipt_recovery_drift", "expected_code": "action_offer.receipt_policy_mismatch"},
+    {"id": "narrative_instruction_missing", "expected_code": "action_offer.fields_invalid"},
+    {"id": "slice_constraints_missing", "expected_code": "action_offer.story_slice_constraints_invalid"}
+  ]
+}

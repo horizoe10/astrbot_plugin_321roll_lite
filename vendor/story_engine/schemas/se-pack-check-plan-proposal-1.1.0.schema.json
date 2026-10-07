@@ -1,0 +1,89 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "committed",
+    "operation_ref",
+    "context_sha256",
+    "policy_sha256",
+    "difficulty_tier",
+    "reason",
+    "source_fact_refs",
+    "proposal_sha256",
+    "attribute_ref",
+    "attribute_reason",
+    "attribute_source_refs"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-pack-check-plan-proposal/1.1.0"
+    },
+    "committed": {
+      "const": false
+    },
+    "operation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "context_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "difficulty_tier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "source_fact_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "attribute_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "\\S"
+    },
+    "attribute_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "\\S"
+    },
+    "attribute_source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240,
+        "pattern": "\\S"
+      },
+      "uniqueItems": true
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/se-pack-check-plan-proposal-1.1.0.schema.json"
+}

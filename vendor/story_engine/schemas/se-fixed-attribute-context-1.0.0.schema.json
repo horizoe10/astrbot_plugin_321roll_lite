@@ -1,0 +1,260 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "room_ref",
+    "actor_ref",
+    "event_ref",
+    "offer_ref",
+    "default_attribute_ref",
+    "room_revision",
+    "actor_revision",
+    "event_revision",
+    "artifact_sha256",
+    "offer_sha256",
+    "definition_sha256",
+    "context_sha256",
+    "selection_rules",
+    "attribute_context"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-fixed-attribute-context/1.0.0"
+    },
+    "room_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "event_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "offer_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "default_attribute_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "room_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "actor_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "offer_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "definition_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "context_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "selection_rules": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "offer_ref",
+            "associations",
+            "fallback_reason"
+          ],
+          "properties": {
+            "offer_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "associations": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "attribute_ref",
+                  "required_source_refs",
+                  "priority",
+                  "reason"
+                ],
+                "properties": {
+                  "attribute_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "required_source_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                }
+              }
+            },
+            "fallback_reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attribute_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "attributes",
+        "sources",
+        "action_source_ref",
+        "context_sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "321roll-action-attribute-context/1.0.0"
+        },
+        "attributes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "label",
+              "value"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_ref",
+              "kind",
+              "label",
+              "text",
+              "source_sha256"
+            ],
+            "properties": {
+              "source_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240,
+                "pattern": "\\S"
+              },
+              "kind": {
+                "enum": [
+                  "action",
+                  "profession",
+                  "specialization",
+                  "skill",
+                  "attribute"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240,
+                "pattern": "\\S"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000,
+                "pattern": "\\S"
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "action_source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "\\S"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/se-fixed-attribute-context-1.0.0.schema.json"
+}

@@ -1,0 +1,503 @@
+{
+  "schema": "se-story-flow-conformance-vectors/1.0.0",
+  "requirements_implemented": [
+    "ENG02-046",
+    "ENG02-047",
+    "FLOW02-004",
+    "FLOW02-005",
+    "FLOW02-006"
+  ],
+  "requirements_deferred": [
+    "ENG02-048",
+    "FLOW02-007",
+    "FLOW02-008"
+  ],
+  "positive": {
+    "reference_catalog": {
+      "capability_refs": ["story_flow.private_parallel", "story_flow.public_conflict"],
+      "participant_policy_refs": ["participant.all-present.v1"],
+      "interaction_policy_refs": ["interaction.standard.v1"],
+      "content_hook_refs": ["hook.phase.cooperative", "hook.phase.epilogue", "hook.phase.finale", "hook.phase.private", "hook.phase.regroup"],
+      "condition_refs": ["condition.finale-committed", "condition.finale-ready", "condition.private-complete", "condition.private-enabled", "condition.publication-complete"],
+      "rule_receipt_requirement_refs": ["receipt.finale", "receipt.finale-ready"],
+      "progress_condition_refs": ["condition.new-committed-fact"]
+    },
+    "recipe": {
+      "schema": "story-flow-recipe/1.0.0",
+      "recipe_ref": "story-flow.conformance.cooperative-private",
+      "recipe_version": "1.0.0",
+      "required_capabilities": [
+        "story_flow.private_parallel"
+      ],
+      "optional_capabilities": [],
+      "entry_phase_ref": "phase.cooperative",
+      "phase_nodes": [
+        {
+          "phase_ref": "phase.cooperative",
+          "kind": "cooperative",
+          "label": "共同调查",
+          "summary": "参与者在公开场景共同调查，并选择是否分头行动。",
+          "participant_policy_ref": "participant.all-present.v1",
+          "interaction_policy_ref": "interaction.standard.v1",
+          "content_hook_refs": [
+            "hook.phase.cooperative"
+          ],
+          "completion_policy": {
+            "kind": "all_required",
+            "threshold": null,
+            "on_unmet": "stay"
+          },
+          "deadline_policy": {
+            "mode": "none",
+            "seconds": null,
+            "expiry_action": "stay"
+          },
+          "absence_policy": {
+            "suggested_action": "wait",
+            "maximum_wait_seconds": 300,
+            "requires_actor_consent": true
+          },
+          "result_publication_policy": [
+            "mechanical_shared"
+          ],
+          "operation_budget": {
+            "max_interactions": 4,
+            "max_input_chars": 4000,
+            "max_context_tokens": 8000,
+            "max_model_calls": 1,
+            "wall_clock_ms": 30000,
+            "repair_attempts": 1
+          },
+          "required_capabilities": [],
+          "optional_capabilities": [],
+          "fallback": {
+            "mode": "block",
+            "phase_ref": null,
+            "public_summary": "当前阶段无法继续时暂停，并保留已经提交的结果。"
+          }
+        },
+        {
+          "phase_ref": "phase.private",
+          "kind": "private_parallel",
+          "label": "分头行动",
+          "summary": "参与者分别处理获授权的线索，内容保持受众隔离。",
+          "participant_policy_ref": "participant.all-present.v1",
+          "interaction_policy_ref": "interaction.standard.v1",
+          "content_hook_refs": [
+            "hook.phase.private"
+          ],
+          "completion_policy": {
+            "kind": "all_required",
+            "threshold": null,
+            "on_unmet": "stay"
+          },
+          "deadline_policy": {
+            "mode": "none",
+            "seconds": null,
+            "expiry_action": "stay"
+          },
+          "absence_policy": {
+            "suggested_action": "wait",
+            "maximum_wait_seconds": 300,
+            "requires_actor_consent": true
+          },
+          "result_publication_policy": [
+            "private_only"
+          ],
+          "operation_budget": {
+            "max_interactions": 4,
+            "max_input_chars": 4000,
+            "max_context_tokens": 8000,
+            "max_model_calls": 1,
+            "wall_clock_ms": 30000,
+            "repair_attempts": 1
+          },
+          "required_capabilities": [
+            "story_flow.private_parallel"
+          ],
+          "optional_capabilities": [],
+          "fallback": {
+            "mode": "block",
+            "phase_ref": null,
+            "public_summary": "当前阶段无法继续时暂停，并保留已经提交的结果。"
+          }
+        },
+        {
+          "phase_ref": "phase.regroup",
+          "kind": "regroup",
+          "label": "重新汇合",
+          "summary": "平台汇总已提交的安全结果，并准备一次公开推进。",
+          "participant_policy_ref": "participant.all-present.v1",
+          "interaction_policy_ref": "interaction.standard.v1",
+          "content_hook_refs": [
+            "hook.phase.regroup"
+          ],
+          "completion_policy": {
+            "kind": "all_required",
+            "threshold": null,
+            "on_unmet": "stay"
+          },
+          "deadline_policy": {
+            "mode": "none",
+            "seconds": null,
+            "expiry_action": "stay"
+          },
+          "absence_policy": {
+            "suggested_action": "wait",
+            "maximum_wait_seconds": 300,
+            "requires_actor_consent": true
+          },
+          "result_publication_policy": [
+            "deferred_public"
+          ],
+          "operation_budget": {
+            "max_interactions": 4,
+            "max_input_chars": 4000,
+            "max_context_tokens": 8000,
+            "max_model_calls": 1,
+            "wall_clock_ms": 30000,
+            "repair_attempts": 1
+          },
+          "required_capabilities": [],
+          "optional_capabilities": [],
+          "fallback": {
+            "mode": "block",
+            "phase_ref": null,
+            "public_summary": "当前阶段无法继续时暂停，并保留已经提交的结果。"
+          }
+        },
+        {
+          "phase_ref": "phase.finale",
+          "kind": "finale",
+          "label": "合作终局",
+          "summary": "参与者依据已提交事实共同解决当前危机。",
+          "participant_policy_ref": "participant.all-present.v1",
+          "interaction_policy_ref": "interaction.standard.v1",
+          "content_hook_refs": [
+            "hook.phase.finale"
+          ],
+          "completion_policy": {
+            "kind": "all_required",
+            "threshold": null,
+            "on_unmet": "stay"
+          },
+          "deadline_policy": {
+            "mode": "none",
+            "seconds": null,
+            "expiry_action": "stay"
+          },
+          "absence_policy": {
+            "suggested_action": "wait",
+            "maximum_wait_seconds": 300,
+            "requires_actor_consent": true
+          },
+          "result_publication_policy": [
+            "mechanical_shared"
+          ],
+          "operation_budget": {
+            "max_interactions": 4,
+            "max_input_chars": 4000,
+            "max_context_tokens": 8000,
+            "max_model_calls": 1,
+            "wall_clock_ms": 30000,
+            "repair_attempts": 1
+          },
+          "required_capabilities": [],
+          "optional_capabilities": [],
+          "fallback": {
+            "mode": "block",
+            "phase_ref": null,
+            "public_summary": "当前阶段无法继续时暂停，并保留已经提交的结果。"
+          }
+        },
+        {
+          "phase_ref": "phase.epilogue",
+          "kind": "epilogue",
+          "label": "故事尾声",
+          "summary": "平台分别生成公共与个人可见的后日谈结果。",
+          "participant_policy_ref": "participant.all-present.v1",
+          "interaction_policy_ref": "interaction.standard.v1",
+          "content_hook_refs": [
+            "hook.phase.epilogue"
+          ],
+          "completion_policy": {
+            "kind": "all_required",
+            "threshold": null,
+            "on_unmet": "stay"
+          },
+          "deadline_policy": {
+            "mode": "none",
+            "seconds": null,
+            "expiry_action": "stay"
+          },
+          "absence_policy": {
+            "suggested_action": "wait",
+            "maximum_wait_seconds": 300,
+            "requires_actor_consent": true
+          },
+          "result_publication_policy": [
+            "deferred_public"
+          ],
+          "operation_budget": {
+            "max_interactions": 4,
+            "max_input_chars": 4000,
+            "max_context_tokens": 8000,
+            "max_model_calls": 1,
+            "wall_clock_ms": 30000,
+            "repair_attempts": 1
+          },
+          "required_capabilities": [],
+          "optional_capabilities": [],
+          "fallback": {
+            "mode": "block",
+            "phase_ref": null,
+            "public_summary": "当前阶段无法继续时暂停，并保留已经提交的结果。"
+          }
+        }
+      ],
+      "transitions": [
+        {
+          "transition_ref": "transition.coop-private",
+          "from_phase_ref": "phase.cooperative",
+          "to_phase_ref": "phase.private",
+          "trigger_kind": "player_choice",
+          "condition_refs": [
+            "condition.private-enabled"
+          ],
+          "rule_receipt_requirements": [],
+          "priority": 10,
+          "consent_policy": "affected_participants",
+          "host_gate": false,
+          "public_summary": "参与者选择分头行动。",
+          "on_failure": "stay",
+          "failure_phase_ref": null
+        },
+        {
+          "transition_ref": "transition.coop-finale",
+          "from_phase_ref": "phase.cooperative",
+          "to_phase_ref": "phase.finale",
+          "trigger_kind": "rule_receipt",
+          "condition_refs": [
+            "condition.finale-ready"
+          ],
+          "rule_receipt_requirements": [
+            "receipt.finale-ready"
+          ],
+          "priority": 20,
+          "consent_policy": "all_participants",
+          "host_gate": false,
+          "public_summary": "已满足条件，可以进入合作终局。",
+          "on_failure": "stay",
+          "failure_phase_ref": null
+        },
+        {
+          "transition_ref": "transition.private-regroup",
+          "from_phase_ref": "phase.private",
+          "to_phase_ref": "phase.regroup",
+          "trigger_kind": "phase_complete",
+          "condition_refs": [
+            "condition.private-complete"
+          ],
+          "rule_receipt_requirements": [],
+          "priority": 10,
+          "consent_policy": "none",
+          "host_gate": false,
+          "public_summary": "分头行动结束，参与者重新汇合。",
+          "on_failure": "pause",
+          "failure_phase_ref": null
+        },
+        {
+          "transition_ref": "transition.regroup-coop",
+          "from_phase_ref": "phase.regroup",
+          "to_phase_ref": "phase.cooperative",
+          "trigger_kind": "phase_complete",
+          "condition_refs": [
+            "condition.publication-complete"
+          ],
+          "rule_receipt_requirements": [],
+          "priority": 10,
+          "consent_policy": "none",
+          "host_gate": false,
+          "public_summary": "汇合结果已经公开，继续共同调查。",
+          "on_failure": "pause",
+          "failure_phase_ref": null
+        },
+        {
+          "transition_ref": "transition.finale-epilogue",
+          "from_phase_ref": "phase.finale",
+          "to_phase_ref": "phase.epilogue",
+          "trigger_kind": "phase_complete",
+          "condition_refs": [
+            "condition.finale-committed"
+          ],
+          "rule_receipt_requirements": [
+            "receipt.finale"
+          ],
+          "priority": 10,
+          "consent_policy": "none",
+          "host_gate": false,
+          "public_summary": "终局结果已经提交，进入故事尾声。",
+          "on_failure": "pause",
+          "failure_phase_ref": null
+        }
+      ],
+      "cycle_guards": [
+        {
+          "guard_ref": "guard.investigation-loop",
+          "transition_refs": [
+            "transition.coop-private",
+            "transition.private-regroup",
+            "transition.regroup-coop"
+          ],
+          "max_repetitions": 3,
+          "progress_condition_refs": [
+            "condition.new-committed-fact"
+          ],
+          "no_progress_exit_ref": "transition.coop-finale",
+          "public_summary": "调查循环最多进行三次；没有新进展时可进入合作终局。"
+        }
+      ],
+      "ending_modes": [
+        {
+          "mode": "cooperative",
+          "finale_phase_ref": "phase.finale",
+          "epilogue_phase_ref": "phase.epilogue",
+          "required_capabilities": [],
+          "consent_policy": "all_participants"
+        }
+      ],
+      "absence_defaults": {
+        "suggested_action": "wait",
+        "maximum_wait_seconds": 300,
+        "requires_actor_consent": true
+      },
+      "public_summary": "这是一个允许共同调查、可选分头行动、重新汇合与合作终局的阶段配方。"
+    },
+    "expected": {
+      "phase_count": 5,
+      "transition_count": 5,
+      "cyclic_transition_count": 3,
+      "terminal_phase_refs": [
+        "phase.epilogue"
+      ],
+      "model_calls": 0
+    }
+  },
+  "negative": [
+    {
+      "id": "unknown_field",
+      "expected_code": "story_flow.fields_invalid"
+    },
+    {
+      "id": "entry_unresolved",
+      "expected_code": "story_flow.entry_unresolved"
+    },
+    {
+      "id": "phase_kind_invalid",
+      "expected_code": "story_flow.phase_kind_invalid"
+    },
+    {
+      "id": "duplicate_phase",
+      "expected_code": "story_flow.phase_duplicate"
+    },
+    {
+      "id": "transition_endpoint_unresolved",
+      "expected_code": "story_flow.transition_endpoint_unresolved"
+    },
+    {
+      "id": "phase_unreachable",
+      "expected_code": "story_flow.phase_unreachable"
+    },
+    {
+      "id": "priority_ambiguous",
+      "expected_code": "story_flow.priority_ambiguous"
+    },
+    {
+      "id": "capability_missing",
+      "expected_code": "story_flow.capability_missing"
+    },
+    {
+      "id": "cycle_guard_incomplete",
+      "expected_code": "story_flow.cycle_guard_incomplete"
+    },
+    {
+      "id": "cycle_exit_unresolved",
+      "expected_code": "story_flow.cycle_exit_unresolved"
+    },
+    {
+      "id": "cycle_exit_invalid",
+      "expected_code": "story_flow.cycle_exit_invalid"
+    },
+    {
+      "id": "cycle_exit_disconnected",
+      "expected_code": "story_flow.cycle_exit_disconnected"
+    },
+    {
+      "id": "fallback_unresolved",
+      "expected_code": "story_flow.fallback_unresolved"
+    },
+    {
+      "id": "rule_receipt_missing",
+      "expected_code": "story_flow.rule_receipt_missing"
+    },
+    {
+      "id": "host_gate_missing",
+      "expected_code": "story_flow.host_gate_missing"
+    },
+    {
+      "id": "public_conflict_consent",
+      "expected_code": "story_flow.public_conflict_consent_missing"
+    },
+    {
+      "id": "ending_path_missing",
+      "expected_code": "story_flow.ending_path_missing"
+    },
+    {
+      "id": "public_summary_empty",
+      "expected_code": "story_flow.text_invalid"
+    },
+    {
+      "id": "executable_field",
+      "expected_code": "story_flow.fields_invalid"
+    },
+    {
+      "id": "reference_unresolved",
+      "expected_code": "story_flow.reference_unresolved"
+    }
+  ],
+  "product_negative": [
+    {
+      "id": "runtime_digest_mismatch",
+      "expected_code": "story_flow.digest_mismatch"
+    },
+    {
+      "id": "ir_digest_mismatch",
+      "expected_code": "story_flow.digest_mismatch"
+    },
+    {
+      "id": "semantic_tamper_with_rehashed_digests",
+      "expected_code": "story_flow.product_mismatch"
+    },
+    {
+      "id": "source_map_tamper_with_rehashed_digest",
+      "expected_code": "story_flow.product_mismatch"
+    },
+    {
+      "id": "source_digest_tamper_with_rehashed_digest",
+      "expected_code": "story_flow.product_mismatch"
+    }
+  ],
+  "sp_adapter_negative": [
+    {"id": "unknown_field", "expected_code": "story_flow.fields_invalid"},
+    {"id": "opening_count", "expected_code": "story_flow.sp_counts_invalid"},
+    {"id": "node_unknown_field", "expected_code": "story_flow.fields_invalid"},
+    {"id": "transition_outcome", "expected_code": "story_flow.sp_outcome_invalid"},
+    {"id": "node_summary_empty", "expected_code": "story_flow.text_invalid"},
+    {"id": "transition_summary_empty", "expected_code": "story_flow.text_invalid"},
+    {"id": "cross_opening_target", "expected_code": "story_flow.sp_outcome_coverage_invalid"},
+    {"id": "source_opening_unknown", "expected_code": "story_flow.sp_source_opening_unresolved"},
+    {"id": "role_malformed", "expected_code": "story_flow.sp_node_invalid"},
+    {"id": "outcome_malformed", "expected_code": "story_flow.sp_outcome_invalid"},
+    {"id": "recipe_ref_malformed", "expected_code": "story_flow.text_invalid"}
+  ]
+}

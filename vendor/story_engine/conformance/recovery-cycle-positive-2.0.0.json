@@ -1,0 +1,67 @@
+{
+  "schema": "se-recovery-cycle-positive-vectors/2.0.0",
+  "capability": "recovery.cycle/2.0.0",
+  "authority": {
+    "real_sp_active_consumer": false,
+    "commit_owner": "platform",
+    "progress_fact_owner": "platform",
+    "terminal_owner": "platform",
+    "trusted_manifest_pins_required": ["story_pack_ref", "canonical_sha256", "artifact_ref", "artifact_sha256", "engine_version", "port_version", "schema_version", "source_ref", "source_sha256", "resource_catalog_ref", "resource_catalog_sha256", "status_catalog_ref", "status_catalog_sha256", "vitality_contract_ref", "vitality_contract_sha256", "provider_contracts_ref", "provider_contracts_sha256"]
+  },
+  "author_document": {
+    "schema": "se-recovery-cycle-definitions/2.0.0",
+    "trusted_manifest": {"source_ref": "source.requirements.recovery", "source_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "real_sp_active_consumer": false},
+    "source_bindings": {"resource_catalog_ref": "catalog.resources", "resource_catalog_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "status_catalog_ref": "catalog.statuses", "status_catalog_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "vitality_contract_ref": "contract.vitality", "vitality_contract_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"},
+    "policies": {"commit_owner": "platform", "progress_fact_owner": "platform", "terminal_owner": "platform", "unknown_policy": "reconcile_only", "ordinary_recovery_revives": false},
+    "definitions": [{
+      "recovery_ref": "recovery.short_rest", "label": "Short rest", "kind": "rest", "policy_version": "recovery-policy/2.0.0",
+      "typed_policies": {
+        "resource": {"kind": "exact_restore", "resources": {"energy.stamina": {"resource_kind": "energy", "exact_amount": 3, "cap": 10}, "vitality.hp": {"resource_kind": "vitality", "exact_amount": 2, "cap": 10}, "vitality.secondary": {"resource_kind": "vitality", "exact_amount": 1, "cap": 10}}},
+        "status": {"kind": "eligible_remove", "statuses": [{"status_ref": "body.wounded", "recovery_class": "recoverable"}]},
+        "rest": {"kind": "duration", "duration_seconds": 600}, "treat": {"kind": "platform_receipt", "receipt_required": true},
+        "resupply": {"kind": "exact_inventory_cost", "costs": {"supply.bandage": {"quantity": 1}}},
+        "allocate": {"kind": "platform_only", "engine_allocates": false},
+        "resume": {"kind": "same_definition_committed_elapsed", "allowed": true, "requires_same_definition": true, "requires_committed_elapsed": true}
+      },
+      "allowed_phases": ["idle", "started", "progressed", "interrupted"], "interruption_policy": "partial_by_receipt",
+      "hp0_policy": "require_rescue_or_fate_receipt", "zero_crossing_policy": "require_consent_and_rescue_or_fate_receipt"
+    }]
+  },
+  "secondary_author_document": {
+    "schema": "se-recovery-cycle-definitions/2.0.0",
+    "trusted_manifest": {"source_ref": "source.requirements.recovery.discard", "source_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "real_sp_active_consumer": false},
+    "source_bindings": {"resource_catalog_ref": "catalog.resources", "resource_catalog_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "status_catalog_ref": "catalog.statuses", "status_catalog_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "vitality_contract_ref": "contract.vitality", "vitality_contract_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"},
+    "policies": {"commit_owner": "platform", "progress_fact_owner": "platform", "terminal_owner": "platform", "unknown_policy": "reconcile_only", "ordinary_recovery_revives": false},
+    "definitions": [{
+      "recovery_ref": "recovery.discard_rest", "label": "Interruptible rest", "kind": "rest", "policy_version": "recovery-policy/2.0.0",
+      "typed_policies": {
+        "resource": {"kind": "exact_restore", "resources": {"energy.stamina": {"resource_kind": "energy", "exact_amount": 1, "cap": 6}}},
+        "status": {"kind": "eligible_remove", "statuses": []},
+        "rest": {"kind": "duration", "duration_seconds": 60}, "treat": {"kind": "platform_receipt", "receipt_required": true},
+        "resupply": {"kind": "exact_inventory_cost", "costs": {}}, "allocate": {"kind": "platform_only", "engine_allocates": false},
+        "resume": {"kind": "same_definition_committed_elapsed", "allowed": false, "requires_same_definition": true, "requires_committed_elapsed": true}
+      },
+      "allowed_phases": ["idle", "started"], "interruption_policy": "discard_uncommitted",
+      "hp0_policy": "require_rescue_or_fate_receipt", "zero_crossing_policy": "require_consent_and_rescue_or_fate_receipt"
+    }]
+  },
+  "runtime_vectors": [
+    {"id": "preview_idle", "phase": "idle", "action": "preview", "expected_status": "proposed", "expected_kind": "preview", "platform_commit": false},
+    {"id": "start_idle", "phase": "idle", "action": "start", "expected_status": "proposed", "expected_kind": "start", "platform_commit": true},
+    {"id": "allocate_progress", "phase": "started", "action": "allocate", "fact_phase": "progressed", "expected_status": "proposed", "expected_kind": "allocate"},
+    {"id": "interrupt_progress", "phase": "started", "action": "interrupt", "fact_phase": "interrupted", "expected_status": "proposed", "expected_kind": "interrupt"},
+    {"id": "resume_interrupted", "phase": "interrupted", "action": "resume", "expected_status": "proposed", "expected_kind": "resume"},
+    {"id": "complete_duration", "phase": "progressed", "action": "complete", "fact_phase": "completed", "elapsed": 600, "expected_status": "proposed", "expected_kind": "complete"},
+    {"id": "cancel_started", "phase": "started", "action": "cancel", "expected_status": "proposed", "expected_kind": "cancel", "effects": []},
+    {"id": "committed_reconcile", "phase": "completed", "action": "reconcile", "commit_state": "committed", "expected_status": "reconciled", "expected_kind": "reconcile", "reconcile_only": true},
+    {"id": "same_replay", "phase": "completed", "action": "reconcile", "journal": "same_fingerprint", "expected_status": "replayed", "expected_kind": "reconcile"}
+  ],
+  "truth_table": [
+    {"state":"idle","action":"preview","outcome":"proposal"},{"state":"idle","action":"start","outcome":"proposal"},{"state":"idle","action":"allocate","outcome":"blocked"},{"state":"idle","action":"interrupt","outcome":"blocked"},{"state":"idle","action":"complete","outcome":"blocked"},{"state":"idle","action":"cancel","outcome":"blocked"},{"state":"idle","action":"resume","outcome":"blocked"},
+    {"state":"started","action":"preview","outcome":"proposal"},{"state":"started","action":"start","outcome":"blocked"},{"state":"started","action":"allocate","outcome":"fact_required"},{"state":"started","action":"interrupt","outcome":"fact_required"},{"state":"started","action":"complete","outcome":"fact_required"},{"state":"started","action":"cancel","outcome":"zero_effect_proposal"},{"state":"started","action":"resume","outcome":"blocked"},
+    {"state":"progressed","action":"preview","outcome":"proposal"},{"state":"progressed","action":"start","outcome":"blocked"},{"state":"progressed","action":"allocate","outcome":"proposal"},{"state":"progressed","action":"interrupt","outcome":"fact_bound"},{"state":"progressed","action":"complete","outcome":"duration_bound"},{"state":"progressed","action":"cancel","outcome":"zero_effect_proposal"},{"state":"progressed","action":"resume","outcome":"blocked"},
+    {"state":"interrupted","action":"preview","outcome":"proposal"},{"state":"interrupted","action":"start","outcome":"blocked"},{"state":"interrupted","action":"allocate","outcome":"blocked"},{"state":"interrupted","action":"interrupt","outcome":"blocked"},{"state":"interrupted","action":"complete","outcome":"blocked"},{"state":"interrupted","action":"cancel","outcome":"zero_effect_proposal"},{"state":"interrupted","action":"resume","outcome":"policy_bound_proposal"},
+    {"state":"committed","action":"preview","outcome":"verify_required"},{"state":"committed","action":"start","outcome":"verify_required"},{"state":"committed","action":"allocate","outcome":"verify_required"},{"state":"committed","action":"complete","outcome":"verify_required"},{"state":"committed","action":"cancel","outcome":"verify_required"},{"state":"committed","action":"resume","outcome":"verify_required"},{"state":"committed","action":"reconcile","outcome":"read_only_reconcile"}
+  ],
+  "required_invariants": ["fact_proposal_receipt_mutually_bound", "committed_reconcile_never_reapplies", "same_idempotency_same_fingerprint_replay", "same_idempotency_different_fingerprint_conflict", "restart_replay_safe", "unknown_verify_required_reconcile_only", "cancel_preserves_committed_partial", "resume_requires_same_definition_and_elapsed", "resource_before_after_caps_exact", "status_eligibility_exact", "supply_inventory_revision_exact", "elapsed_time_phase_interruption_exact", "hp0_never_ordinary_complete", "zero_crossing_both_directions_authorized", "terminal_never_overwritten", "public_preview_no_internal_refs"]
+}

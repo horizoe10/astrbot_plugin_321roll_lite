@@ -1,0 +1,130 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "reason",
+    "candidates"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-hosted-decision-node/1.0.0"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "rule",
+          "source_fact_refs",
+          "exit"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "rule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "difficulty",
+              "failure_cost"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "narrative",
+                  "check",
+                  "recover"
+                ]
+              },
+              "difficulty": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "failure_cost": {
+                "enum": [
+                  "",
+                  "setback",
+                  "harm"
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "check"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "difficulty": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "failure_cost": {
+                      "enum": [
+                        "setback",
+                        "harm"
+                      ]
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "difficulty": {
+                      "const": ""
+                    },
+                    "failure_cost": {
+                      "const": ""
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "source_fact_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "contains": {
+        "properties": {
+          "exit": {
+            "const": true
+          }
+        },
+        "required": [
+          "exit"
+        ]
+      }
+    }
+  }
+}

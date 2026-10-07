@@ -1,0 +1,49 @@
+{
+  "schema": "se-platform-turn-positive-vectors/1.0.0",
+  "contract_schema": "se-platform-turn-extension/1.0.0",
+  "platform_baseline": "321roll-public-contracts/0.1.0",
+  "vectors": [
+    {
+      "id": "turn-single-primary-call",
+      "operation": "resolve_turn",
+      "required_capabilities": ["base.narrative"],
+      "provider_capabilities": ["structured_output", "streaming"],
+      "provider_output": {
+        "narrative_document": {"blocks": [{"text": "石门在雨声里缓缓开启。"}]},
+        "proposals": [{"type": "scene.advanced", "value": {"route": "enter_ruins"}}],
+        "used_fact_refs": [],
+        "used_receipt_refs": [],
+        "used_capability_refs": ["base.narrative"],
+        "warnings": []
+      },
+      "expected": {"status": "proposed", "model_calls": 1, "authority_owner": "321_platform"}
+    },
+    {
+      "id": "turn-stream-first-readable-block",
+      "operation": "resolve_turn_stream",
+      "provider_capabilities": ["structured_output", "streaming"],
+      "provider_output": {
+        "narrative_document": {"blocks": [{"text": "第一段正文。"}, {"text": "第二段正文。"}]},
+        "proposals": [],
+        "used_fact_refs": [],
+        "used_receipt_refs": [],
+        "used_capability_refs": ["base.narrative"],
+        "warnings": []
+      },
+      "expected": {"first_kind": "story_chunk", "terminal_kind": "final_result", "model_calls": 1, "chunks_provisional": true}
+    },
+    {
+      "id": "turn-idempotent-same-fingerprint",
+      "operation": "resolve_turn",
+      "replays": 2,
+      "same": ["idempotency_key", "request_fingerprint", "expected_revision", "artifact_sha256"],
+      "expected": {"equal_results": true, "total_model_calls": 1}
+    },
+    {
+      "id": "turn-provider-unavailable-degraded",
+      "operation": "readiness",
+      "provider_status": "unavailable",
+      "expected": {"status": "degraded", "narrative_status": "degraded", "resolve_turn_accepted": false, "fake_narrative": false}
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-profile-registry/1.0.0",
+  "title": "SE 1 Profile Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "revision", "fingerprint", "profiles"],
+  "properties": {
+    "schema": {"const": "se-profile-registry/1.0.0"},
+    "revision": {"type": "string", "minLength": 1},
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "profiles": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["profile_id", "version", "phase", "contract_owner", "evaluation_owner", "authority_owner", "execution_owner", "projection_owner", "late_result_policy", "allowed_scope_kinds", "required_capabilities", "allowed_capabilities", "min_checkpoints", "max_checkpoints", "required_profile_fields", "allowed_profile_fields", "budget_limits", "safety_boundaries"]
+      }
+    }
+  }
+}

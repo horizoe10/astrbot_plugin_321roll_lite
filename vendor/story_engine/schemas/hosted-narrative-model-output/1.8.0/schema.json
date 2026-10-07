@@ -1,0 +1,410 @@
+{
+  "type": "object",
+  "properties": {
+    "paragraphs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1200
+      }
+    },
+    "facts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "world_fact",
+              "npc_statement",
+              "player_declaration",
+              "hypothesis"
+            ]
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "kind",
+          "subject_ref",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "npcs": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "npc_ref": {
+            "type": "string",
+            "pattern": "^npc\\.[a-zA-Z0-9_.-]{1,80}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "motivation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "entity_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^entity\\.[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        },
+        "required": [
+          "npc_ref",
+          "name",
+          "description",
+          "motivation",
+          "entity_ref",
+          "aliases"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "scene": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "required": [
+                "title",
+                "description"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "goal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "scene",
+        "goal"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "paragraph",
+              "npc_dialogue",
+              "npc_action"
+            ]
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "entity_ref": {
+                    "type": "string",
+                    "pattern": "^(entity\\.[a-f0-9]{64}|new\\.npc\\.[a-zA-Z0-9_.-]{1,80})$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "required": [
+                  "entity_ref",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mentions": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "properties": {
+                "entity_ref": {
+                  "type": "string",
+                  "pattern": "^(entity\\.[a-f0-9]{64}|new\\.npc\\.[a-zA-Z0-9_.-]{1,80})$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "start": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "entity_ref",
+                "label",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "sequence",
+          "kind",
+          "speaker",
+          "mentions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "choices": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "narrative",
+              "check",
+              "recover"
+            ]
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "",
+              "easy",
+              "standard",
+              "hard",
+              "exceptional"
+            ]
+          },
+          "failure_cost": {
+            "type": "string",
+            "enum": [
+              "",
+              "setback",
+              "harm"
+            ]
+          },
+          "attribute_ref": {
+            "type": "string",
+            "enum": [
+              "",
+              "strength",
+              "agility",
+              "endurance",
+              "perception",
+              "reason",
+              "will",
+              "presence",
+              "knowledge",
+              "craft"
+            ]
+          },
+          "source_fact_refs": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text",
+          "kind",
+          "difficulty",
+          "failure_cost",
+          "attribute_ref",
+          "source_fact_refs",
+          "exit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "decision_reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "play_hooks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "play": {
+            "enum": [
+              "playInvestigation",
+              "playTestimony",
+              "playNegotiation",
+              "playRelations",
+              "playCalendar",
+              "playProjects",
+              "playOutfitting",
+              "playConflict",
+              "playChase",
+              "playDebate",
+              "playPlans",
+              "playFlashback",
+              "playOracle",
+              "playTransformation",
+              "playPrivatePhases",
+              "playRegroup",
+              "playFortune",
+              "playBranchEndings"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "pattern": "^[a-z][a-z_]{0,63}$"
+          },
+          "target_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^entity\\.[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "fill": {
+            "type": "object",
+            "maxProperties": 8,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z_]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "required": [
+          "play",
+          "action",
+          "target_ref",
+          "reason",
+          "fill"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "paragraphs",
+    "facts",
+    "npcs",
+    "progress",
+    "annotations",
+    "choices",
+    "decision_reason"
+  ],
+  "additionalProperties": false
+}

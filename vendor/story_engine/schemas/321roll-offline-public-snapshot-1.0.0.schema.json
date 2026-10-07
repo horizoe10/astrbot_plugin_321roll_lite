@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "321roll-offline-public-snapshot/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "segment_ref",
+    "checkpoint_ref",
+    "policy",
+    "from_step",
+    "to_step",
+    "opening_ref",
+    "catalog",
+    "tracks",
+    "snapshot_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-offline-public-snapshot/1.0.0"
+    },
+    "segment_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "checkpoint_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "step_hours",
+        "max_steps"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "step_hours": {
+          "type": "integer",
+          "enum": [
+            6,
+            12,
+            24
+          ]
+        },
+        "max_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        }
+      }
+    },
+    "from_step": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "to_step": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "opening_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "catalog": {
+      "$ref": "#/$defs/catalog"
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "description": "必须恰为当前 opening 匹配的 track_ref 各一次，包含已到顶的轨道。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_ref",
+          "step"
+        ],
+        "properties": {
+          "track_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          }
+        }
+      }
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "tracks",
+        "catalog_sha256"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-offline-public-catalog-ir/1.0.0"
+        },
+        "tracks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "track_ref",
+              "opening_ref",
+              "subject_ref",
+              "kind",
+              "label",
+              "source_ref",
+              "stages"
+            ],
+            "properties": {
+              "track_ref": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+              },
+              "opening_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "subject_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "kind": {
+                "enum": [
+                  "faction",
+                  "region",
+                  "deadline"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "source_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "stages": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "description": "阶段 step 必须是从 1 开始的连续升序；return_to_table 为 true 的阶段不会自动推进，只在 deferred 中报告一次。",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "step",
+                    "text",
+                    "return_to_table"
+                  ],
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 12
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "return_to_table": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "catalog_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

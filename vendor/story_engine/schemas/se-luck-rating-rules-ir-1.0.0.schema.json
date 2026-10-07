@@ -1,0 +1,121 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "eligibility",
+    "formula",
+    "devices",
+    "rules_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-rating-rules-ir/1.0.0"
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profession_ref",
+        "specialization_ref",
+        "talent_ref",
+        "resource_ref",
+        "anchor_parameter_ref"
+      ],
+      "properties": {
+        "profession_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "specialization_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "talent_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor_parameter_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "formula": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "charisma_ref",
+        "anchor_refs",
+        "divisor",
+        "minimum",
+        "maximum"
+      ],
+      "properties": {
+        "charisma_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "divisor": {
+          "const": 8
+        },
+        "minimum": {
+          "const": 1
+        },
+        "maximum": {
+          "const": 4
+        }
+      }
+    },
+    "devices": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bonus",
+          "definition_sha256",
+          "durability_max"
+        ],
+        "properties": {
+          "bonus": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "definition_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "durability_max": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "rules_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-luck-rating-rules-ir/1.0.0"
+}

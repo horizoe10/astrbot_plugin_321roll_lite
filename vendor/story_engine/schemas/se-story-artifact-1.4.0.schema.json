@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-story-artifact/1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "engine_spec", "target_abi", "package", "canonical_ir_sha256", "compiler_contract_fingerprint", "content_sha256", "profile_registry", "profile_contracts", "resource_definitions", "resource_catalog_sha256", "effect_contracts", "event_compositions", "capability_closure", "source_map", "projection_plan", "diagnostics_summary", "artifact_sha256"],
+  "properties": {
+    "schema": {"const": "se-story-artifact/1.4.0"},
+    "engine_spec": {"const": "1.0.0"},
+    "target_abi": {"const": "se-compiler/1.4.0"},
+    "package": {"$ref": "#/$defs/package"},
+    "canonical_ir_sha256": {"$ref": "#/$defs/digest"},
+    "compiler_contract_fingerprint": {"$ref": "#/$defs/digest"},
+    "content_sha256": {"$ref": "#/$defs/digest"},
+    "profile_registry": {"$ref": "#/$defs/registryIdentity"},
+    "profile_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/profileIdentity"}},
+    "resource_definitions": {"type": "array", "items": {"type": "object"}},
+    "resource_catalog_sha256": {"$ref": "#/$defs/digest"},
+    "effect_contracts": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/effectContract"}},
+    "event_compositions": {"type": "array", "minItems": 1, "items": {"allOf": [{"oneOf": [{"$ref": "#/$defs/legacyEvent"}, {"$ref": "#/$defs/guardEvent"}, {"$ref": "#/$defs/choiceEvent"}]}, {"type": "object", "properties": {"recovery_cycle": {"$ref": "#/$defs/recoveryBinding"}}}]}},
+    "capability_closure": {"type": "object"},
+    "source_map": {"type": "array", "items": {"$ref": "#/$defs/sourceMapEntry"}},
+    "projection_plan": {"$ref": "#/$defs/projectionPlan"},
+    "diagnostics_summary": {"$ref": "#/$defs/diagnosticsSummary"},
+    "turn_interaction_policies": {"type": "object"},
+    "resolution_check_definitions": {"type": "object"},
+    "character_build_definitions": {"type": "object"},
+    "character_progression_definitions": {"type": "object"},
+    "reward_settlement_definitions": {"type": "object"},
+    "inventory_equipment_definitions": {"type": "object"},
+    "ability_execution_definitions": {"type": "object"},
+    "recovery_cycle_definitions": {"$ref": "#/$defs/recoveryCatalog"},
+    "artifact_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "allOf": [
+    {"if": {"properties": {"event_compositions": {"contains": {"type": "object", "required": ["recovery_cycle"]}}}}, "then": {"required": ["recovery_cycle_definitions"]}},
+    {"if": {"required": ["recovery_cycle_definitions"]}, "then": {"properties": {"event_compositions": {"contains": {"type": "object", "required": ["recovery_cycle"]}}}}}
+  ],
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_id", "content_version"],
+      "properties": {"package_id": {"type": "string", "minLength": 1}, "content_version": {"type": "string", "minLength": 1}}
+    },
+    "registryIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "registry_version", "revision", "fingerprint", "selection_policy"],
+      "properties": {
+        "schema": {"const": "se-profile-registry/1.1.0"}, "registry_version": {"const": "1.1.0"},
+        "revision": {"type": "string", "minLength": 1}, "fingerprint": {"$ref": "#/$defs/digest"},
+        "selection_policy": {"const": "exact_version_required"}
+      }
+    },
+    "profileIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_id", "profile_version", "contract_sha256"],
+      "properties": {"profile_id": {"type": "string"}, "profile_version": {"type": "string"}, "contract_sha256": {"$ref": "#/$defs/digest"}}
+    },
+    "effectContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capability_ref", "provider_contract_sha256"],
+      "properties": {
+        "capability_ref": {"type": "string", "minLength": 1}, "provider_contract_sha256": {"$ref": "#/$defs/digest"},
+        "contract_sha256": {"$ref": "#/$defs/digest"}, "contract": {"type": "object"}
+      },
+      "dependentRequired": {"contract": ["contract_sha256"], "contract_sha256": ["contract"]}
+    },
+    "sourceMapEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["output_path", "source_path", "field_path"],
+      "properties": {
+        "output_path": {"type": "string"}, "source_path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|.*(?:^|/)\\.\\.(?:/|$)).+$"}, "field_path": {"type": "string"}
+      }
+    },
+    "projectionPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "execution_owner", "projection_owner"],
+      "properties": {"kind": {"const": "bounded_proposal_only"}, "execution_owner": {"const": "321_platform"}, "projection_owner": {"const": "321_platform"}}
+    },
+    "diagnosticsSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["warnings", "errors"],
+      "properties": {"warnings": {"type": "integer", "minimum": 0}, "errors": {"const": 0}}
+    },
+    "legacyEffect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "route_id", "capability_ref", "effect_type", "target_ref", "revision_source", "payload", "reversible", "gate_checkpoint_ref"],
+      "properties": {
+        "id": {"type": "string"}, "route_id": {"type": "string"}, "capability_ref": {"type": "string"},
+        "effect_type": {"type": "string"}, "target_ref": {"type": "string"},
+        "revision_source": {"enum": ["event", "world", "actor"]}, "payload": {"type": "object"},
+        "reversible": {"type": "boolean"}, "gate_checkpoint_ref": {"type": ["string", "null"]}
+      }
+    },
+    "legacyGraph": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nodes", "edges", "bounded_loops", "reachable_exits"],
+      "properties": {
+        "nodes": {"type": "array", "items": {"type": "object"}}, "edges": {"type": "array", "items": {"type": "object"}},
+        "bounded_loops": {"type": "array", "items": {"type": "object"}}, "reachable_exits": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "legacyEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "profile", "profile_version", "source", "identity", "scope", "visibility", "capability_closure", "trigger_plan", "guards", "density_policy", "checkpoint_graph", "frozen_refs", "consequence_and_consent_gates", "idempotency_templates", "proposal_plans", "resource_budgets", "cancellation_policy", "profile_data", "omens", "effects", "extensions", "compile_diagnostics_summary", "event_ir_sha256"],
+      "properties": {
+        "schema": {"const": "se-event-composition-ir/1.0.0"}, "profile": {"type": "string"}, "profile_version": {"type": "string"},
+        "source": {"type": "object"}, "identity": {"type": "object"}, "scope": {"type": "object"}, "visibility": {"type": "object"},
+        "capability_closure": {"type": "object"}, "trigger_plan": {"type": "object"}, "guards": {"type": "array"}, "density_policy": {"type": "object"},
+        "checkpoint_graph": {"$ref": "#/$defs/legacyGraph"}, "frozen_refs": {"type": "array", "items": {"type": "object"}},
+        "consequence_and_consent_gates": {"type": "array"}, "idempotency_templates": {"type": "object"}, "proposal_plans": {"type": "object"},
+        "resource_budgets": {"type": "object"}, "cancellation_policy": {"type": "string"}, "profile_data": {"type": "object"},
+        "omens": {"type": "array"}, "effects": {"type": "array", "items": {"$ref": "#/$defs/legacyEffect"}}, "extensions": {"type": "object"},
+        "compile_diagnostics_summary": {"type": "object"}, "recovery_cycle": {"$ref": "#/$defs/recoveryBinding"}, "event_ir_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "conditionCompare": {"type": "object", "additionalProperties": false, "required": ["op", "fact_ref", "value"], "properties": {"op": {"enum": ["eq", "ne", "lt", "lte", "gt", "gte", "contains", "not_contains"]}, "fact_ref": {"$ref": "#/$defs/ref"}, "value": {}}},
+    "conditionGroup": {"type": "object", "additionalProperties": false, "required": ["op", "args"], "properties": {"op": {"enum": ["all", "any"]}, "args": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/conditionTree"}}}},
+    "conditionNot": {"type": "object", "additionalProperties": false, "required": ["op", "arg"], "properties": {"op": {"const": "not"}, "arg": {"$ref": "#/$defs/conditionTree"}}},
+    "conditionTree": {"oneOf": [{"$ref": "#/$defs/conditionCompare"}, {"$ref": "#/$defs/conditionGroup"}, {"$ref": "#/$defs/conditionNot"}]},
+    "guardEvent": {"type": "object", "additionalProperties": true, "required": ["schema", "profile", "profile_version", "source", "identity", "capability_closure", "checkpoint_graph", "guard_contract", "guard_capability", "fact_catalog", "fact_catalog_sha256", "guard_tree", "guard_tree_sha256", "guard_limits", "event_ir_sha256"], "properties": {"schema": {"const": "se-event-composition-ir/1.1.0"}, "guard_contract": {"const": "se-condition-tree/1.0.0"}, "guard_capability": {"const": "event.guard.evaluate/1.0.0"}, "fact_catalog_sha256": {"$ref": "#/$defs/digest"}, "guard_tree": {"$ref": "#/$defs/conditionTree"}, "guard_tree_sha256": {"$ref": "#/$defs/digest"}, "event_ir_sha256": {"$ref": "#/$defs/digest"}}},
+    "compiledChoice": {"type": "object", "additionalProperties": false, "required": ["choice_ref", "route_ref", "display_key", "label", "purpose", "cost", "risk", "limitations"], "properties": {"choice_ref": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "route_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "display_key": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "label": {"type": "string", "minLength": 1, "maxLength": 80}, "purpose": {"type": "string", "minLength": 1, "maxLength": 240}, "cost": {"type": "string", "minLength": 1, "maxLength": 160}, "risk": {"type": "string", "minLength": 1, "maxLength": 160}, "limitations": {"type": "string", "minLength": 1, "maxLength": 160}}},
+    "compiledChoiceSet": {"type": "object", "additionalProperties": false, "required": ["checkpoint_ref", "phase_ref", "owner_binding", "guard_tree_sha256", "mode", "expiry_seconds", "cardinality", "choices"], "properties": {"checkpoint_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "phase_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "owner_binding": {"const": "binding.actor.current"}, "guard_tree_sha256": {"$ref": "#/$defs/digest"}, "mode": {"const": "choice_only"}, "expiry_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "cardinality": {"type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": {"minimum": {"const": 1}, "maximum": {"const": 1}}}, "choices": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/compiledChoice"}}}},
+    "choiceEvent": {"type": "object", "additionalProperties": true, "required": ["schema", "profile", "profile_version", "source", "identity", "capability_closure", "checkpoint_graph", "guard_contract", "guard_capability", "fact_catalog", "fact_catalog_sha256", "guard_tree", "guard_tree_sha256", "choice_contract", "choice_capability", "required_platform_features", "initial_checkpoint_ref", "choice_sets", "choice_semantics_sha256", "event_ir_sha256"], "properties": {"schema": {"const": "se-event-composition-ir/1.2.0"}, "guard_contract": {"const": "se-condition-tree/1.0.0"}, "guard_capability": {"const": "event.guard.evaluate/1.0.0"}, "fact_catalog_sha256": {"$ref": "#/$defs/digest"}, "guard_tree": {"$ref": "#/$defs/conditionTree"}, "guard_tree_sha256": {"$ref": "#/$defs/digest"}, "choice_contract": {"const": "se-event-choice-semantics/1.0.0"}, "choice_capability": {"const": "event.choice_set/1.0.0"}, "required_platform_features": {"const": ["event.choice_set/1.0.0"]}, "initial_checkpoint_ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}, "choice_sets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/compiledChoiceSet"}}, "choice_semantics_sha256": {"$ref": "#/$defs/digest"}, "event_ir_sha256": {"$ref": "#/$defs/digest"}}},
+    "recoveryBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "recovery_ref", "definition_sha256", "catalog_sha256"],
+      "properties": {
+        "schema": {"const": "se-recovery-cycle-binding-ir/1.1.0"},
+        "recovery_ref": {"$ref": "#/$defs/ref"},
+        "definition_sha256": {"$ref": "#/$defs/digest"},
+        "catalog_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "trustedManifest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_ref", "source_sha256", "real_sp_active_consumer"],
+      "properties": {
+        "source_ref": {"$ref": "#/$defs/ref"},
+        "source_sha256": {"$ref": "#/$defs/digest"},
+        "real_sp_active_consumer": {"const": false}
+      }
+    },
+    "sourceBindings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource_catalog_ref", "resource_catalog_sha256", "status_catalog_ref", "status_catalog_sha256", "vitality_contract_ref", "vitality_contract_sha256"],
+      "properties": {
+        "resource_catalog_ref": {"$ref": "#/$defs/ref"},
+        "resource_catalog_sha256": {"$ref": "#/$defs/digest"},
+        "status_catalog_ref": {"$ref": "#/$defs/ref"},
+        "status_catalog_sha256": {"$ref": "#/$defs/digest"},
+        "vitality_contract_ref": {"$ref": "#/$defs/ref"},
+        "vitality_contract_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "authorityPolicies": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit_owner", "progress_fact_owner", "terminal_owner", "unknown_policy", "ordinary_recovery_revives"],
+      "properties": {
+        "commit_owner": {"const": "platform"},
+        "progress_fact_owner": {"const": "platform"},
+        "terminal_owner": {"const": "platform"},
+        "unknown_policy": {"const": "reconcile_only"},
+        "ordinary_recovery_revives": {"const": false}
+      }
+    },
+    "resourcePolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "resources"],
+      "properties": {
+        "kind": {"const": "exact_restore"},
+        "resources": {
+          "type": "object", "minProperties": 1, "maxProperties": 5,
+          "propertyNames": {"enum": ["vitality", "energy", "mana", "stress", "custom"]},
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["exact_amount", "cap"],
+            "properties": {"exact_amount": {"type": "integer", "minimum": 1}, "cap": {"type": "integer", "minimum": 1}}
+          }
+        }
+      }
+    },
+    "statusPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "status_refs", "allowed_classes"],
+      "properties": {
+        "kind": {"const": "eligible_remove"},
+        "status_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "allowed_classes": {"type": "array", "uniqueItems": true, "items": {"const": "recoverable"}}
+      }
+    },
+    "restPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "duration_seconds"],
+      "properties": {"kind": {"const": "duration"}, "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 604800}}
+    },
+    "treatPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "receipt_required"],
+      "properties": {"kind": {"const": "platform_receipt"}, "receipt_required": {"const": true}}
+    },
+    "resupplyPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "costs"],
+      "properties": {
+        "kind": {"const": "exact_inventory_cost"},
+        "costs": {
+          "type": "object", "propertyNames": {"$ref": "#/$defs/ref"},
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["quantity", "inventory_revision"],
+            "properties": {"quantity": {"type": "integer", "minimum": 1}, "inventory_revision": {"type": "integer", "minimum": 0}}
+          }
+        }
+      }
+    },
+    "allocatePolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "engine_allocates"],
+      "properties": {"kind": {"const": "platform_only"}, "engine_allocates": {"const": false}}
+    },
+    "resumePolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "allowed", "requires_same_definition", "requires_committed_elapsed"],
+      "properties": {
+        "kind": {"const": "same_definition_committed_elapsed"},
+        "allowed": {"type": "boolean"},
+        "requires_same_definition": {"type": "boolean"},
+        "requires_committed_elapsed": {"type": "boolean"}
+      }
+    },
+    "typedPolicies": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource", "status", "rest", "treat", "resupply", "allocate", "resume"],
+      "properties": {
+        "resource": {"$ref": "#/$defs/resourcePolicy"},
+        "status": {"$ref": "#/$defs/statusPolicy"},
+        "rest": {"$ref": "#/$defs/restPolicy"},
+        "treat": {"$ref": "#/$defs/treatPolicy"},
+        "resupply": {"$ref": "#/$defs/resupplyPolicy"},
+        "allocate": {"$ref": "#/$defs/allocatePolicy"},
+        "resume": {"$ref": "#/$defs/resumePolicy"}
+      }
+    },
+    "namedPositiveIntegers": {
+      "type": "object", "minProperties": 1, "maxProperties": 5,
+      "propertyNames": {"enum": ["vitality", "energy", "mana", "stress", "custom"]},
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
+    "supplyCost": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_ref", "quantity", "inventory_revision"],
+      "properties": {
+        "item_ref": {"$ref": "#/$defs/ref"},
+        "quantity": {"type": "integer", "minimum": 1},
+        "inventory_revision": {"type": "integer", "minimum": 0}
+      }
+    },
+    "compiledResumePolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowed", "requires_same_definition", "requires_committed_elapsed"],
+      "properties": {
+        "allowed": {"type": "boolean"},
+        "requires_same_definition": {"type": "boolean"},
+        "requires_committed_elapsed": {"type": "boolean"}
+      }
+    },
+    "recoveryDefinition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "recovery_ref", "label", "kind", "policy_version", "typed_policies", "eligible_resource_kinds", "eligible_status_refs", "eligible_status_classes", "exact_amounts", "caps", "supply_costs", "duration_seconds", "allowed_phases", "interruption_policy", "hp0_policy", "zero_crossing_policy", "resume_policy", "definition_sha256"],
+      "properties": {
+        "schema": {"const": "se-recovery-cycle-definition-ir/1.1.0"},
+        "recovery_ref": {"$ref": "#/$defs/ref"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 160},
+        "kind": {"enum": ["rest", "treat", "resupply", "allocate", "resume"]},
+        "policy_version": {"const": "recovery-policy/1.1.0"},
+        "typed_policies": {"$ref": "#/$defs/typedPolicies"},
+        "eligible_resource_kinds": {"type": "array", "minItems": 1, "maxItems": 5, "uniqueItems": true, "items": {"enum": ["vitality", "energy", "mana", "stress", "custom"]}},
+        "eligible_status_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "eligible_status_classes": {"type": "array", "uniqueItems": true, "items": {"const": "recoverable"}},
+        "exact_amounts": {"$ref": "#/$defs/namedPositiveIntegers"},
+        "caps": {"$ref": "#/$defs/namedPositiveIntegers"},
+        "supply_costs": {"type": "array", "items": {"$ref": "#/$defs/supplyCost"}},
+        "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 604800},
+        "allowed_phases": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["idle", "started", "progressed", "interrupted", "completed", "cancelled"]}},
+        "interruption_policy": {"enum": ["preserve_committed", "discard_uncommitted", "partial_by_receipt"]},
+        "hp0_policy": {"const": "require_rescue_or_fate_receipt"},
+        "zero_crossing_policy": {"const": "require_consent_and_rescue_or_fate_receipt"},
+        "resume_policy": {"$ref": "#/$defs/compiledResumePolicy"},
+        "definition_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "recoveryCatalog": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "trusted_manifest", "source_bindings", "policies", "definitions", "catalog_sha256"],
+      "properties": {
+        "schema": {"const": "se-recovery-cycle-catalog-ir/1.1.0"},
+        "trusted_manifest": {"$ref": "#/$defs/trustedManifest"},
+        "source_bindings": {"$ref": "#/$defs/sourceBindings"},
+        "policies": {"$ref": "#/$defs/authorityPolicies"},
+        "definitions": {"type": "array", "minItems": 1, "maxItems": 256, "items": {"$ref": "#/$defs/recoveryDefinition"}},
+        "catalog_sha256": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

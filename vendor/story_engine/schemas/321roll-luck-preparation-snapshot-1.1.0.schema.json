@@ -1,0 +1,1300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "321roll-luck-preparation-snapshot/1.1.0",
+  "description": "平台为一次掷前机运准备冻结的严格输入。机运规则、代价配方、D20 规则定义与作者五带都必须来自房间固定的实际工件，本对象只按引用选择；任何人都不能在此自造 recipe。省略 prepared_choices 时只做预览，给出 prepared_choices 时按本人掷前已选方案集合产出窗口候选。snapshot_sha256 = canonical_fingerprint(去掉自身字段的规范化 JSON)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation_ref",
+    "artifact_ref",
+    "artifact_sha256",
+    "offer_ref",
+    "offer_sha256",
+    "state",
+    "rule_definition",
+    "result_bands",
+    "modifier",
+    "difficulty",
+    "recipe_bindings",
+    "snapshot_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-luck-preparation-snapshot/1.1.0"
+    },
+    "operation_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "artifact_ref": {
+      "description": "房间固定的实际工件引用；Engine 只通过授权桥读取该工件。",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "offer_ref": {
+      "description": "本次行动在工件 resolution_action_offers 中的候选引用。",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "offer_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "rating",
+        "talent_refs",
+        "skill_refs",
+        "check",
+        "quota",
+        "echo_current",
+        "echo_available",
+        "original_echo_cost",
+        "doom",
+        "sealed",
+        "reaction_available",
+        "coin_waiver_available"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "rating": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4
+        },
+        "talent_refs": {
+          "type": "array",
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        },
+        "skill_refs": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        },
+        "check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dice",
+            "purpose",
+            "risk",
+            "opposed",
+            "group_result",
+            "visible_inputs",
+            "remedy_chain",
+            "ordinary_k3"
+          ],
+          "properties": {
+            "dice": {
+              "enum": [
+                "standard_d20",
+                "advantage",
+                "disadvantage",
+                "multiple",
+                "automatic"
+              ]
+            },
+            "purpose": {
+              "enum": [
+                "investigation",
+                "craft",
+                "movement",
+                "escape",
+                "negotiation",
+                "environment",
+                "attack",
+                "disaster_trigger",
+                "world_finale",
+                "death",
+                "resurrection",
+                "permanent_fate",
+                "vote",
+                "consent",
+                "permission",
+                "hidden_truth",
+                "loot",
+                "paid_lottery",
+                "unlimited_cash"
+              ]
+            },
+            "risk": {
+              "type": "boolean"
+            },
+            "opposed": {
+              "type": "boolean"
+            },
+            "group_result": {
+              "type": "boolean"
+            },
+            "visible_inputs": {
+              "type": "boolean"
+            },
+            "remedy_chain": {
+              "type": "boolean"
+            },
+            "ordinary_k3": {
+              "type": "boolean"
+            }
+          }
+        },
+        "quota": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "chapter_remaining",
+            "scene_remaining",
+            "change_remaining",
+            "empty_remaining",
+            "all_in_remaining"
+          ],
+          "properties": {
+            "chapter_remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "scene_remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "change_remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "empty_remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "all_in_remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "echo_current": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "echo_available": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "original_echo_cost": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "doom": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "sealed": {
+          "type": "boolean"
+        },
+        "reaction_available": {
+          "type": "boolean"
+        },
+        "coin_waiver_available": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rule_definition": {
+      "type": "object",
+      "required": [
+        "resolution_rule_ref",
+        "result_bands",
+        "natural_roll_overrides",
+        "definition_sha256"
+      ],
+      "description": "固定工件中已编译的 D20 规则定义，原文照抄；宿主按 resolution_rule_ref 与 definition_sha256 与工件逐字段核对。",
+      "properties": {
+        "resolution_rule_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+        },
+        "definition_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "roll_expression": {
+          "const": "1d20"
+        },
+        "natural_roll_overrides": {
+          "type": "object",
+          "required": [
+            "1",
+            "20"
+          ],
+          "properties": {
+            "1": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            },
+            "20": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          }
+        },
+        "result_bands": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": [
+              "band_ref"
+            ]
+          }
+        }
+      }
+    },
+    "result_bands": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "band_ref",
+          "outcome",
+          "degree",
+          "consequences",
+          "public_label"
+        ],
+        "properties": {
+          "band_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "outcome": {
+            "enum": [
+              "success",
+              "failure"
+            ]
+          },
+          "degree": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "consequences": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 16,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.hp.damage"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.consume"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 99
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.damage"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.break"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "fact_ref",
+                    "value"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-actor-scene-effect/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.scene.fact.set"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "fact_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "clock_ref",
+                    "amount",
+                    "initial_value"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-actor-scene-effect/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.scene.clock.advance"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "clock_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "initial_value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-action-obligation/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.rope.entangle"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "public_label",
+                    "clock_ref",
+                    "initial_value",
+                    "amount"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "clock.advance"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "clock_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "initial_value": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "public_label",
+                    "fact_ref",
+                    "value"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "fact.set"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "fact_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "description": "该带的完整后果。空数组表示该带没有后果，与作者省略该字段等价；引擎按同一视图比较固定动作，不改动 artifact。"
+          },
+          "public_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      }
+    },
+    "modifier": {
+      "type": "integer"
+    },
+    "difficulty": {
+      "type": "integer"
+    },
+    "recipe_bindings": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recipe_ref",
+          "slots",
+          "conditions",
+          "hp_after_replacement",
+          "clocks"
+        ],
+        "properties": {
+          "recipe_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "slots": {
+            "type": "object",
+            "maxProperties": 4,
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          },
+          "conditions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "hp_after_replacement": {
+            "type": "integer"
+          },
+          "clocks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "public",
+                "terminal",
+                "current",
+                "maximum"
+              ],
+              "properties": {
+                "public": {
+                  "type": "boolean"
+                },
+                "terminal": {
+                  "type": "boolean"
+                },
+                "current": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maximum": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "remedy_entries": {
+      "description": "留门所需的严格可选输入：必须是平台已确认存在、可达且有消费者的补救入口。缺省时不开放留门，Engine 不生成补救入口。",
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entry_ref",
+          "method_ref",
+          "chain_ref",
+          "target_ref",
+          "scene_ref",
+          "preconditions",
+          "attribute_ref",
+          "difficulty",
+          "tools",
+          "expires",
+          "consequences"
+        ],
+        "properties": {
+          "entry_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "method_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "chain_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "target_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "scene_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "preconditions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          },
+          "attribute_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "difficulty": {
+            "type": "integer"
+          },
+          "tools": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          },
+          "expires": {
+            "enum": [
+              "next_action_end",
+              "scene_exit"
+            ]
+          },
+          "consequences": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.hp.damage"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.consume"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 99
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref",
+                    "amount"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.damage"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "item_ref"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-personal-cost/1.0.0"
+                    },
+                    "kind": {
+                      "const": "inventory.break"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "item_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "fact_ref",
+                    "value"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-actor-scene-effect/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.scene.fact.set"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "fact_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label",
+                    "clock_ref",
+                    "amount",
+                    "initial_value"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-actor-scene-effect/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.scene.clock.advance"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "clock_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "initial_value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "kind",
+                    "public_label"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "se-resolution-action-obligation/1.0.0"
+                    },
+                    "kind": {
+                      "const": "actor.rope.entangle"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "public_label",
+                    "clock_ref",
+                    "initial_value",
+                    "amount"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "clock.advance"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "clock_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "initial_value": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "public_label",
+                    "fact_ref",
+                    "value"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "fact.set"
+                    },
+                    "public_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    },
+                    "fact_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "result_requirements": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "band_ref",
+                "fact_ref",
+                "value"
+              ],
+              "properties": {
+                "band_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "fact_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "value": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "all_in_benefits": {
+      "description": "孤注所需的严格可选输入：恰好两项掷前登记、已初始化且已获许可的额外收益。缺省或不等于两项时不开放孤注，Engine 不生成奖励。",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "benefit_ref",
+          "source_ref",
+          "permission_ref",
+          "object_ref"
+        ],
+        "properties": {
+          "benefit_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "permission_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "object_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        }
+      }
+    },
+    "prepared_choices": {
+      "description": "本人掷前已确认的方案集合，0 至 4 项。每项是换价／护注的 recipe_ref、留门的 entry_ref，或改面本身；免费的保留原结果不入此表。省略该字段只返回预览，不得据此开窗或取得随机；给出空数组表示本人掷前明确选择原规则，同样属于确认（confirmed），20 面只产出免费的 original，平台据此直接结算原结果而不开窗；给出非空集合时每个骰面按此集合产出原结果加已选方案（最多 5 个）。已选方案在任何骰面都无合法候选时整次失败关闭，不会静默丢弃。",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "recipe_ref",
+          "entry_ref"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "swap",
+              "protect",
+              "leave_door",
+              "change"
+            ]
+          },
+          "recipe_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entry_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "swap",
+                    "protect"
+                  ]
+                }
+              },
+              "required": [
+                "mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "recipe_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "entry_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "leave_door"
+                }
+              },
+              "required": [
+                "mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "recipe_ref": {
+                  "type": "null"
+                },
+                "entry_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "change"
+                }
+              },
+              "required": [
+                "mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "recipe_ref": {
+                  "type": "null"
+                },
+                "entry_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "properties": {
+              "eligible": {
+                "const": false
+              }
+            },
+            "required": [
+              "eligible"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "properties": {
+              "rating": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "wildfire-hunt",
+  "acts": [
+    {
+      "number": 1,
+      "title": "追踪",
+      "lead": "焦痕往东延伸，风里有硫磺味。",
+      "weather": "embers",
+      "ambience": [
+        "wind",
+        "fire"
+      ],
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "布阵",
+      "lead": "它渴了会找水，三条河道，只能守一条。",
+      "weather": "none",
+      "ambience": [
+        "river",
+        "wind"
+      ],
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "对决",
+      "lead": "读它的招式，不要读它的怒火。",
+      "weather": "embers",
+      "ambience": [
+        "fire",
+        "river"
+      ],
+      "image": "act-3"
+    },
+    {
+      "number": 4,
+      "title": "归营",
+      "lead": "篝火石上的规矩，今天要再念一遍。",
+      "weather": "none",
+      "ambience": [
+        "fire"
+      ],
+      "image": "act-4"
+    }
+  ],
+  "places": [
+    {
+      "entry": "maple-ferry",
+      "name": "枫渡镇与营地",
+      "image": "place-maple-ferry",
+      "aliases": [
+        "枫渡"
+      ]
+    },
+    {
+      "entry": "sulfur-pit",
+      "name": "硫磺矿坑",
+      "image": "place-sulfur-pit",
+      "aliases": [
+        "硫磺矿"
+      ]
+    },
+    {
+      "entry": "old-crater",
+      "name": "旧火山口",
+      "image": "place-old-crater",
+      "aliases": [
+        "火山口"
+      ]
+    },
+    {
+      "entry": "three-rivers",
+      "name": "三条河道",
+      "image": "place-three-rivers",
+      "aliases": [
+        "河道"
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "settled",
+      "name": "安定产卵",
+      "rule": "找到矿坑真相，把焚角兽引往旧火山口",
+      "image": "ending-settled"
+    },
+    {
+      "id": "slain",
+      "name": "讨伐",
+      "rule": "在河道里击倒焚角兽，枫渡镇得救，兽卵随它一起死去",
+      "image": "ending-slain"
+    },
+    {
+      "id": "driven",
+      "name": "驱离",
+      "rule": "把焚角兽赶回风脊山口，镇子保住了，下一个迁徙之年仍是未知",
+      "image": "ending-driven"
+    }
+  ],
+  "shared": {}
+}

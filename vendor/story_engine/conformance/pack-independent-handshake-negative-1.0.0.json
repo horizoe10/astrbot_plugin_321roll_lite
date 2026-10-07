@@ -1,0 +1,62 @@
+{
+  "schema": "se-dev3-handshake-negative-vectors/1.0.0",
+  "vectors": [
+    {
+      "id": "embedded.resolve_turn.artifact_absent",
+      "factory": "embedded",
+      "factory_arguments": {},
+      "method": "resolve_turn",
+      "expected_error": "engine.artifact_unavailable",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "id": "embedded.resolve_turn_stream.artifact_absent",
+      "factory": "embedded",
+      "factory_arguments": {},
+      "method": "resolve_turn_stream",
+      "expected_error": "engine.artifact_unavailable",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "id": "embedded.evaluate_event.artifact_absent",
+      "factory": "embedded",
+      "factory_arguments": {},
+      "method": "evaluate_event",
+      "expected_error": "engine.artifact_unavailable",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "id": "remote.resolve_turn.artifact_absent",
+      "factory": "remote",
+      "factory_arguments": {},
+      "method": "resolve_turn",
+      "payload": {},
+      "expected_error": "engine.artifact_unavailable",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "id": "remote.evaluate_event.artifact_absent",
+      "factory": "remote",
+      "factory_arguments": {},
+      "method": "evaluate_event",
+      "payload": {},
+      "expected_error": "engine.artifact_unavailable",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "id": "factory.partial_artifact_arguments",
+      "factory": "embedded",
+      "factory_arguments": {"artifact_ref": "artifact.demo"},
+      "method": "construct",
+      "expected_error": "engine.input_invalid",
+      "expected_bridge_calls": 0,
+      "expected_provider_calls": 0
+    }
+  ]
+}
+

@@ -1,0 +1,71 @@
+{
+  "schema": "se-dev3-handshake-positive-vectors/1.0.0",
+  "fixtures": {
+    "health": {
+      "status": "alive",
+      "contract_version": "se-remote-dispatch/1.2.0",
+      "engine_version": "1.0.0.dev4"
+    },
+    "describe": {
+      "schema": "se-engine-handshake/1.1.0",
+      "story_engine_product": "321 Story Engine",
+      "story_engine_version": "1.0.0.dev4",
+      "story_engine_port_range": "story-engine-port/1.0.0",
+      "platform_bridge_range": "platform-bridge/1.0.0",
+      "supported_features": ["base.handshake/1", "capability-reporting/1", "pack-independent-handshake/1", "proposal-only/1"],
+      "required_platform_features": ["operation-envelope/1", "proposal-validation/1"],
+      "transports": ["embedded", "remote-dispatch"],
+      "deterministic_replay": true,
+      "security_policy_fingerprint": "sha256:619e0022532e9d719c850f78178d135928bb1b12da14183c8a8a4b549d947c89"
+    },
+    "readiness": {
+      "schema": "se-engine-readiness/1.1.0",
+      "engine_version": "1.0.0.dev4",
+      "status": "degraded",
+      "provider_mode": "unavailable",
+      "accepted_operations": ["capabilities", "describe", "readiness"],
+      "enabled_features": ["base.handshake/1", "capability-reporting/1", "pack-independent-handshake/1", "proposal-only/1"],
+      "missing_dependencies": ["provider:structured_output", "story_artifact"],
+      "reason_codes": ["narrative_provider_unavailable", "story_artifact_unavailable"],
+      "components": {
+        "engine_runtime": {"status": "ready"},
+        "event": {"status": "unavailable", "reason": "story_artifact_unavailable"},
+        "narrative": {"status": "degraded", "reason": "story_artifact_and_provider_unavailable"},
+        "stream": {"status": "degraded", "reason": "story_artifact_and_provider_unavailable"},
+        "platform_bridge": {"status": "contract_ready", "version": "platform-bridge/1.0.0"},
+        "provider": {
+          "status": "unavailable",
+          "reason": "provider_not_configured",
+          "requirements": {"credential_owner": "321_platform", "required": ["structured_output"], "optional": ["streaming"]}
+        },
+        "story_artifact": {"status": "unavailable", "reason": "story_artifact_not_configured"}
+      },
+      "provider_requirements": {"credential_owner": "321_platform", "required": ["structured_output"], "optional": ["streaming"]}
+    },
+    "capabilities": {
+      "schema": "se-engine-capabilities/1.0.0",
+      "engine_version": "1.0.0.dev4",
+      "operations": {
+        "describe": {"available": true, "requires": []},
+        "readiness": {"available": true, "requires": []},
+        "capabilities": {"available": true, "requires": []},
+        "resolve_turn": {"available": false, "requires": ["platform_bridge", "provider:structured_output", "story_artifact"], "reason": "story_artifact_and_provider_unavailable"},
+        "resolve_turn_stream": {"available": false, "requires": ["platform_bridge", "provider:structured_output", "story_artifact"], "reason": "story_artifact_and_provider_unavailable"},
+        "evaluate_event": {"available": false, "requires": ["platform_bridge", "story_artifact"], "reason": "story_artifact_unavailable"}
+      },
+      "engine_capabilities": ["actor.resource_pool/1.0.0", "actor.vitality/1.0.0", "base.handshake/1", "base.narrative/1", "character.state.effects/1", "event.evaluate/1", "event.guard.evaluate/1.0.0", "narrative.stream/1"],
+      "provider_requirements": {"credential_owner": "321_platform", "required": ["structured_output"], "optional": ["streaming"]},
+      "unknown_required_policy": "fail_closed",
+      "unknown_optional_policy": "ignore_with_warning"
+    }
+  },
+  "vectors": [
+    {"id": "embedded.describe.no_dependencies", "factory": "embedded", "factory_arguments": {}, "method": "describe", "bridge": null, "expected_fixture": "describe"},
+    {"id": "embedded.readiness.no_dependencies", "factory": "embedded", "factory_arguments": {}, "method": "readiness", "bridge": null, "expected_fixture": "readiness"},
+    {"id": "embedded.capabilities.no_dependencies", "factory": "embedded", "factory_arguments": {}, "method": "capabilities", "bridge": null, "expected_fixture": "capabilities"},
+    {"id": "remote.health.no_dependencies", "factory": "remote", "factory_arguments": {}, "method": "health", "payload": {}, "bridge": null, "expected_fixture": "health"},
+    {"id": "remote.describe.no_dependencies", "factory": "remote", "factory_arguments": {}, "method": "describe", "payload": {}, "bridge": null, "expected_fixture": "describe"},
+    {"id": "remote.readiness.no_dependencies", "factory": "remote", "factory_arguments": {}, "method": "readiness", "payload": {}, "bridge": null, "expected_fixture": "readiness"},
+    {"id": "remote.capabilities.no_dependencies", "factory": "remote", "factory_arguments": {}, "method": "capabilities", "payload": {}, "bridge": null, "expected_fixture": "capabilities"}
+  ]
+}

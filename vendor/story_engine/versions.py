@@ -1,0 +1,63 @@
+"""Single version source for the standalone 321 Story Engine."""
+
+STORY_ENGINE_GENERATION = 1
+STORY_ENGINE_SPEC_VERSION = "1.0.0"
+# Owner-assigned fixed candidate identity. Earlier fixed artifacts remain immutable.
+STORY_ENGINE_DISTRIBUTION_VERSION = "1.0.0rc26"
+ACTIVE_SOURCE_WORKING_TREE_CANDIDATE = STORY_ENGINE_DISTRIBUTION_VERSION
+ACTIVE_SOURCE_INSTALLABLE = True
+ACTIVE_SOURCE_NEXT_VERSION_REQUIRED = False
+ACTIVE_SOURCE_FORMAL_VERSION_OWNER_DECISION = "assigned:" + STORY_ENGINE_DISTRIBUTION_VERSION
+ACTIVE_SOURCE_BLOCKED_RELEASE_VERSIONS = ("1.0.0.dev4", "1.0.0.dev5", "1.0.0.dev6")
+STORY_ENGINE_RANGE = ">=1.0.0 <2.0.0"
+AUTHOR_ENVELOPE_SCHEMA = "se-event-composition/1.0.0"
+AUTHOR_ENVELOPE_GUARD_SCHEMA = "se-event-composition/1.1.0"
+AUTHOR_ENVELOPE_CHOICE_SCHEMA = "se-event-composition/1.2.0"
+PROFILE_REGISTRY_SCHEMA = "se-profile-registry/1.1.0"
+PROFILE_CONTRACT_VERSION = "1.0.0"
+EVENT_COMPOSITION_IR_SCHEMA = "se-event-composition-ir/1.0.0"
+EVENT_COMPOSITION_IR_GUARD_SCHEMA = "se-event-composition-ir/1.1.0"
+EVENT_COMPOSITION_IR_CHOICE_SCHEMA = "se-event-composition-ir/1.2.0"
+CANONICAL_IR_SCHEMA = "se-canonical-story-pack-ir/1.1.0"
+ARTIFACT_SCHEMA = "se-story-artifact/1.1.0"
+CANONICAL_IR_GUARD_SCHEMA = "se-canonical-story-pack-ir/1.2.0"
+ARTIFACT_GUARD_SCHEMA = "se-story-artifact/1.2.0"
+CANONICAL_IR_CHOICE_SCHEMA = "se-canonical-story-pack-ir/1.3.0"
+ARTIFACT_CHOICE_SCHEMA = "se-story-artifact/1.3.0"
+CANONICAL_IR_RECOVERY_SCHEMA = "se-canonical-story-pack-ir/1.4.0"
+ARTIFACT_RECOVERY_SCHEMA = "se-story-artifact/1.4.0"
+CANONICAL_IR_UNION_SCHEMA = "se-canonical-story-pack-ir/1.5.0"
+ARTIFACT_UNION_SCHEMA = "se-story-artifact/1.5.0"
+CANONICAL_IR_UNION_V2_SCHEMA = "se-canonical-story-pack-ir/1.6.0"
+ARTIFACT_UNION_V2_SCHEMA = "se-story-artifact/1.6.0"
+CANONICAL_IR_RESOLUTION_RULE_SCHEMA = "se-canonical-story-pack-ir/1.7.0"
+ARTIFACT_RESOLUTION_RULE_SCHEMA = "se-story-artifact/1.7.0"
+# Action-offer contract carried by the fixed dev6 candidate.
+CANONICAL_IR_ACTION_OFFER_SCHEMA = "se-canonical-story-pack-ir/1.8.0"
+ARTIFACT_ACTION_OFFER_SCHEMA = "se-story-artifact/1.8.0"
+COMPILER_TARGET_ABI = "se-compiler/1.1.0"
+COMPILER_TARGET_GUARD_ABI = "se-compiler/1.2.0"
+COMPILER_TARGET_CHOICE_ABI = "se-compiler/1.3.0"
+COMPILER_TARGET_RECOVERY_ABI = "se-compiler/1.4.0"
+COMPILER_TARGET_UNION_ABI = "se-compiler/1.5.0"
+COMPILER_TARGET_UNION_V2_ABI = "se-compiler/1.6.0"
+COMPILER_TARGET_RESOLUTION_RULE_ABI = "se-compiler/1.7.0"
+COMPILER_TARGET_ACTION_OFFER_ABI = "se-compiler/1.8.0"
+COMPILER_TARGET_V02_EXTENSION_ABI = "se-compiler/1.10.0"
+GRAPH_ALGORITHM_VERSION = "se-graph/1.0.0"
+REFERENCE_ALGORITHM_VERSION = "se-reference/1.0.0"
+BUDGET_ALGORITHM_VERSION = "se-budget/1.0.0"
+STORY_ENGINE_PORT_VERSION = "story-engine-port/1.0.0"
+PLATFORM_BRIDGE_VERSION = "platform-bridge/1.0.0"
+MODULE_API_VERSION = "se-module-api/1.0.0"
+RUNTIME_CONTRACT_SCHEMA = "se-runtime-contracts/1.0.0"
+SPECIALIZED_PROPOSAL_SCHEMA = "se-specialized-proposals/1.0.0"
+EVENT_RUNTIME_SCHEMA = "se-event-runtime-contracts/1.0.0"
+GATE_RESPONSE_CONTRACT = "event-gate-response/1.0.0"
+REMOTE_DISPATCH_CONTRACT = "se-remote-dispatch/1.0.0"
+NARRATIVE_REMOTE_DISPATCH_CONTRACT = "se-remote-dispatch/1.2.0"
+RESOURCE_REMOTE_DISPATCH_CONTRACT = "se-remote-dispatch/1.3.0"
+PLATFORM_EVENT_EXTENSION_SCHEMA = "se-platform-event-extension/1.0.0"
+PLATFORM_CONTRACT_BASELINE = "321roll-public-contracts/0.1.0"
+
+__all__ = [name for name in globals() if name.isupper()]

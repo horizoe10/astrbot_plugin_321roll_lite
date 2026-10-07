@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-static-visual-model-output/1.0.0",
+  "description": "ENG02-120静态视觉模型输出合同：只有svg与alt两个字段；不含脚本、事件处理器、外部资源、嵌入HTML或其他字段。平台仍以严格static_svg校验真实SVG安全并存为图片资源。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "svg",
+    "alt"
+  ],
+  "properties": {
+    "svg": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "alt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    }
+  }
+}

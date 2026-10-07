@@ -1,0 +1,20 @@
+{
+  "schema": "se-resolution-rule-negative-vectors/1.0.0",
+  "mutations": [
+    {"id": "unknown_field", "expected_code": "resolution_rule.fields_invalid"},
+    {"id": "script_formula", "expected_code": "resolution_rule.margin_formula_invalid"},
+    {"id": "author_rng", "expected_code": "resolution_rule.rng_authority_invalid"},
+    {"id": "band_gap", "expected_code": "resolution_rule.bands_not_partition"},
+    {"id": "band_overlap", "expected_code": "resolution_rule.bands_not_partition"},
+    {"id": "natural_override_unknown", "expected_code": "resolution_rule.natural_override_invalid"},
+    {"id": "modifier_ref_unknown", "expected_code": "resolution_rule.modifier_reference_invalid"},
+    {"id": "world_rule_unknown", "expected_code": "resolution_rule.world_rule_unresolved"},
+    {"id": "world_effect_mismatch", "expected_code": "resolution_rule.world_authority_mismatch"},
+    {"id": "post_binding_incomplete", "expected_code": "resolution_rule.post_binding_incomplete"},
+    {"id": "receipt_fields_missing", "expected_code": "resolution_rule.receipt_fields_invalid"}
+  ],
+  "product_mutations": [
+    {"id": "digest_mismatch", "expected_code": "resolution_rule.digest_mismatch"},
+    {"id": "catalog_reference_mismatch", "expected_code": "resolution_rule.catalog_reference_mismatch"}
+  ]
+}

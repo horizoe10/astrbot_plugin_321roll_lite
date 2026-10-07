@@ -1,0 +1,502 @@
+{
+  "format": "321roll.world-template/1",
+  "id": "wildfire-hunt",
+  "revision": 1,
+  "title": "狩火 · 群兽迁徙之年",
+  "worldview": "苍野大陆的东半是绵延的草海与火山台地，人们沿着河谷筑镇，依靠\"狩火会\"的猎人守护。狩火会的规矩写在每个营地的篝火石上：\n\n- 只猎越界的兽；\n- 剥取的素材归狩队所有；\n- 不在雏兽面前点火。\n\n每隔十二年，巨兽会成群从西边的风脊山口迁往东海岸产卵，这一年叫\"迁徙之年\"。迁徙季里，狩火会在沿途设营，引导兽群绕开城镇，只在不得已时出猎。\n\n今年的迁徙早了整整一个月，领头的不是温顺的角背牛群，而是一头浑身裂纹里透着火光的焚角兽。它所过之处草海起火，兽群被火驱赶着，直奔河谷里的枫渡镇。\n\n狩火会的老猎人大多随主队守在山口，留在枫渡营地的只有你们这支刚拿到狩牌的新编狩队，还有一位断了右手的老教头。",
+  "seed": "营地的警钟响了三声：长、短、长，意思是\"大型兽，向镇\"。你们冲出帐篷时，西边的天已经染成橘红，风里有焦草和硫磺的味道。\n\n老教头把一卷兽皮地图拍在桌上。\"焚角兽，从风脊下来的。主队赶不回来。\"他用独手指着地图上的三条河道，\"它渴了会找水，找水就会经过这三处之一。你们先去找它的脚印。\"",
+  "style": "热血合作狩猎：巨兽庞大而有生命感，战斗讲究观察弱点、分工配合与地形利用；营地生活温暖，带点粗犷的幽默。",
+  "boundaries": "- 不写虐杀、以折磨取乐或对幼兽的伤害。\n- 狩猎的意义是守护与共存，结局可以是讨伐、驱离或安抚。\n- 不出现现代枪械与机械载具；弩、火药罐与机关陷阱为最高技术。\n- 伤势写到受伤、骨折、灼伤为止，不写肢体残缺的细节。",
+  "guidance": "真相（不公开）： 焚角兽是一头怀卵的雌兽。它体内的火焰本该在海边岩洞里孵卵，却被迁徙路线上新开的硫磺矿坑惊扰，才提前离群、焦躁失控。\n\n讨伐它能救下枫渡镇，但兽卵会一起死去，下一个迁徙之年兽群会少一支。若玩家找到矿坑的真相，把它引往旧火山口，就能让它安定下来产卵。这是更难的结局，可以作为额外达成。\n\n节奏：\n- 第一幕：追踪；脚印、焦痕、被惊扰的小型兽\n- 第二幕：布阵；选择河道、准备陷阱与素材\n- 第三幕：对决；读招式、破坏部位、转换战场\n- 第四幕：归营；剥取、打造或抉择兽卵的命运\n\n战斗用多次检定推进，每次检定对应一个\"部位\"或\"招式\"，不要一骰定生死。",
+  "attributes": [
+    {
+      "id": "might",
+      "name": "力量",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "agility",
+      "name": "敏捷",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "endurance",
+      "name": "耐力",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "insight",
+      "name": "洞察",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "craft",
+      "name": "匠心",
+      "min": 6,
+      "max": 16
+    }
+  ],
+  "budget": 55,
+  "modifier": {
+    "baseline": 10,
+    "divisor": 2
+  },
+  "resources": [
+    {
+      "id": "vitality",
+      "name": "体力",
+      "min": 0,
+      "max": 12,
+      "initial": 12
+    },
+    {
+      "id": "spirit",
+      "name": "斗志",
+      "min": 0,
+      "max": 6,
+      "initial": 6
+    }
+  ],
+  "rules": {
+    "dcMin": 5,
+    "dcMax": 25,
+    "dc": 12,
+    "difficulties": [
+      8,
+      12,
+      15,
+      18
+    ],
+    "seats": 16,
+    "minPlayers": 1,
+    "recommendedMin": 2,
+    "recommendedMax": 4,
+    "mode": "hybrid",
+    "expectedResults": true,
+    "skillSlots": 2,
+    "failureCost": 1,
+    "failureResource": "vitality",
+    "restCost": 0,
+    "restCostResource": "",
+    "restGain": 3,
+    "restGainResource": "vitality"
+  },
+  "skills": [
+    {
+      "id": "cleave",
+      "name": "蓄力斩",
+      "text": "蓄满一击，破坏甲壳或角",
+      "attribute": "might",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "spirit",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "brace",
+      "name": "架刃",
+      "text": "用刃身硬接一次冲撞",
+      "attribute": "endurance",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "whirl",
+      "name": "乱舞",
+      "text": "贴身连击，拖住巨兽的注意力",
+      "attribute": "agility",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "spirit",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "roll",
+      "name": "翻身",
+      "text": "在攻击落下前脱离",
+      "attribute": "agility",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "guard",
+      "name": "坚盾",
+      "text": "为身后的同伴挡下一击",
+      "attribute": "endurance",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "lunge",
+      "name": "突刺",
+      "text": "从盾后突进，刺中暴露的部位",
+      "attribute": "might",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "snipe",
+      "name": "弱点射击",
+      "text": "远距离命中已发现的弱点",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "spirit",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "trap-bolt",
+      "name": "缚索弩",
+      "text": "射出带钩索的弩箭，暂时束缚",
+      "attribute": "craft",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "rally",
+      "name": "号令",
+      "text": "吹奏战号，同伴下一次检定 +1",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "soothe",
+      "name": "安神调",
+      "text": "平复受惊的兽或同伴，恢复同伴 1 点斗志",
+      "attribute": "craft",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "spirit",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "bond",
+      "name": "伙伴出击",
+      "text": "令随行的猎犬\"灰尾\"牵制、嗅迹或衔回物品",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "pitfall",
+      "name": "落穴陷阱",
+      "text": "布下落穴或烟罐，打乱巨兽的行动",
+      "attribute": "craft",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    }
+  ],
+  "items": [
+    {
+      "id": "potion",
+      "name": "回复药",
+      "text": "体力 +3",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 3,
+      "gainResource": "vitality",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    },
+    {
+      "id": "cooling",
+      "name": "冷却饮",
+      "text": "耐力检定 +1（抗热），每幕 2 次",
+      "attribute": "endurance",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    },
+    {
+      "id": "whetstone",
+      "name": "磨刀石",
+      "text": "力量检定 +1，每幕 2 次",
+      "attribute": "might",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "greatblade",
+      "name": "巨刃猎人",
+      "text": "破甲重击（专精型）",
+      "attributes": {
+        "might": 16,
+        "agility": 8,
+        "endurance": 13,
+        "insight": 10,
+        "craft": 8
+      },
+      "skills": [
+        "cleave",
+        "brace"
+      ]
+    },
+    {
+      "id": "twinblade",
+      "name": "双刃猎人",
+      "text": "连击与牵制（双修型）",
+      "attributes": {
+        "might": 10,
+        "agility": 15,
+        "endurance": 14,
+        "insight": 8,
+        "craft": 8
+      },
+      "skills": [
+        "whirl",
+        "roll"
+      ]
+    },
+    {
+      "id": "shieldlance",
+      "name": "盾枪猎人",
+      "text": "防守与掩护（均衡型）",
+      "attributes": {
+        "might": 12,
+        "agility": 8,
+        "endurance": 13,
+        "insight": 12,
+        "craft": 10
+      },
+      "skills": [
+        "guard",
+        "lunge"
+      ]
+    },
+    {
+      "id": "crossbow",
+      "name": "重弩猎人",
+      "text": "远程与束缚（偏科型）",
+      "attributes": {
+        "might": 8,
+        "agility": 11,
+        "endurance": 8,
+        "insight": 16,
+        "craft": 12
+      },
+      "skills": [
+        "snipe",
+        "trap-bolt"
+      ]
+    },
+    {
+      "id": "warhorn",
+      "name": "战号猎人",
+      "text": "支援与安抚（全才型）",
+      "attributes": {
+        "might": 10,
+        "agility": 10,
+        "endurance": 11,
+        "insight": 12,
+        "craft": 12
+      },
+      "skills": [
+        "rally",
+        "soothe"
+      ]
+    },
+    {
+      "id": "beastkeeper",
+      "name": "驭兽猎人",
+      "text": "伙伴与陷阱（双修型）",
+      "attributes": {
+        "might": 8,
+        "agility": 10,
+        "endurance": 8,
+        "insight": 15,
+        "craft": 14
+      },
+      "skills": [
+        "bond",
+        "pitfall"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "grass-sea",
+      "name": "风脊草海",
+      "kind": "region",
+      "public": true,
+      "summary": "风脊山口以东的大草原，迁徙兽群的必经之路",
+      "secret": "草海下有新开的硫磺矿坑",
+      "links": [
+        "maple-ferry",
+        "sulfur-pit"
+      ]
+    },
+    {
+      "id": "maple-ferry",
+      "name": "枫渡镇与营地",
+      "kind": "place",
+      "public": true,
+      "summary": "河谷小镇，狩火会在镇外设有营地与锻炉",
+      "secret": "镇上的商会私下出钱开了硫磺矿",
+      "links": [
+        "grass-sea"
+      ]
+    },
+    {
+      "id": "old-instructor",
+      "name": "老教头 岩叔",
+      "kind": "npc",
+      "public": true,
+      "summary": "断了右手的退役猎人，嘴硬心软，记得每一种兽的脾气",
+      "secret": "他的右手就是十二年前在一头焚角兽面前失去的，那次他没能救下兽卵",
+      "links": [
+        "goal-stop"
+      ]
+    },
+    {
+      "id": "horn-beast",
+      "name": "焚角兽",
+      "kind": "npc",
+      "public": true,
+      "summary": "体长三丈，角与背甲裂纹中透出火光，所过草海起火",
+      "secret": "怀卵的雌兽；腹下的甲最薄，但那里护着卵",
+      "links": [
+        "sulfur-pit",
+        "old-crater"
+      ]
+    },
+    {
+      "id": "sulfur-pit",
+      "name": "硫磺矿坑",
+      "kind": "place",
+      "public": false,
+      "summary": "草海深处的新坑，冒着黄烟",
+      "secret": "震动与毒烟惊扰了迁徙路线",
+      "links": [
+        "grass-sea"
+      ]
+    },
+    {
+      "id": "old-crater",
+      "name": "旧火山口",
+      "kind": "place",
+      "public": true,
+      "summary": "枫渡北面的死火山，传说是焚角兽的祖巢",
+      "secret": "地底仍有余温，适合产卵",
+      "links": [
+        "horn-beast"
+      ]
+    },
+    {
+      "id": "hunt-guild",
+      "name": "狩火会",
+      "kind": "faction",
+      "public": true,
+      "summary": "守护各镇的猎人行会，以篝火石立规",
+      "secret": "",
+      "links": []
+    },
+    {
+      "id": "goal-stop",
+      "name": "拦下焚角兽",
+      "kind": "goal",
+      "public": true,
+      "summary": "在它抵达枫渡镇前讨伐或驱离",
+      "secret": "额外达成：把它引往旧火山口，让它安定产卵",
+      "links": [
+        "horn-beast"
+      ]
+    },
+    {
+      "id": "three-rivers",
+      "name": "三条河道",
+      "kind": "place",
+      "public": true,
+      "summary": "焚角兽找水必经的三处河湾",
+      "secret": "",
+      "links": [
+        "grass-sea"
+      ]
+    }
+  ],
+  "initial": {
+    "place": "枫渡营地",
+    "time": "迁徙之年 · 早秋 · 黄昏",
+    "state": "焚角兽越过风脊，距枫渡镇约两日路程；主队困在山口",
+    "links": [
+      "maple-ferry",
+      "old-instructor",
+      "goal-stop"
+    ]
+  }
+}

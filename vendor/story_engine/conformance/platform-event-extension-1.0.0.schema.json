@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-platform-event-extension/1.0.0",
+  "title": "SE 1 platform-consumer event runtime extension",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_state_additions", "gate_response"],
+  "properties": {
+    "event_state_additions": {"$ref": "#/$defs/EventStateSnapshotAdditions"},
+    "gate_response": {"type": ["object", "null"], "oneOf": [{"$ref": "#/$defs/GateResponseSnapshot"}, {"type": "null"}]}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "ref": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,255}$"},
+    "EventStateSnapshotAdditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visit_counts"],
+      "properties": {
+        "visit_counts": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/ref"},
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "GateResponseSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "gate_ref", "gate_type", "decision", "source_revision", "decided_by_ref", "decision_receipt_ref", "decided_at", "response_fingerprint"],
+      "properties": {
+        "contract_version": {"const": "event-gate-response/1.0.0"},
+        "gate_ref": {"$ref": "#/$defs/ref"},
+        "gate_type": {"enum": ["player_choice", "vote", "actor_consent", "rescue", "terminal", "ending", "human_dm"]},
+        "decision": {"enum": ["accepted", "rejected"]},
+        "source_revision": {"type": "integer", "minimum": 0},
+        "decided_by_ref": {"$ref": "#/$defs/ref"},
+        "decision_receipt_ref": {"$ref": "#/$defs/ref"},
+        "decided_at": {"type": "string", "format": "date-time"},
+        "response_fingerprint": {"$ref": "#/$defs/digest"}
+      }
+    }
+  },
+  "x-semantics": {
+    "visit_counts_owner": "321_platform",
+    "visit_count_increment": "the platform increments the committed next_checkpoint_ref exactly once in the same CAS commit",
+    "gate_decision_owner": "321_platform",
+    "gate_receipt_rule": "decision_receipt_ref must be present in EventAdvanceRequest.committed_receipt_refs",
+    "late_result_policy": "reject operation, request fingerprint, event revision, gate revision or response fingerprint mismatch"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-resolution-rule-definition-ir/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "resolution_rule_ref", "roll_expression", "margin", "rng_policy", "natural_roll_overrides", "modifier_source_refs", "result_bands", "post_resolution_narrative_binding", "definition_sha256"],
+  "properties": {
+    "schema": {"const": "se-resolution-rule-definition-ir/1.0.0"},
+    "resolution_rule_ref": {"$ref": "#/$defs/ref"},
+    "roll_expression": {"const": "1d20"},
+    "margin": {"type": "object", "additionalProperties": false, "required": ["calculation", "value_type"], "properties": {"calculation": {"const": "final_total - difficulty"}, "value_type": {"const": "integer"}}},
+    "rng_policy": {"type": "object", "additionalProperties": false, "required": ["authority", "author_seed_allowed", "replay_source"], "properties": {"authority": {"const": "platform_provided"}, "author_seed_allowed": {"const": false}, "replay_source": {"const": "committed_resolution_receipt"}}},
+    "natural_roll_overrides": {"type": "object", "additionalProperties": false, "required": ["1", "20"], "properties": {"1": {"$ref": "#/$defs/ref"}, "20": {"$ref": "#/$defs/ref"}}},
+    "modifier_source_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+    "result_bands": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/band"}},
+    "post_resolution_narrative_binding": {"$ref": "#/$defs/binding"},
+    "definition_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "band": {"type": "object", "additionalProperties": false, "required": ["band_ref", "margin_min", "margin_max", "outcome", "degree"], "properties": {"band_ref": {"$ref": "#/$defs/ref"}, "margin_min": {"type": ["integer", "null"]}, "margin_max": {"type": ["integer", "null"]}, "outcome": {"enum": ["success", "failure"]}, "degree": {"$ref": "#/$defs/ref"}}},
+    "binding": {"type": "object", "additionalProperties": false, "required": ["schema", "binding_ref", "input_policy", "required_receipt_fields", "narrative_may_not_reinterpret_outcome", "band_bindings", "binding_sha256"], "properties": {"schema": {"const": "se-post-resolution-narrative-binding-ir/1.0.0"}, "binding_ref": {"$ref": "#/$defs/ref"}, "input_policy": {"const": "committed_receipt_only"}, "required_receipt_fields": {"type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["resolution_receipt_ref", "outcome_band_ref", "margin", "modifier_receipt_refs"]}}, "narrative_may_not_reinterpret_outcome": {"const": true}, "band_bindings": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "additionalProperties": false, "required": ["band_ref", "narrative_aspect"], "properties": {"band_ref": {"$ref": "#/$defs/ref"}, "narrative_aspect": {"$ref": "#/$defs/ref"}}}}, "binding_sha256": {"$ref": "#/$defs/digest"}}}
+  }
+}

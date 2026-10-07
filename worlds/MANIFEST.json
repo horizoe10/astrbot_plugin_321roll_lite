@@ -1,0 +1,58 @@
+{
+  "packs": [
+    {
+      "id": "final-curtain",
+      "title": "封箱戏 · 第七夜，台下多出一排看客",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:7a58071fdfecec5cf8cb57ed348061e2beb09b2a3b04163260a780142a8dad7b",
+        "presentation.json": "sha256:0918d8246e91ad928821bebbb5c3c3c946644c7af3b3d627aea13cf53c63c7e5"
+      }
+    },
+    {
+      "id": "greycrown-prequel",
+      "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:7adb444a240376e188a3628212531f5e15f225471b024543848a129798a34e46",
+        "presentation.json": "sha256:9da05ea425acdeea47e9dde7c48b8c5924115429933832ee236d4935d69b7a08"
+      }
+    },
+    {
+      "id": "nameless-sword-tomb",
+      "title": "无名剑冢 · 第一道潮痕，是用剑刻的",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:17ed9ffa494fb5c2fb94cdf3c2f7c49a377453a9ae76b3a4e716c66dc84ef78e",
+        "presentation.json": "sha256:2f0bc7582e547248df5020e4ce451d08ad7baa859bd493b1b8388fb7f782cfa7"
+      }
+    },
+    {
+      "id": "neon-pawnshop",
+      "title": "霓虹典当行 · 今夜有人当掉了整座城的昨天",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:15d74163bf189d9b4238c2a5a691b8040b5570e2deec603fb6453dac930d9793",
+        "presentation.json": "sha256:297fc5b3faea328853c3a44aa2ce604e62bf05034bc2b94baffcef81dd6bb2e5"
+      }
+    },
+    {
+      "id": "seventh-mystery",
+      "title": "第七个不思议 · 钟楼在放学后多敲了一下",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:c4399b5b3bb53a27fd198e9f283f10ec0f73cdffcee1b37d29627e82787bea3c",
+        "presentation.json": "sha256:e77a8e87475b58d4000da4dc3e7ac5442c4ba381796a1d2ec94ecb9b8d283686"
+      }
+    },
+    {
+      "id": "wildfire-hunt",
+      "title": "狩火 · 群兽迁徙之年",
+      "revision": 1,
+      "files": {
+        "pack.json": "sha256:aaaf5f76ecdd516eb03f3873805014db44b0f829b55bbee43e1368e0e473feef",
+        "presentation.json": "sha256:63900e4ef4cee482412251f5b83b342a2226410999c74a2503a3128d0729c6e6"
+      }
+    }
+  ]
+}

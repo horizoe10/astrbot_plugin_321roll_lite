@@ -1,0 +1,64 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "rule_ref",
+    "rule_version",
+    "rule_sha256",
+    "difficulties",
+    "model_budget",
+    "policy_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-pack-check-plan-options/1.0.0"
+    },
+    "rule_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "rule_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "rule_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "difficulties": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "model_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "narrative"
+      ],
+      "properties": {
+        "plan": {
+          "const": 1
+        },
+        "narrative": {
+          "const": 1
+        }
+      }
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/pack-check-plan-options/1.0.0"
+}

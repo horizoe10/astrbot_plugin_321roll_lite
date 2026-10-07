@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kind",
+    "public_label"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-resolution-action-obligation/1.0.0"
+    },
+    "kind": {
+      "const": "actor.rope.entangle"
+    },
+    "public_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    }
+  }
+}

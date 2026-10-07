@@ -1,0 +1,78 @@
+{
+  "schema": "se-catastrophic-profile-positive-vectors/1.0.0",
+  "profile": "catastrophic_event",
+  "profile_version": "1.1.0",
+  "vectors": [
+    {
+      "id": "catastrophic.maximum-chain",
+      "profile_data": {
+        "schema": "se-catastrophic-profile/1.0.0",
+        "category": "campaign",
+        "public_risk": "The storm can destroy the harbor unless the party acts before the clock expires.",
+        "known_consequences": ["Flooded districts", "A broken regional supply line"],
+        "deadline": {"kind": "clock", "ref": "clock.storm", "maximum_rounds": 8},
+        "response_routes": [
+          {"route_ref": "route.challenge", "kind": "challenge"},
+          {"route_ref": "route.safe_exit", "kind": "safe_exit"}
+        ],
+        "consequence_classes": ["persistent", "consent_required", "host_confirmation_required", "terminal_candidate"],
+        "human_dm_checkpoint_ref": "terminal",
+        "aftermath_checkpoint_ref": "aftermath",
+        "recovery_windows": ["aftermath"],
+        "capability_mode": "maximum",
+        "fate_checkpoint_ref": "fate",
+        "terminal_checkpoint_ref": "terminal"
+      },
+      "omens": [{"id": "omen.surge", "public_warning": "The sea wall is overtopping and the storm clock is visible to everyone."}],
+      "checkpoints": [
+        {"id": "response", "kind": "response", "public_summary": "Choose a response before the storm clock expires."},
+        {"id": "consequence", "kind": "consequence", "public_summary": "Resolve the declared campaign consequences."},
+        {"id": "fate", "kind": "fate_candidate", "public_summary": "The affected actor decides whether to accept the fate route.", "irreversible": true, "required_gate": "consent"},
+        {"id": "terminal", "kind": "terminal_arbitration", "public_summary": "A human host arbitrates the terminal candidate.", "irreversible": true, "required_gate": "host"},
+        {"id": "aftermath", "kind": "aftermath", "public_summary": "Recovery actions and persistent consequences remain visible.", "exit_kind": "complete"},
+        {"id": "safe", "kind": "safe_exit", "public_summary": "The party withdraws with the declared cost.", "exit_kind": "retreat"}
+      ],
+      "routes": [
+        {"id": "route.challenge", "from": "response", "to": "consequence", "outcome": "challenge_opened", "public_meaning": "Attempt the staged harbor defense."},
+        {"id": "route.safe_exit", "from": "response", "to": "safe", "outcome": "withdrawn", "public_meaning": "Evacuate through the declared safe exit."},
+        {"id": "route.consequence_fate", "from": "consequence", "to": "fate", "outcome": "fate_candidate", "public_meaning": "Submit a bounded fate candidate for actor consent."},
+        {"id": "route.fate_terminal", "from": "fate", "to": "terminal", "outcome": "terminal_candidate", "public_meaning": "Submit the consented candidate for host arbitration."},
+        {"id": "route.terminal_aftermath", "from": "terminal", "to": "aftermath", "outcome": "aftermath", "public_meaning": "Enter the declared recovery and aftermath window."}
+      ]
+    },
+    {
+      "id": "catastrophic.subset-without-fate-terminal",
+      "profile_data": {
+        "schema": "se-catastrophic-profile/1.0.0",
+        "category": "regional",
+        "public_risk": "The ash cloud can isolate the valley, but no actor fate or terminal outcome is in scope.",
+        "known_consequences": ["Road closure", "Supply loss"],
+        "deadline": {"kind": "checkpoints", "ref": "checkpoint.response", "maximum_rounds": 6},
+        "response_routes": [
+          {"route_ref": "route.procedure", "kind": "procedure"},
+          {"route_ref": "route.safe_exit", "kind": "safe_exit"}
+        ],
+        "consequence_classes": ["costly_reversible", "persistent", "host_confirmation_required"],
+        "human_dm_checkpoint_ref": "human_dm",
+        "aftermath_checkpoint_ref": "aftermath",
+        "recovery_windows": ["aftermath"],
+        "capability_mode": "subset_without_fate_terminal"
+      },
+      "omens": [{"id": "omen.ash", "public_warning": "Ash darkens the valley and the evacuation deadline is public."}],
+      "checkpoints": [
+        {"id": "response", "kind": "response", "public_summary": "Choose the regional response."},
+        {"id": "consequence", "kind": "consequence", "public_summary": "Apply only reversible or persistent regional consequences."},
+        {"id": "human_dm", "kind": "human_dm", "public_summary": "The host resolves an unproven regional edge case.", "required_gate": "host"},
+        {"id": "aftermath", "kind": "aftermath", "public_summary": "Run recovery without fate or terminal state.", "exit_kind": "complete"},
+        {"id": "safe", "kind": "safe_exit", "public_summary": "Leave the valley with the declared supply cost.", "exit_kind": "continue_with_cost"}
+      ],
+      "routes": [
+        {"id": "route.procedure", "from": "response", "to": "consequence", "outcome": "procedure_opened", "public_meaning": "Coordinate the non-combat evacuation procedure."},
+        {"id": "route.safe_exit", "from": "response", "to": "safe", "outcome": "safe_exit", "public_meaning": "Take the safe exit and accept the supply cost."},
+        {"id": "route.recover", "from": "consequence", "to": "aftermath", "outcome": "aftermath", "public_meaning": "Enter regional recovery."},
+        {"id": "route.host", "from": "consequence", "to": "human_dm", "outcome": "host_review", "public_meaning": "Pause for a human host decision."},
+        {"id": "route.host_recover", "from": "human_dm", "to": "aftermath", "outcome": "aftermath", "public_meaning": "Continue to recovery after host review."}
+      ]
+    }
+  ]
+}

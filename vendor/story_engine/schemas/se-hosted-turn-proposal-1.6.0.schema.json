@@ -1,0 +1,621 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "paragraphs",
+    "facts",
+    "npcs",
+    "suggestions",
+    "progress",
+    "decision_node",
+    "schema",
+    "committed",
+    "blocks",
+    "suggestion_checks"
+  ],
+  "properties": {
+    "paragraphs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1200
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "subject_ref",
+          "text"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "world_fact",
+              "npc_statement",
+              "player_declaration",
+              "hypothesis"
+            ]
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "minItems": 0,
+      "maxItems": 8
+    },
+    "npcs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "npc_ref",
+          "name",
+          "description",
+          "motivation"
+        ],
+        "properties": {
+          "npc_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 84
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "motivation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "entity_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "minItems": 0,
+            "maxItems": 8
+          }
+        }
+      },
+      "minItems": 0,
+      "maxItems": 4
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "minItems": 1,
+      "maxItems": 4
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene",
+        "goal"
+      ],
+      "properties": {
+        "scene": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "title",
+                "description"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "goal": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "decision_node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "reason",
+            "candidates"
+          ],
+          "properties": {
+            "schema": {
+              "const": "se-hosted-decision-node/1.0.0"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "candidates": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text",
+                  "rule",
+                  "source_fact_refs",
+                  "exit"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "rule": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "difficulty",
+                      "failure_cost"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "narrative",
+                          "check",
+                          "recover"
+                        ]
+                      },
+                      "difficulty": {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      "failure_cost": {
+                        "enum": [
+                          "",
+                          "setback",
+                          "harm"
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "kind": {
+                              "const": "check"
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "difficulty": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "failure_cost": {
+                              "enum": [
+                                "setback",
+                                "harm"
+                              ]
+                            }
+                          }
+                        },
+                        "else": {
+                          "properties": {
+                            "difficulty": {
+                              "const": ""
+                            },
+                            "failure_cost": {
+                              "const": ""
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "source_fact_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "exit": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "contains": {
+                "properties": {
+                  "exit": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "exit"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schema": {
+      "const": "se-hosted-turn-proposal/1.6.0"
+    },
+    "committed": {
+      "const": false
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "text",
+          "references",
+          "speaker",
+          "reference_status"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "paragraph",
+              "npc_dialogue",
+              "npc_action"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "references": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema",
+                "entity_ref",
+                "kind",
+                "label",
+                "start",
+                "end"
+              ],
+              "properties": {
+                "schema": {
+                  "const": "321roll-narrative-entity-reference/1.0.0"
+                },
+                "entity_ref": {
+                  "type": "string",
+                  "pattern": "^entity\\.[a-f0-9]{64}$"
+                },
+                "kind": {
+                  "enum": [
+                    "person",
+                    "place",
+                    "item",
+                    "quest",
+                    "ability",
+                    "status"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "start": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "entity_ref",
+                  "kind",
+                  "label"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "321roll-narrative-speaker/1.0.0"
+                  },
+                  "entity_ref": {
+                    "type": "string",
+                    "pattern": "^entity\\.[a-f0-9]{64}$"
+                  },
+                  "kind": {
+                    "const": "person"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference_status": {
+            "enum": [
+              "none",
+              "resolved",
+              "unresolved"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "npc_dialogue",
+                    "npc_action"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "speaker": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "entity_ref",
+                    "kind",
+                    "label"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "321roll-narrative-speaker/1.0.0"
+                    },
+                    "entity_ref": {
+                      "type": "string",
+                      "pattern": "^entity\\.[a-f0-9]{64}$"
+                    },
+                    "kind": {
+                      "const": "person"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 240
+                    }
+                  }
+                },
+                "reference_status": {
+                  "const": "resolved"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "suggestion_checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "narrative",
+              "check",
+              "recover"
+            ]
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "",
+              "easy",
+              "standard",
+              "hard",
+              "exceptional"
+            ]
+          },
+          "failure_cost": {
+            "type": "string",
+            "enum": [
+              "",
+              "setback",
+              "harm"
+            ]
+          },
+          "attribute_ref": {
+            "type": "string",
+            "enum": [
+              "",
+              "strength",
+              "agility",
+              "endurance",
+              "perception",
+              "reason",
+              "will",
+              "presence",
+              "knowledge",
+              "craft"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "difficulty",
+          "failure_cost",
+          "attribute_ref"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "play_hooks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "play": {
+            "enum": [
+              "playInvestigation",
+              "playTestimony",
+              "playNegotiation",
+              "playRelations",
+              "playCalendar",
+              "playProjects",
+              "playOutfitting",
+              "playConflict",
+              "playChase",
+              "playDebate",
+              "playPlans",
+              "playFlashback",
+              "playOracle",
+              "playTransformation",
+              "playPrivatePhases",
+              "playRegroup",
+              "playFortune",
+              "playBranchEndings"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "pattern": "^[a-z][a-z_]{0,63}$"
+          },
+          "target_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^entity\\.[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "fill": {
+            "type": "object",
+            "maxProperties": 8,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z_]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "required": [
+          "play",
+          "action",
+          "target_ref",
+          "reason",
+          "fill"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-hosted-turn-proposal/1.6.0"
+}

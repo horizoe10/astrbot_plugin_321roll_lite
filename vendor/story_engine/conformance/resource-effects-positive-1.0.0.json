@@ -1,0 +1,179 @@
+{
+  "schema": "se-dev3-resource-effects-positive-vectors/1.0.0",
+  "fixtures": {
+    "profile_registry": {
+      "schema": "se-profile-registry/1.1.0",
+      "registry_version": "1.1.0",
+      "revision": "se1-p0-resource/1",
+      "selection_policy": "exact_version_required",
+      "fingerprint": "sha256:59a98935369b6b07d82104750263b93344238e6444ef3ef53412727beff7680c",
+      "profiles": [
+        {
+          "profile_id": "crisis_event",
+          "version": "1.0.0",
+          "contract_sha256": "sha256:21c234e41dcb6e27a3f6485076decd645bd88434e53a19ef33b129fd6f24d0ad",
+          "phase": "P0",
+          "contract_owner": "321 Story Engine Profile Registry",
+          "evaluation_owner": "321 Story Engine deterministic event evaluator",
+          "authority_owner": "321 Roll platform",
+          "execution_owner": "321 Roll TurnCommitPlan executor",
+          "projection_owner": "321 Roll projectors",
+          "late_result_policy": "platform rejects cancelled expired fingerprint-mismatched or stale-revision proposals",
+          "allowed_scope_kinds": ["actor_group", "faction", "quest", "region", "scene", "site"],
+          "required_capabilities": ["event.orchestrate"],
+          "allowed_capabilities": ["event.consequence", "event.orchestrate", "event.pressure", "event.project"],
+          "min_checkpoints": 1,
+          "max_checkpoints": 3,
+          "required_profile_fields": ["risk_summary"],
+          "allowed_profile_fields": ["risk_summary", "tactical_entry"],
+          "budget_limits": {"max_rounds": 6, "max_checkpoints": 3, "max_loop_iterations": 2, "max_concurrent_fronts": 1, "max_cascade_events": 3, "max_cross_module_effects": 6, "max_local_ms": 500, "max_context_tokens": 8000, "max_pressure_rounds": 4, "recovery_window_rounds": 2},
+          "safety_boundaries": ["failure-forward remains inside declared local scope", "campaign terminal disabled by default"]
+        },
+        {
+          "profile_id": "crisis_event",
+          "version": "1.1.0",
+          "contract_sha256": "sha256:b385f39a74fc67dd8666bc300b444198f9ee59c08be01b4111c7dad34368e088",
+          "phase": "P0",
+          "contract_owner": "321 Story Engine Profile Registry",
+          "evaluation_owner": "321 Story Engine deterministic event evaluator",
+          "authority_owner": "321 Roll platform",
+          "execution_owner": "321 Roll TurnCommitPlan executor",
+          "projection_owner": "321 Roll projectors",
+          "late_result_policy": "platform rejects cancelled expired fingerprint-mismatched or stale-revision proposals",
+          "allowed_scope_kinds": ["actor_group", "faction", "quest", "region", "scene", "site"],
+          "required_capabilities": ["event.orchestrate"],
+          "allowed_capabilities": ["actor.resource_pool", "actor.vitality", "event.consequence", "event.orchestrate", "event.pressure", "event.project"],
+          "min_checkpoints": 1,
+          "max_checkpoints": 3,
+          "required_profile_fields": ["risk_summary"],
+          "allowed_profile_fields": ["risk_summary", "tactical_entry"],
+          "budget_limits": {"max_rounds": 6, "max_checkpoints": 3, "max_loop_iterations": 2, "max_concurrent_fronts": 1, "max_cascade_events": 3, "max_cross_module_effects": 6, "max_local_ms": 500, "max_context_tokens": 8000, "max_pressure_rounds": 4, "recovery_window_rounds": 2},
+          "safety_boundaries": ["resource and vitality effects are proposal-only", "vitality depletion is signal-only", "failure-forward remains inside declared local scope"]
+        }
+      ]
+    },
+    "resource_document": {
+      "schema": "se-actor-resource-definitions/1.0.0",
+      "capability": "actor.resource_pool/1.0.0",
+      "definitions": [
+        {
+          "resource_id": "vitality.hp",
+          "label": "生命值",
+          "kind": "vitality",
+          "numeric_type": "integer",
+          "minimum": 0,
+          "base_maximum": 12,
+          "initialization": {"mode": "full"},
+          "clamp_policy": "clamp",
+          "overflow_policy": "discard",
+          "temporary_layers": {"enabled": true, "absorb_order": "highest_priority_then_oldest", "expiry_policy": "explicit_receipt_only"},
+          "thresholds": [
+            {"id": "bloodied", "at_or_below": 6, "signal": "vitality.bloodied", "repeat_policy": "on_crossing"},
+            {"id": "depleted", "at_or_below": 0, "signal": "vitality.depleted", "repeat_policy": "on_crossing"}
+          ],
+          "visibility": {
+            "default": "hidden",
+            "audiences": {"actor": "exact", "party": "band", "dm": "exact", "admin": "exact"},
+            "band_basis": "effective_range_basis_points_floor",
+            "bands": [
+              {"band_id": "depleted", "minimum_basis_points": 0, "maximum_basis_points": 0, "label": "生命力耗尽"},
+              {"band_id": "wounded", "minimum_basis_points": 1, "maximum_basis_points": 5000, "label": "受伤"},
+              {"band_id": "steady", "minimum_basis_points": 5001, "maximum_basis_points": 10000, "label": "状态稳定"}
+            ]
+          },
+          "tags": ["physical", "recoverable"]
+        }
+      ]
+    },
+    "vitality_document": {
+      "schema": "se-actor-vitality-authoring/1.0.0",
+      "capability": "actor.vitality/1.0.0",
+      "requires": ["actor.resource_pool/1.0.0", "character.state.effects/1"],
+      "vitality_resources": ["vitality.hp"],
+      "damage_tags": ["impact", "physical"],
+      "healing_rules": {"base_clamp": "effective_maximum", "temporary_replenishment": "explicit_temporary_intent_only"},
+      "temporary_vitality": {"damage_absorb_order": "temporary_before_base", "healing_target": "base_only"},
+      "depletion_policy": "signal_only",
+      "allowed_followups": ["rescue", "actor_fate_candidate", "human_dm"],
+      "forbidden_outcomes": ["archive", "death", "permanent_departure", "permanent_injury", "terminal"],
+      "intent_mappings": {"damage": "actor.resource.delta", "heal": "actor.resource.delta", "temporary_add": "actor.resource.delta", "temporary_remove": "actor.resource.delta", "depleted": "actor.status.upsert"}
+    },
+    "damage_intent": {
+      "capability_ref": "actor.vitality/1.0.0",
+      "intent_type": "actor.vitality.damage",
+      "target_binding": "binding.actor.current",
+      "payload": {"resource_ref": "vitality.hp", "operation": "damage", "base_amount": 4, "damage_tags": ["impact"], "source_ref": "event.warehouse_collapse_rescue", "reason_code": "shield_worker_from_beam", "modifier_policy": "consume_frozen_rule_receipts", "threshold_handling": "emit_signals"},
+      "expected_revisions": {"actor_revision": 7, "room_revision": 18},
+      "operation_ref": "operation.turn.demo",
+      "request_fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "damage_effect_proposal": {
+      "schema": "se-character-effect-proposal/1.0.0",
+      "proposal_ref": "proposal.damage.demo",
+      "operation_ref": "operation.turn.demo",
+      "request_fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "source_capability_ref": "actor.vitality/1.0.0",
+      "effect_contract": "character.state.effects/1",
+      "effect_type": "actor.resource.delta",
+      "target_binding": "binding.actor.current",
+      "expected_revisions": {"actor_revision": 7, "room_revision": 18},
+      "payload": {"resource_ref": "vitality.hp", "amount": -4, "layer": "base", "threshold_handling": "propose_crossing_signals"},
+      "source": {"source_ref": "event.warehouse_collapse_rescue", "reason_code": "shield_worker_from_beam", "cause_refs": ["operation.turn.demo"]},
+      "reversible": true,
+      "dedupe_key": "dedupe.damage.demo",
+      "atomic_group_ref": "atomic.turn.demo"
+    },
+    "canonical_ir": {
+      "schema": "se-canonical-story-pack-ir/1.1.0",
+      "engine_spec": "1.0.0",
+      "package": {"package_id": "vitality_rescue_demo", "content_version": "1.0.0"},
+      "manifest": {},
+      "world": {},
+      "modules": [],
+      "event_compositions": [{"id": "warehouse_collapse_rescue", "profile": "crisis_event", "profile_version": "1.1.0"}],
+      "profile_registry": {"schema": "se-profile-registry/1.1.0", "registry_version": "1.1.0", "revision": "se1-p0-resource/1", "fingerprint": "sha256:59a98935369b6b07d82104750263b93344238e6444ef3ef53412727beff7680c", "selection_policy": "exact_version_required"},
+      "profile_contracts": [{"profile_id": "crisis_event", "profile_version": "1.1.0", "contract_sha256": "sha256:b385f39a74fc67dd8666bc300b444198f9ee59c08be01b4111c7dad34368e088"}],
+      "resource_definitions": [{"resource_id": "vitality.hp", "kind": "vitality", "definition_sha256": "sha256:0e256423003a7121fc0edcb1fe0f473de36645e109baf148a99fb2cbc95fe05b"}],
+      "resource_catalog_sha256": "sha256:253d9e46d5daff8a0899fc503c3ef0915a26dc7469682d838243a55262cf5fc3",
+      "effect_contracts": [
+        {"capability_ref": "actor.resource_pool/1.0.0", "provider_contract_sha256": "sha256:36fbc580538616b049416843c2d38981819ab757d00244f903c95ab8b29de60b"},
+        {"capability_ref": "actor.vitality/1.0.0", "provider_contract_sha256": "sha256:ad3ecae0981b6acce123c1ca5e42f14839f113f5933fee075ee4ab6f649c9601"},
+        {"capability_ref": "character.state.effects/1", "provider_contract_sha256": "sha256:034c1bd77da75d787e7cbb89a15b40d5d0a8534f12f2d8cd60e0ad4e630a1ab6"}
+      ],
+      "compiler_contract_fingerprint": "sha256:fa4b90218ea98fd51c997302b98dd4ced67eea8ee654dc39fe3f32d6b50a7f0b",
+      "canonical_sha256": "sha256:5fe06eca8e15afb560c8e53641a8ab05f8b22b21d440a82c9ca0526ee93e3001"
+    },
+    "artifact": {
+      "schema": "se-story-artifact/1.1.0",
+      "engine_spec": "1.0.0",
+      "target_abi": "se-compiler/1.1.0",
+      "package": {"package_id": "vitality_rescue_demo", "content_version": "1.0.0"},
+      "canonical_ir_sha256": "sha256:5fe06eca8e15afb560c8e53641a8ab05f8b22b21d440a82c9ca0526ee93e3001",
+      "compiler_contract_fingerprint": "sha256:fa4b90218ea98fd51c997302b98dd4ced67eea8ee654dc39fe3f32d6b50a7f0b",
+      "content_sha256": "sha256:3c2bdd78885e4ec53d24b4e0eace1a1f0040e89ed7c1f4079e2f8304f0cd4bf3",
+      "profile_registry": {"schema": "se-profile-registry/1.1.0", "registry_version": "1.1.0", "revision": "se1-p0-resource/1", "fingerprint": "sha256:59a98935369b6b07d82104750263b93344238e6444ef3ef53412727beff7680c", "selection_policy": "exact_version_required"},
+      "profile_contracts": [{"profile_id": "crisis_event", "profile_version": "1.1.0", "contract_sha256": "sha256:b385f39a74fc67dd8666bc300b444198f9ee59c08be01b4111c7dad34368e088"}],
+      "resource_definitions": [{"resource_id": "vitality.hp", "kind": "vitality", "definition_sha256": "sha256:0e256423003a7121fc0edcb1fe0f473de36645e109baf148a99fb2cbc95fe05b"}],
+      "resource_catalog_sha256": "sha256:253d9e46d5daff8a0899fc503c3ef0915a26dc7469682d838243a55262cf5fc3",
+      "effect_contracts": [
+        {"capability_ref": "actor.resource_pool/1.0.0", "provider_contract_sha256": "sha256:36fbc580538616b049416843c2d38981819ab757d00244f903c95ab8b29de60b"},
+        {"capability_ref": "actor.vitality/1.0.0", "provider_contract_sha256": "sha256:ad3ecae0981b6acce123c1ca5e42f14839f113f5933fee075ee4ab6f649c9601"},
+        {"capability_ref": "character.state.effects/1", "provider_contract_sha256": "sha256:034c1bd77da75d787e7cbb89a15b40d5d0a8534f12f2d8cd60e0ad4e630a1ab6"}
+      ],
+      "event_compositions": [{"id": "warehouse_collapse_rescue", "profile": "crisis_event", "profile_version": "1.1.0"}],
+      "capability_closure": {},
+      "source_map": [],
+      "projection_plan": {"kind": "bounded_proposal_only", "execution_owner": "321_platform", "projection_owner": "321_platform"},
+      "diagnostics_summary": {"warnings": 0, "errors": 0},
+      "artifact_sha256": "sha256:5834920f791d55b4e68a7e5c0c0fc30b3004c7d152afdeccdfe8a1a653609146"
+    }
+  },
+  "vectors": [
+    {"id": "registry.same_id_versions_coexist", "input_fixture": "profile_registry", "expected": "accepted_exact_pair_lookup"},
+    {"id": "resource_pool.vitality_definition", "input_fixture": "resource_document", "expected": "accepted"},
+    {"id": "vitality.dependencies_and_signal_only", "input_fixture": "vitality_document", "expected": "accepted"},
+    {"id": "vitality.damage_maps_to_typed_delta", "input_fixture": "damage_intent", "expected_fixture": "damage_effect_proposal"},
+    {"id": "canonical_and_artifact.freeze_registry_resource_effect_contracts", "input_fixtures": ["canonical_ir", "artifact"], "expected": "matching_frozen_contract_identity"}
+  ]
+}
+

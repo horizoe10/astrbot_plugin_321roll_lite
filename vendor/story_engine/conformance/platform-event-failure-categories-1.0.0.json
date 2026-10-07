@@ -1,0 +1,12 @@
+{
+  "schema": "se-platform-event-failure-categories/1.0.0",
+  "platform_baseline": "321roll-error-categories/1",
+  "categories": [
+    {"category": "engine_contract_incompatible", "when": ["visit_counts missing or not non-negative integers", "gate_response missing required fields or wrong contract version"], "commit_allowed": false},
+    {"category": "invalid_proposal", "when": ["unknown checkpoint visit count", "visit count exceeds compiled max_visits or event max_loop_iterations", "gate ref/type/fingerprint mismatch", "gate decision receipt is not committed"], "commit_allowed": false},
+    {"category": "revision_conflict", "when": ["gate source_revision or event expected revision is stale"], "commit_allowed": false},
+    {"category": "late_result_discarded", "when": ["operation, request fingerprint, event revision or gate revision changed before platform commit"], "commit_allowed": false},
+    {"category": "required_capability_missing", "when": ["compiled route effect capability is absent from allowed_capability_refs"], "commit_allowed": false}
+  ],
+  "ordinary_user_boundary": "Return a recoverable player message; never expose Schema fields, hashes, internal refs, stack traces, paths or provider diagnostics."
+}

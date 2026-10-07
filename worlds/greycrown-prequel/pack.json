@@ -1,0 +1,572 @@
+{
+  "format": "321roll.world-template/1",
+  "id": "greycrown-prequel",
+  "revision": 1,
+  "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
+  "worldview": "灰冠帝国倒下已经二百三十六年。帝国的冠机还在山脚的册库分站里运转：打孔卡记着每一块地、每一笔债、每一个被登记的名字，标准钟每天正午校准一次。没有被登记的人，在册上就是不存在的。\n\n〔灰脊山脉〕的石环人世代采石、炼铁，把先人葬进山心的石室。今年春汛，一条墓道塌了，露出一层赤红的煤。它烧得比任何木炭都久、都烈，足以让山脚那台从帝国时代就锈着的\"火泵\"重新转起来，把水淹的旧矿道抽干。有了这种煤，蒸汽机就能用了。\n\n可煤脉压在祖墓之下。要开采，就要把先人迁葬，还要比石环人多得多的人手。山下的〔流民坡〕上住着几百个没有册籍的人：逃债的、被赶出城的、生来就不在任何名册上的人。他们愿意下井，只要一样东西：死后能和石环人一起葬进山心，名字刻进石壁，从此\"被计入\"。\n\n〖石环矿冶会〗的主事长老「赫铎」拟好了一份约，十天后要在册库分站打孔录入。一旦录入，就由冠机照章执行，直到永远。",
+  "seed": "春汛退去的第三天，石环山门前的空地上挤满了人：石环的工匠、流民坡的男男女女、山下来看热闹的商贩。山门上贴着一张告示，纸上是「赫铎」长老的亲笔：\n\n山心有煤，石环将开。凡愿下井者，入石环之籍，葬于山心。十日后于册库分站录约。\n\n人群后面，一个老妇人坐在祖墓入口的石阶上，膝上横着一根拐杖，谁也不让进。她是守墓人「萨琳」。她看见你们，说了一句：\"你们不是石环人，也不是流民。正好，替我看看那份约上到底写了什么。\"",
+  "style": "工业黎明前夜的群像：石室、矿灯、锈蚀的火泵与第一缕煤烟。黑暗来自\"被计入\"本身的代价：名字、归属与世代的义务。人与人之间仍有互助、争执与温情；靠下井、谈判与查证推进，少有厮杀。",
+  "boundaries": "- 不写飞艇、机甲、护目镜，不写神秘学升格、旧神或超自然复苏。\n- 不把一切归咎于冠机：先民的誓言、石环的债与流民的渴望是本地成因。\n- 不裁定断冠原因，不写冠机是否有意志，不出现〔第十三钟〕，不提东洲。\n- 不裁定祖约最终录入了哪个版本，留作\"至今的争议\"。\n- 迁葬与遗骸只写敬重与仪式，不写不敬的细节；伤亡点到为止。",
+  "guidance": "真相（不公开）：\n\n- 「赫铎」拟了两份草约。给众人看的那份写着\"工役止于本身\"。准备送去打孔的那份写着\"工役及于子嗣\"。石环欠了山下商人十年的煤款，他需要能世代延续的人手来还债。\n- 守墓人「萨琳」知道，祖墓最深处的石壁上刻着更古老的誓言：\"山心不开，以待未名者。\"先民曾许诺，把山心留给将来那些没有名字的人。她不知道这句话该怎样理解：是不许开挖，还是许诺流民本就该被葬进来？\n- 流民的领头人「莉姆」要的不是工钱，而是让流民的名字刻进石壁。她愿意为此接受\"及于子嗣\"，因为对没有名字的人来说，世代的义务也是一种\"被计入\"。\n- 册库录事「维瑟」打孔时可以多打一行或少打一行，而且已经有人私下托过他。\n\n玩家的选择：\n\n- 祖约写成什么样：止于本身，还是及于子嗣；\n- 古誓怎样解读；\n- 迁葬与开采的风险由谁承担；\n- 谁能在录约那天站出来作证。\n\n结局： 无论玩家怎样选，结尾都留一个开放的画面。录约之后，册库的打孔卡被锁进柜里，没有人当场核对。这为 305 年的大罢炉留下伏笔。\n\n节奏：\n- 第一幕：山门告示、各方立场、守墓人的托付\n- 第二幕：下井：水淹的旧矿道、修好火泵、墓道里的赤髓煤与古老石壁\n- 第三幕：议约：两份草约、古誓的解读、流民与石环的对峙\n- 第四幕：录约之日：册库分站的打孔机前作证与抉择，以及迁葬仪式",
+  "attributes": [
+    {
+      "id": "strength",
+      "name": "力量",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "dexterity",
+      "name": "灵巧",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "perception",
+      "name": "感知",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "knowledge",
+      "name": "学识",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "charisma",
+      "name": "魅力",
+      "min": 6,
+      "max": 16
+    }
+  ],
+  "budget": 55,
+  "modifier": {
+    "baseline": 10,
+    "divisor": 2
+  },
+  "resources": [
+    {
+      "id": "vitality",
+      "name": "〈生命力〉",
+      "min": 0,
+      "max": 10,
+      "initial": 10
+    },
+    {
+      "id": "trust",
+      "name": "〈人心〉",
+      "min": 0,
+      "max": 6,
+      "initial": 6
+    }
+  ],
+  "rules": {
+    "dcMin": 5,
+    "dcMax": 25,
+    "dc": 12,
+    "difficulties": [
+      8,
+      12,
+      15,
+      18
+    ],
+    "seats": 16,
+    "minPlayers": 1,
+    "recommendedMin": 2,
+    "recommendedMax": 4,
+    "mode": "hybrid",
+    "expectedResults": true,
+    "skillSlots": 2,
+    "failureCost": 1,
+    "failureResource": "vitality",
+    "restCost": 0,
+    "restCostResource": "",
+    "restGain": 3,
+    "restGainResource": "vitality"
+  },
+  "skills": [
+    {
+      "id": "open-guard",
+      "name": "明守",
+      "text": "站在人前，挡住落石、冲撞或推搡的人群",
+      "attribute": "strength",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "hidden-guard",
+      "name": "暗守",
+      "text": "提前察觉埋伏与暗中的手脚，护送要紧的人或物",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "fire-pump",
+      "name": "火泵",
+      "text": "读懂旧图纸，修好或操作蒸汽机械，抽干水道、带动绞盘",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "jury-rig",
+      "name": "临时改装",
+      "text": "用手边零件做出能用一次的装置",
+      "attribute": "dexterity",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "trust",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "guide-vein",
+      "name": "导脉",
+      "text": "把塌陷、渗水等\"负担\"挪到另一处。负担只能挪、不能消失，挪到哪里须经那里的人同意",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "trust",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "mimic",
+      "name": "拟生",
+      "text": "借壁虎或潜鱼之形，穿过狭窄的石缝与水淹的矿道；还形后会带着那种习惯一阵子",
+      "attribute": "dexterity",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "bargain",
+      "name": "讨价还价",
+      "text": "在议约中多争一步，或让对方先开价",
+      "attribute": "charisma",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "wager",
+      "name": "押注",
+      "text": "看穿对方的底牌，用一个赌约换取让步",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "trust",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "triage",
+      "name": "救治",
+      "text": "处理伤势，恢复同伴 2 点〈生命力〉",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "steady-hand",
+      "name": "稳手",
+      "text": "在混乱中完成精细的事：缝合、拆解或悄悄换下一页纸",
+      "attribute": "dexterity",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "omen",
+      "name": "灾候",
+      "text": "推算塌方、汛水与天气，说出\"还能撑多久\"；不知道的就说不知道",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "timing",
+      "name": "航测",
+      "text": "为同伴排好时机，让同伴的下一次检定 +1",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    }
+  ],
+  "items": [
+    {
+      "id": "lamp",
+      "name": "『矿灯』",
+      "text": "感知检定 +1（井下与暗处），每幕 3 次",
+      "attribute": "perception",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 3,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    },
+    {
+      "id": "bandage",
+      "name": "『绷带卷』",
+      "text": "〈生命力〉+2",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 2,
+      "gainResource": "vitality",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    },
+    {
+      "id": "oatcake",
+      "name": "『麦饼』",
+      "text": "〈人心〉+1（分给流民或工匠）",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 1,
+      "gainResource": "trust",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "warden",
+      "name": "戍卫",
+      "text": "护卫与正面对抗（专精型）",
+      "attributes": {
+        "strength": 16,
+        "dexterity": 10,
+        "perception": 13,
+        "knowledge": 8,
+        "charisma": 8
+      },
+      "skills": [
+        "open-guard",
+        "hidden-guard"
+      ]
+    },
+    {
+      "id": "mechanic",
+      "name": "机工",
+      "text": "火泵与临时装置（双修型）",
+      "attributes": {
+        "strength": 10,
+        "dexterity": 14,
+        "perception": 8,
+        "knowledge": 15,
+        "charisma": 8
+      },
+      "skills": [
+        "fire-pump",
+        "jury-rig"
+      ]
+    },
+    {
+      "id": "geomancer",
+      "name": "地脉使",
+      "text": "导脉与穿行（偏科型）",
+      "attributes": {
+        "strength": 8,
+        "dexterity": 11,
+        "perception": 16,
+        "knowledge": 12,
+        "charisma": 8
+      },
+      "skills": [
+        "guide-vein",
+        "mimic"
+      ]
+    },
+    {
+      "id": "contractor",
+      "name": "契术士",
+      "text": "议约与赌约（双修型）",
+      "attributes": {
+        "strength": 8,
+        "dexterity": 10,
+        "perception": 14,
+        "knowledge": 8,
+        "charisma": 15
+      },
+      "skills": [
+        "bargain",
+        "wager"
+      ]
+    },
+    {
+      "id": "physician",
+      "name": "医士",
+      "text": "救治与精细手艺（偏科型）",
+      "attributes": {
+        "strength": 8,
+        "dexterity": 12,
+        "perception": 11,
+        "knowledge": 16,
+        "charisma": 8
+      },
+      "skills": [
+        "triage",
+        "steady-hand"
+      ]
+    },
+    {
+      "id": "observer",
+      "name": "观象士",
+      "text": "灾候与时机（均衡型）",
+      "attributes": {
+        "strength": 8,
+        "dexterity": 10,
+        "perception": 13,
+        "knowledge": 12,
+        "charisma": 12
+      },
+      "skills": [
+        "omen",
+        "timing"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "grey-ridge",
+      "name": "〔灰脊山脉〕",
+      "kind": "region",
+      "public": true,
+      "summary": "石环人世代采石炼铁的山脉",
+      "secret": "",
+      "links": [
+        "stone-ring-town",
+        "drifter-slope"
+      ]
+    },
+    {
+      "id": "stone-ring-town",
+      "name": "〔石环〕山城",
+      "kind": "place",
+      "public": true,
+      "summary": "依山而建的石城，山门后是通往山心的墓道",
+      "secret": "城里的铁炉已经半年没生火，石环欠着山下商人的煤款",
+      "links": [
+        "grey-ridge",
+        "ancestral-tomb"
+      ]
+    },
+    {
+      "id": "ancestral-tomb",
+      "name": "〔山心祖墓〕",
+      "kind": "place",
+      "public": true,
+      "summary": "石环先人的石室，墓道被春汛冲塌",
+      "secret": "最深处的石壁刻着\"山心不开，以待未名者\"",
+      "links": [
+        "red-marrow-seam",
+        "salin"
+      ]
+    },
+    {
+      "id": "red-marrow-seam",
+      "name": "〔赤髓矿脉〕",
+      "kind": "place",
+      "public": true,
+      "summary": "墓道塌陷后露出的赤红煤层，下方旧矿道被水淹",
+      "secret": "开采会让上方三座墓室下沉；\"负担\"只能挪到别处",
+      "links": [
+        "ancestral-tomb"
+      ]
+    },
+    {
+      "id": "fire-pump",
+      "name": "『火泵』",
+      "kind": "place",
+      "public": true,
+      "summary": "山脚一台帝国时代的蒸汽抽水机，锈死多年",
+      "secret": "修好它需要赤髓煤，也需要有人懂它的图纸",
+      "links": [
+        "red-marrow-seam"
+      ]
+    },
+    {
+      "id": "drifter-slope",
+      "name": "〔流民坡〕",
+      "kind": "place",
+      "public": true,
+      "summary": "山脚的棚屋坡地，住着几百个没有册籍的人",
+      "secret": "",
+      "links": [
+        "lim"
+      ]
+    },
+    {
+      "id": "registry-station",
+      "name": "册库分站",
+      "kind": "place",
+      "public": true,
+      "summary": "山脚的冠机分站，打孔卡录入一切契约",
+      "secret": "打孔机可以多打一行，录事被人请托过",
+      "links": [
+        "vither"
+      ]
+    },
+    {
+      "id": "hedor",
+      "name": "「赫铎」",
+      "kind": "npc",
+      "public": true,
+      "summary": "〖石环矿冶会〗主事长老，拟约人",
+      "secret": "他准备了两份草约",
+      "links": [
+        "clue-drafts"
+      ]
+    },
+    {
+      "id": "salin",
+      "name": "「萨琳」",
+      "kind": "npc",
+      "public": true,
+      "summary": "守墓人，拦在祖墓入口的老妇人",
+      "secret": "她知道古誓，却不确定它的意思",
+      "links": [
+        "ancestral-tomb"
+      ]
+    },
+    {
+      "id": "lim",
+      "name": "「莉姆」",
+      "kind": "npc",
+      "public": true,
+      "summary": "流民坡的领头人，说话直，护着坡上的孩子",
+      "secret": "她愿意接受\"及于子嗣\"，只要名字能刻进石壁",
+      "links": [
+        "drifter-slope"
+      ]
+    },
+    {
+      "id": "vither",
+      "name": "「维瑟」",
+      "kind": "npc",
+      "public": true,
+      "summary": "册库分站的录事，负责打孔",
+      "secret": "已有人私下托他改动条文",
+      "links": [
+        "registry-station"
+      ]
+    },
+    {
+      "id": "stone-ring",
+      "name": "〖石环矿冶会〗",
+      "kind": "faction",
+      "public": true,
+      "summary": "石环人的工匠行会，日后的十二席持席机构之一，界徽《负岳》",
+      "secret": "",
+      "links": [
+        "hedor"
+      ]
+    },
+    {
+      "id": "clue-drafts",
+      "name": "『两份草约』",
+      "kind": "clue",
+      "public": false,
+      "summary": "一份写\"工役止于本身\"，一份写\"工役及于子嗣\"",
+      "secret": "送去打孔的是后一份",
+      "links": [
+        "hedor",
+        "goal-covenant"
+      ]
+    },
+    {
+      "id": "goal-covenant",
+      "name": "录约之前",
+      "kind": "goal",
+      "public": true,
+      "summary": "在十日后录约之前，弄清祖约到底写了什么、该写什么",
+      "secret": "",
+      "links": [
+        "registry-station"
+      ]
+    },
+    {
+      "id": "flooded-shafts",
+      "name": "〔水淹旧矿道〕",
+      "kind": "place",
+      "public": true,
+      "summary": "赤髓矿脉下方被水淹没的帝国旧矿道",
+      "secret": "",
+      "links": [
+        "red-marrow-seam"
+      ]
+    }
+  ],
+  "initial": {
+    "place": "石环山门前",
+    "time": "冠落纪 236 年 · 春汛退去后第三日 · 正午",
+    "state": "墓道塌陷露出赤髓煤；山门贴出立约告示；十日后在册库分站录约；守墓人拦在祖墓入口",
+    "links": [
+      "stone-ring-town",
+      "salin",
+      "goal-covenant"
+    ]
+  }
+}

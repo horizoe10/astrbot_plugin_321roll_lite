@@ -1,0 +1,2090 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321.example/schemas/se-recovery-cycle-runtime-2.0.0.schema.json",
+  "title": "SE recovery cycle runtime request/result 2.0.0",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    }
+  ],
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "maxLength": 64
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor",
+        "room",
+        "resource",
+        "status",
+        "inventory",
+        "time",
+        "recovery"
+      ],
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/revision"
+        },
+        "room": {
+          "$ref": "#/$defs/revision"
+        },
+        "resource": {
+          "$ref": "#/$defs/revision"
+        },
+        "status": {
+          "$ref": "#/$defs/revision"
+        },
+        "inventory": {
+          "$ref": "#/$defs/revision"
+        },
+        "time": {
+          "$ref": "#/$defs/revision"
+        },
+        "recovery": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "story_pack_ref",
+        "canonical_sha256",
+        "artifact_ref",
+        "artifact_sha256",
+        "engine_version",
+        "port_version",
+        "schema_version",
+        "source_ref",
+        "source_sha256",
+        "resource_catalog_ref",
+        "resource_catalog_sha256",
+        "status_catalog_ref",
+        "status_catalog_sha256",
+        "vitality_contract_ref",
+        "vitality_contract_sha256",
+        "provider_contracts_ref",
+        "provider_contracts_sha256"
+      ],
+      "properties": {
+        "story_pack_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "canonical_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "artifact_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "artifact_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "engine_version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$"
+        },
+        "port_version": {
+          "const": "story-engine-port/1.0.0"
+        },
+        "schema_version": {
+          "const": "2.0.0"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "resource_catalog_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "resource_catalog_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "status_catalog_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "status_catalog_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "vitality_contract_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "vitality_contract_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "provider_contracts_ref": {
+          "const": "provider.contracts.1"
+        },
+        "provider_contracts_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine_contract_version",
+        "operation_ref",
+        "trace_ref",
+        "idempotency_key",
+        "request_fingerprint",
+        "deadline_at",
+        "session_ref",
+        "expected_revision",
+        "operation_type"
+      ],
+      "properties": {
+        "engine_contract_version": {
+          "const": "story-engine-port/1.0.0"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "trace_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "deadline_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "session_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "operation_type": {
+          "const": "evaluate_recovery_cycle"
+        }
+      }
+    },
+    "resourceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "minimum",
+        "maximum",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "vitality",
+            "energy",
+            "mana",
+            "stress",
+            "custom"
+          ]
+        },
+        "value": {
+          "type": "integer"
+        },
+        "minimum": {
+          "type": "integer"
+        },
+        "maximum": {
+          "type": "integer"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "resourceDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_ref",
+        "kind",
+        "before",
+        "delta",
+        "after",
+        "minimum",
+        "maximum"
+      ],
+      "properties": {
+        "resource_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "kind": {
+          "enum": [
+            "vitality",
+            "energy",
+            "mana",
+            "stress",
+            "custom"
+          ]
+        },
+        "before": {
+          "type": "integer"
+        },
+        "delta": {
+          "type": "integer"
+        },
+        "after": {
+          "type": "integer"
+        },
+        "minimum": {
+          "type": "integer"
+        },
+        "maximum": {
+          "type": "integer"
+        }
+      }
+    },
+    "statusState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status_ref",
+        "recovery_class",
+        "revision"
+      ],
+      "properties": {
+        "status_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recovery_class": {
+          "enum": [
+            "recoverable",
+            "terminal",
+            "protected"
+          ]
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "statusEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status_ref", "recovery_class"],
+      "properties": {
+        "status_ref": {"$ref": "#/$defs/ref"},
+        "recovery_class": {"enum": ["recoverable", "terminal", "protected"]}
+      }
+    },
+    "inventoryState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "revision"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "supplyCost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_ref",
+        "quantity",
+        "inventory_revision"
+      ],
+      "properties": {
+        "item_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "inventory_revision": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "pending": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "operation_ref",
+        "idempotency_key",
+        "request_fingerprint",
+        "definition_sha256",
+        "manifest_pins",
+        "base_revisions",
+        "phase",
+        "commit_state",
+        "proposal_ref",
+        "proposal_fingerprint",
+        "started_at",
+        "committed_elapsed_seconds"
+      ],
+      "properties": {
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "base_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "phase": {
+          "enum": [
+            "started",
+            "progressed",
+            "interrupted"
+          ]
+        },
+        "commit_state": {
+          "enum": [
+            "proposed",
+            "committed",
+            "rejected",
+            "unknown",
+            "verify_required"
+          ]
+        },
+        "proposal_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposal_fingerprint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "committed_elapsed_seconds": {
+          "$ref": "#/$defs/revision"
+        }
+      }
+    },
+    "progressFact": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "fact_ref",
+        "operation_ref",
+        "idempotency_key",
+        "request_fingerprint",
+        "recovery_ref",
+        "definition_sha256",
+        "manifest_pins",
+        "base_revisions",
+        "result_revisions",
+        "phase_before",
+        "phase_after",
+        "elapsed_before",
+        "elapsed_after",
+        "resource_deltas",
+        "removed_statuses",
+        "supply_costs",
+        "time_advanced_seconds",
+        "interrupted",
+        "observed_at",
+        "fingerprint"
+      ],
+      "properties": {
+        "schema": {
+          "const": "platform-recovery-progress-fact/2.0.0"
+        },
+        "fact_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "base_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "result_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "phase_before": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "phase_after": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "elapsed_before": {
+          "$ref": "#/$defs/revision"
+        },
+        "elapsed_after": {
+          "$ref": "#/$defs/revision"
+        },
+        "resource_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceDelta"
+          }
+        },
+        "removed_statuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/statusEffect"
+          }
+        },
+        "supply_costs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/supplyCost"
+          }
+        },
+        "time_advanced_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "interrupted": {
+          "type": "boolean"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "commitReceipt": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "receipt_ref",
+        "proposal_ref",
+        "proposal_fingerprint",
+        "operation_ref",
+        "idempotency_key",
+        "request_fingerprint",
+        "progress_fact_fingerprint",
+        "recovery_ref",
+        "definition_sha256",
+        "manifest_pins",
+        "base_revisions",
+        "result_revisions",
+        "phase_after",
+        "elapsed_after",
+        "resource_deltas",
+        "removed_statuses",
+        "supply_costs",
+        "time_advanced_seconds",
+        "interrupted",
+        "commit_state",
+        "committed_at",
+        "fingerprint"
+      ],
+      "properties": {
+        "schema": {
+          "const": "platform-recovery-commit-receipt/2.0.0"
+        },
+        "receipt_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "proposal_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "proposal_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "progress_fact_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "base_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "result_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "phase_after": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "elapsed_after": {
+          "$ref": "#/$defs/revision"
+        },
+        "resource_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceDelta"
+          }
+        },
+        "removed_statuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/statusEffect"
+          }
+        },
+        "supply_costs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/supplyCost"
+          }
+        },
+        "time_advanced_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "interrupted": {
+          "type": "boolean"
+        },
+        "commit_state": {
+          "enum": [
+            "committed",
+            "rejected",
+            "unknown",
+            "verify_required"
+          ]
+        },
+        "committed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "commit_state": {
+                "const": "rejected"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resource_deltas": {
+                "maxItems": 0
+              },
+              "removed_statuses": {
+                "maxItems": 0
+              },
+              "supply_costs": {
+                "maxItems": 0
+              },
+              "time_advanced_seconds": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "authorization": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "receipt_ref",
+        "kind",
+        "actor_ref",
+        "recovery_ref",
+        "operation_ref",
+        "idempotency_key",
+        "authorization_request_fingerprint",
+        "authorization_subject_fingerprint",
+        "progress_fact_fingerprint",
+        "resource_ref",
+        "transition",
+        "base_revisions",
+        "authorized",
+        "issued_at",
+        "fingerprint"
+      ],
+      "properties": {
+        "schema": {
+          "const": "platform-recovery-authorization-receipt/2.0.0"
+        },
+        "receipt_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "kind": {
+          "enum": [
+            "rescue",
+            "fate",
+            "consent"
+          ]
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "authorization_request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "authorization_subject_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "progress_fact_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "transition": {
+          "enum": [
+            "to_zero",
+            "from_zero"
+          ]
+        },
+        "base_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "authorized": {
+          "const": true
+        },
+        "issued_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "actor_ref",
+        "room_ref",
+        "recovery_ref",
+        "definition_sha256",
+        "definition_label",
+        "definition_kind",
+        "definition_duration_seconds",
+        "definition_supply_quantities",
+        "manifest_pins",
+        "revisions",
+        "resources",
+        "statuses",
+        "inventory",
+        "phase",
+        "elapsed_seconds",
+        "pending_operation",
+        "progress_fact",
+        "committed_receipt",
+        "reconciliation_state",
+        "rescue_receipt",
+        "fate_receipt",
+        "consent_receipt",
+        "operation_journal",
+        "terminal_status",
+        "expected_session_revision",
+        "fingerprint"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-recovery-cycle-snapshot/2.0.0"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "room_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "definition_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "definition_kind": {
+          "enum": ["rest", "treat", "resupply", "allocate", "resume"]
+        },
+        "definition_duration_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 604800
+        },
+        "definition_supply_quantities": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "resources": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/ref"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/resourceState"
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statusState"
+          }
+        },
+        "inventory": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/ref"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/inventoryState"
+          }
+        },
+        "phase": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "elapsed_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "pending_operation": {
+          "$ref": "#/$defs/pending"
+        },
+        "progress_fact": {
+          "$ref": "#/$defs/progressFact"
+        },
+        "committed_receipt": {
+          "$ref": "#/$defs/commitReceipt"
+        },
+        "reconciliation_state": {
+          "enum": [
+            "NONE",
+            "UNKNOWN",
+            "VERIFY_REQUIRED",
+            "COMMITTED",
+            "RECONCILED"
+          ]
+        },
+        "rescue_receipt": {
+          "$ref": "#/$defs/authorization"
+        },
+        "fate_receipt": {
+          "$ref": "#/$defs/authorization"
+        },
+        "consent_receipt": {
+          "$ref": "#/$defs/authorization"
+        },
+        "operation_journal": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/ref"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "request_fingerprint",
+              "result_fingerprint",
+              "status"
+            ],
+            "properties": {
+              "request_fingerprint": {
+                "$ref": "#/$defs/digest"
+              },
+              "result_fingerprint": {
+                "$ref": "#/$defs/digest"
+              },
+              "status": {
+                "enum": [
+                  "proposed",
+                  "committed",
+                  "reconciled",
+                  "UNKNOWN",
+                  "VERIFY_REQUIRED"
+                ]
+              }
+            }
+          }
+        },
+        "terminal_status": {
+          "enum": [
+            null,
+            "dead",
+            "archived",
+            "permanently_departed"
+          ]
+        },
+        "expected_session_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "envelope",
+        "action",
+        "snapshot",
+        "input"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-recovery-cycle-evaluation/2.0.0"
+        },
+        "envelope": {
+          "$ref": "#/$defs/envelope"
+        },
+        "action": {
+          "enum": [
+            "preview",
+            "start",
+            "allocate",
+            "interrupt",
+            "complete",
+            "cancel",
+            "resume",
+            "reconcile"
+          ]
+        },
+        "snapshot": {
+          "$ref": "#/$defs/snapshot"
+        },
+        "input": {
+          "type": "object",
+          "maxProperties": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "snapshot": {
+                "properties": {
+                  "reconciliation_state": {
+                    "const": "COMMITTED"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshot": {
+                "properties": {
+                  "committed_receipt": {
+                    "type": "object",
+                    "properties": {
+                      "commit_state": {
+                        "enum": ["committed", "rejected"]
+                      }
+                    }
+                  },
+                  "pending_operation": {
+                    "type": "object",
+                    "properties": {
+                      "commit_state": {
+                        "const": "committed"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "snapshot": {
+                "properties": {
+                  "reconciliation_state": {
+                    "const": "RECONCILED"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshot": {
+                "properties": {
+                  "pending_operation": {
+                    "type": "null"
+                  },
+                  "progress_fact": {
+                    "type": "null"
+                  },
+                  "committed_receipt": {
+                    "type": "object",
+                    "properties": {
+                      "commit_state": {
+                        "const": "committed"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "failed_operation",
+        "reason",
+        "automatic_handling",
+        "next_action",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "engine.contract_incompatible",
+            "engine.story_pack_incompatible",
+            "engine.input_invalid",
+            "engine.budget_exhausted",
+            "engine.provider_timeout",
+            "engine.provider_rate_limited",
+            "engine.provider_unavailable",
+            "engine.output_invalid",
+            "engine.semantic_validation_failed",
+            "engine.cancelled",
+            "engine.deadline_exceeded",
+            "engine.bridge_unavailable",
+            "engine.result_stale",
+            "engine.internal_error",
+            "engine.guard_snapshot_missing",
+            "engine.guard_fact_missing",
+            "engine.guard_fact_type_invalid",
+            "engine.guard_fact_unknown",
+            "engine.guard_fingerprint_mismatch",
+            "engine.guard_revision_conflict"
+          ]
+        },
+        "failed_operation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "automatic_handling": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "next_action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "action",
+        "kind",
+        "phase",
+        "duration_seconds",
+        "elapsed_seconds",
+        "remaining_seconds",
+        "resource_changes",
+        "status_changes",
+        "supply_costs",
+        "outcome",
+        "message"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "action": {
+          "enum": [
+            "preview",
+            "start",
+            "allocate",
+            "interrupt",
+            "complete",
+            "cancel",
+            "resume",
+            "reconcile"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "rest",
+            "treat",
+            "resupply",
+            "allocate",
+            "resume"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "elapsed_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "remaining_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "resource_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resource",
+              "amount",
+              "after"
+            ],
+            "properties": {
+              "resource": {
+                "enum": [
+                  "vitality",
+                  "energy",
+                  "mana",
+                  "stress",
+                  "custom"
+                ]
+              },
+              "amount": {
+                "type": "integer"
+              },
+              "after": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "status_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "change"
+            ],
+            "properties": {
+              "status": {
+                "const": "recoverable condition"
+              },
+              "change": {
+                "const": "removed"
+              }
+            }
+          }
+        },
+        "supply_costs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "item",
+              "quantity"
+            ],
+            "properties": {
+              "item": {
+                "const": "required supply"
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "intentPrivate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_ref",
+        "room_ref",
+        "recovery_ref",
+        "definition_sha256",
+        "manifest_pins",
+        "base_revisions",
+        "phase_before",
+        "phase_after",
+        "resource_deltas",
+        "removed_statuses",
+        "supply_costs",
+        "time_advanced_seconds",
+        "terminal_outcome",
+        "platform_commit_required"
+      ],
+      "properties": {
+        "actor_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "room_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "base_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "phase_before": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "phase_after": {
+          "enum": [
+            "idle",
+            "started",
+            "progressed",
+            "interrupted",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "resource_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceDelta"
+          }
+        },
+        "removed_statuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/statusEffect"
+          }
+        },
+        "supply_costs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/supplyCost"
+          }
+        },
+        "time_advanced_seconds": {
+          "$ref": "#/$defs/revision"
+        },
+        "terminal_outcome": {
+          "type": "null"
+        },
+        "platform_commit_required": {
+          "const": true
+        }
+      }
+    },
+    "factPrivate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "progress_fact",
+        "expected_commit_receipt_schema",
+        "apply_exactly_once",
+        "blind_retry_forbidden"
+      ],
+      "properties": {
+        "progress_fact": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/progressFact"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "expected_commit_receipt_schema": {
+          "const": "platform-recovery-commit-receipt/2.0.0"
+        },
+        "apply_exactly_once": {
+          "const": true
+        },
+        "blind_retry_forbidden": {
+          "const": true
+        }
+      }
+    },
+    "replayPrivate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journal_result_fingerprint",
+        "receipt"
+      ],
+      "properties": {
+        "journal_result_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "receipt": {
+          "$ref": "#/$defs/commitReceipt"
+        }
+      }
+    },
+    "reconcilePrivate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "apply_effects",
+        "reconcile_only"
+      ],
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/commitReceipt"
+        },
+        "apply_effects": {
+          "const": false
+        },
+        "reconcile_only": {
+          "const": true
+        }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "proposal_ref",
+        "proposal_fingerprint",
+        "operation_ref",
+        "request_fingerprint",
+        "idempotency_key",
+        "actor_ref",
+        "room_ref",
+        "recovery_ref",
+        "definition_sha256",
+        "kind",
+        "manifest_pins",
+        "source_revisions",
+        "result_revisions",
+        "public_preview",
+        "private_reconciliation",
+        "requires_platform_commit",
+        "commits_state",
+        "reconcile_only",
+        "validation_errors"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-recovery-cycle-proposal/2.0.0"
+        },
+        "proposal_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "proposal_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "room_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "recovery_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "definition_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "kind": {
+          "enum": [
+            "preview",
+            "start",
+            "allocate",
+            "interrupt",
+            "complete",
+            "cancel",
+            "resume",
+            "reconcile",
+            "validation"
+          ]
+        },
+        "manifest_pins": {
+          "$ref": "#/$defs/pins"
+        },
+        "source_revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "result_revisions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/revisions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "public_preview": {
+          "$ref": "#/$defs/preview"
+        },
+        "private_reconciliation": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "requires_platform_commit": {
+          "type": "boolean"
+        },
+        "commits_state": {
+          "const": false
+        },
+        "reconcile_only": {
+          "type": "boolean"
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "preview",
+                  "validation"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "private_reconciliation": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "start",
+                  "resume",
+                  "cancel"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "private_reconciliation": {
+                "$ref": "#/$defs/intentPrivate"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "start"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "start"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "properties": {
+                  "phase_before": {
+                    "const": "idle"
+                  },
+                  "phase_after": {
+                    "const": "started"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "resume"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "resume"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "properties": {
+                  "phase_before": {
+                    "const": "interrupted"
+                  },
+                  "phase_after": {
+                    "const": "started"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "cancel"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "cancel"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "properties": {
+                  "phase_after": {
+                    "const": "cancelled"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "allocate",
+                  "complete"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "private_reconciliation": {
+                "$ref": "#/$defs/factPrivate"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "allocate"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "allocate"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "properties": {
+                  "progress_fact": {
+                    "properties": {
+                      "phase_after": {
+                        "const": "progressed"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "complete"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "properties": {
+                  "progress_fact": {
+                    "properties": {
+                      "phase_after": {
+                        "const": "completed"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "interrupt"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "interrupt"
+                  }
+                }
+              },
+              "private_reconciliation": {
+                "oneOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/factPrivate"
+                      },
+                      {
+                        "properties": {
+                          "progress_fact": {
+                            "properties": {
+                              "phase_after": {
+                                "const": "interrupted"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/intentPrivate"
+                      },
+                      {
+                        "properties": {
+                          "phase_after": {
+                            "const": "interrupted"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "reconcile"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "private_reconciliation": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/replayPrivate"
+                  },
+                  {
+                    "$ref": "#/$defs/reconcilePrivate"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "preview"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "public_preview": {
+                "properties": {
+                  "action": {
+                    "const": "preview"
+                  }
+                }
+              },
+              "requires_platform_commit": {
+                "const": false
+              },
+              "reconcile_only": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "reconcile"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "requires_platform_commit": {
+                "const": false
+              },
+              "reconcile_only": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "start",
+                  "allocate",
+                  "interrupt",
+                  "complete",
+                  "cancel",
+                  "resume"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "requires_platform_commit": {
+                "const": true
+              },
+              "reconcile_only": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "operation_ref",
+        "request_fingerprint",
+        "expected_revision",
+        "status",
+        "proposal",
+        "problems",
+        "result_fingerprint"
+      ],
+      "properties": {
+        "schema": {
+          "const": "se-recovery-cycle-result/2.0.0"
+        },
+        "operation_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "request_fingerprint": {
+          "$ref": "#/$defs/digest"
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "replayed",
+            "blocked",
+            "invalid",
+            "UNKNOWN",
+            "VERIFY_REQUIRED",
+            "reconciled",
+            "cancelled",
+            "timed_out"
+          ]
+        },
+        "proposal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/proposal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/problem"
+          }
+        },
+        "result_fingerprint": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "blocked",
+                  "UNKNOWN",
+                  "VERIFY_REQUIRED",
+                  "cancelled",
+                  "timed_out"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposal": {
+                "type": "null"
+              },
+              "problems": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "proposed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposal": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/proposal"
+                  },
+                  {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "preview",
+                          "start",
+                          "allocate",
+                          "interrupt",
+                          "complete",
+                          "cancel",
+                          "resume"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "problems": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "invalid"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposal": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/proposal"
+                  },
+                  {
+                    "properties": {
+                      "kind": {
+                        "const": "validation"
+                      }
+                    }
+                  }
+                ]
+              },
+              "problems": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "replayed",
+                  "reconciled"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proposal": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/proposal"
+                  },
+                  {
+                    "properties": {
+                      "kind": {
+                        "const": "reconcile"
+                      }
+                    }
+                  }
+                ]
+              },
+              "problems": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

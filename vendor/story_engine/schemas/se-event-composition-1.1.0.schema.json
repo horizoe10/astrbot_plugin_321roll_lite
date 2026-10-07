@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "se-event-composition/1.1.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "profile", "profile_version", "requires_engine", "requires_capabilities", "optional_capabilities", "identity", "scope", "visibility", "trigger", "guards", "fact_catalog", "omens", "checkpoints", "routes", "effects", "budgets", "extensions", "profile_data", "tags", "once", "cooldown", "density_group", "minimum_round", "cancellation_policy"],
+  "properties": {
+    "schema": {"const": "se-event-composition/1.1.0"}, "profile": {"type": "string"}, "profile_version": {"type": "string"}, "requires_engine": {"type": "string"},
+    "requires_capabilities": {"type": "array", "items": {"type": "object"}}, "optional_capabilities": {"type": "array", "items": {"type": "object"}},
+    "identity": {"type": "object"}, "scope": {"type": "object"}, "visibility": {"type": "object"}, "trigger": {"type": "object"},
+    "guards": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "se-condition-tree-1.0.0.schema.json"}},
+    "fact_catalog": {
+      "type": "object", "additionalProperties": false, "required": ["schema", "facts"],
+      "properties": {
+        "schema": {"const": "se-event-guard-fact-catalog/1.0.0"},
+        "facts": {
+          "type": "array", "minItems": 1, "maxItems": 64,
+          "items": {"type": "object", "additionalProperties": false, "required": ["fact_ref", "value_type"], "properties": {"fact_ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}, "value_type": {"enum": ["boolean", "integer", "ref", "ref_set"]}}}
+        }
+      }
+    },
+    "omens": {"type": "array"}, "checkpoints": {"type": "array"}, "routes": {"type": "array"}, "effects": {"type": "array"}, "budgets": {"type": "object"}, "extensions": {"type": "object"}, "profile_data": {"type": "object"}, "tags": {"type": "array"}, "once": {"type": "boolean"}, "cooldown": {"type": "integer"}, "density_group": {"type": "string"}, "minimum_round": {"type": "integer"}, "cancellation_policy": {"type": "string"}
+  }
+}

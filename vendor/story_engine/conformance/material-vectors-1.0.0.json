@@ -1,0 +1,100 @@
+{
+  "schema": "se-material-conformance-vectors/1.0.0",
+  "positive": {
+    "manifest": {
+      "schema": "documentation-manifest/1.0.0",
+      "story_pack_ref": "story-pack:test-materials",
+      "story_pack_version": "0.2.0-rc.1",
+      "default_locale": "zh-CN",
+      "locales": ["zh-CN", "en"],
+      "digest_policy": "sha256-canonical-json/1",
+      "assets": [
+        {"asset_ref": "asset:world-map", "path": "assets/world-map.png", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+      ],
+      "materials": [
+        {
+          "material_id": "material.public.catalog", "section_id": "section.public.catalog", "material_type": "catalog", "locale": "zh-CN", "audience": "public", "spoiler_class": "none",
+          "title": "无剧透简介", "summary": "帮助访客判断是否适合加入。", "body_ref": "author/documentation/public_catalog.md",
+          "source_refs": ["pack.synopsis"], "related_material_ids": [],
+          "display_purposes": ["catalog", "readme", "search"], "search_terms": ["加入", "简介"], "order": 10, "required": true, "fallback_locale": null, "version": "1.0.0"
+        },
+        {
+          "material_id": "material.player.guide", "section_id": "section.player.guide", "material_type": "player_guide", "locale": "zh-CN", "audience": "player", "spoiler_class": "mechanics",
+          "title": "玩家玩法", "summary": "解释检定、失败推进和安全退出。", "body_ref": "author/documentation/player_guide.md",
+          "source_refs": ["rules.check.basic", "interface.resolve_turn"], "related_material_ids": [],
+          "display_purposes": ["guide", "mechanics", "qq_help", "readme", "search"], "search_terms": ["检定", "失败推进"], "order": 20, "required": true, "fallback_locale": null, "version": "1.0.0"
+        },
+        {
+          "material_id": "material.host.operations", "section_id": "section.host.operations", "material_type": "room_host_guide", "locale": "zh-CN", "audience": "room_host", "spoiler_class": "progressive",
+          "title": "房主操作", "summary": "解释暂停、恢复和缺席处理。", "body_ref": "author/documentation/room_host_guide.md",
+          "source_refs": ["interface.room.pause"], "related_material_ids": ["material.player.guide"],
+          "display_purposes": ["guide", "readme", "search"], "search_terms": ["恢复", "暂停"], "order": 30, "required": true, "fallback_locale": null, "version": "1.0.0"
+        },
+        {
+          "material_id": "material.owner.story", "section_id": "section.owner.story", "material_type": "owner_story", "locale": "zh-CN", "audience": "deployment_owner", "spoiler_class": "full_story",
+          "title": "完整故事", "summary": "说明真相、路线和结局。", "body_ref": "author/documentation/owner_story.md",
+          "source_refs": ["story.truth.hidden", "story.ending.final"], "related_material_ids": ["material.host.operations"],
+          "display_purposes": ["story", "readme", "search"], "search_terms": ["结局", "真相"], "order": 40, "required": true, "fallback_locale": null, "version": "1.0.0"
+        }
+      ]
+    },
+    "documents": {
+      "author/documentation/public_catalog.md": "# 海雾中的邀请\n\n这是一个 **合作** 故事。查看[公开规则](https://example.invalid/rules)。\n\n![世界地图](assets/world-map.png)",
+      "author/documentation/player_guide.md": "# 完整游玩循环\n\n行动后进行 `2d6` 检定；失败会推进故事，而不是中止。\n\n- 说明意图\n- 查看公开风险\n- 确认或安全退出\n\n| 结果 | 含义 |\n| --- | --- |\n| 成功 | 推进目标 |\n| 失败 | 带代价推进 |\n\n```text\n/团 检定\n```",
+      "author/documentation/room_host_guide.md": "# 房主运行指南\n\n> 房主权限不会自动开放完整故事。\n\n1. 暂停房间\n2. 核对回执\n3. 恢复运行",
+      "author/documentation/owner_story.md": "# 剧透警告\n\n完整真相只属于部署管理员材料。\n\n## 路线与结局\n\n所有静态路线都有失败推进和可追踪结局。"
+    },
+    "reference_catalog": {
+      "schema": "material-reference-catalog/1.0.0",
+      "references": [
+        {"ref": "pack.synopsis", "kind": "pack", "audience": "public", "required": true},
+        {"ref": "rules.check.basic", "kind": "resolution_rule", "audience": "player", "required": true},
+        {"ref": "interface.resolve_turn", "kind": "interface", "audience": "player", "required": true},
+        {"ref": "interface.room.pause", "kind": "interface", "audience": "room_host", "required": true},
+        {"ref": "story.truth.hidden", "kind": "truth", "audience": "deployment_owner", "required": true},
+        {"ref": "story.ending.final", "kind": "ending", "audience": "deployment_owner", "required": true}
+      ]
+    },
+    "coverage": {
+      "schema": "documentation-coverage/1.0.0",
+      "records": [
+        {"ref": "pack.synopsis", "status": "documented", "material_ids": ["material.public.catalog"]},
+        {"ref": "rules.check.basic", "status": "documented", "material_ids": ["material.player.guide"]},
+        {"ref": "interface.resolve_turn", "status": "documented", "material_ids": ["material.player.guide"]},
+        {"ref": "interface.room.pause", "status": "documented", "material_ids": ["material.host.operations"]},
+        {"ref": "story.truth.hidden", "status": "documented", "material_ids": ["material.owner.story"]},
+        {"ref": "story.ending.final", "status": "documented", "material_ids": ["material.owner.story"]}
+      ]
+    },
+    "expected": {"material_count": 4, "slice_count": 8, "slice_audiences": ["public", "player", "room_host", "deployment_owner"], "model_calls": 0}
+  },
+  "negative": [
+    {"id": "unknown_field", "expected_code": "material.fields_invalid"},
+    {"id": "raw_html", "expected_code": "material.markdown_unsafe"},
+    {"id": "javascript_link", "expected_code": "material.link_unsafe"},
+    {"id": "undeclared_image", "expected_code": "material.asset_undeclared"},
+    {"id": "unresolved_ref", "expected_code": "material.reference_unresolved"},
+    {"id": "audience_leak", "expected_code": "material.audience_violation"},
+    {"id": "related_audience_leak", "expected_code": "material.audience_violation"},
+    {"id": "coverage_missing", "expected_code": "material.coverage_incomplete"},
+    {"id": "coverage_extra", "expected_code": "material.coverage_extra"},
+    {"id": "duplicate_section", "expected_code": "material.identity_duplicate"},
+    {"id": "spoiler_leak", "expected_code": "material.spoiler_leak"},
+    {"id": "unsafe_body_path", "expected_code": "material.path_invalid"},
+    {"id": "bad_digest_policy", "expected_code": "material.digest_policy_invalid"},
+    {"id": "translation_contract_mismatch", "expected_code": "material.translation_contract_mismatch"},
+    {"id": "missing_public", "expected_code": "material.documentation_missing"}
+  ],
+  "candidate_negative": [
+    {"id": "missing_public_audience", "expected_code": "material.candidate_audience_contract_invalid"},
+    {"id": "missing_real_catalog_file", "expected_code": "material.candidate_file_missing"}
+  ],
+  "product_negative": [
+    {"id": "ir_digest_mismatch", "expected_code": "material.digest_mismatch"},
+    {"id": "coverage_digest_mismatch", "expected_code": "material.coverage_digest_mismatch"},
+    {"id": "block_sequence_invalid", "expected_code": "material.block_sequence_invalid"},
+    {"id": "slice_audience_leak", "expected_code": "material.audience_violation"},
+    {"id": "slice_search_leak", "expected_code": "material.search_index_leak"},
+    {"id": "slice_digest_mismatch", "expected_code": "material.slice_digest_mismatch"}
+  ]
+}

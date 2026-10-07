@@ -1,0 +1,39 @@
+{
+  "contract": "story-evolution-conformance/1.0.0",
+  "author_source_schema": "sp-story-evolution-definition-candidate/0.2",
+  "public_definition_schema": "se-story-evolution-definition/1.0.0",
+  "priority_object_types": {
+    "P0": ["story_thread", "local_truth", "evidence", "future_direction"],
+    "P1": ["dynamic_scene", "dynamic_actor", "dynamic_graph_node", "dynamic_graph_edge"]
+  },
+  "positive": ["author_source_projection", "six_policy_budgets", "p0_batch", "p1_batch", "deterministic_ir"],
+  "negative": [
+    {"id":"unknown_field","mutation":"author.unknown=true","expected_code":"story_evolution.fields_invalid"},
+    {"id":"tier_drift","mutation":"author.object_priority_tiers.P0=reverse","expected_code":"story_evolution.priority_tier_invalid"},
+    {"id":"budget_partition","mutation":"budget.max_p0+=1","expected_code":"story_evolution.budget_partition_invalid"},
+    {"id":"budget_missing","mutation":"remove one policy row","expected_code":"story_evolution.budget_matrix_incomplete"},
+    {"id":"story_flow_change","mutation":"dynamic_content_may_change_phase=true","expected_code":"story_evolution.story_flow_authority_violation"},
+    {"id":"installable","mutation":"author.installable=true","expected_code":"story_evolution.author_identity_invalid"},
+    {"id":"coverage_path","mutation":"coverage.story_flow_recipe_path=forged","expected_code":"story_evolution.coverage_path_invalid"},
+    {"id":"forged_source_coverage_refs","mutation":"source+coverage entry ref forged","expected_code":"story_evolution.author_dependency_mismatch"},
+    {"id":"missing_story_flow_input","mutation":"story_flow_recipe=null","expected_code":"story_evolution.object_invalid"},
+    {"id":"definition_digest","mutation":"definition_sha256=zeros","expected_code":"story_evolution.definition_digest_mismatch"},
+    {"id":"context_budget","mutation":"policy budget widens","expected_code":"story_evolution.budget_exceeds_ir"},
+    {"id":"context_fact_digest","mutation":"hard_facts_sha256=zeros","expected_code":"story_evolution.policy_digest_mismatch"},
+    {"id":"context_fingerprint","mutation":"request_fingerprint=zeros","expected_code":"story_evolution.request_fingerprint_mismatch"},
+    {"id":"allowlist_subset","mutation":"remove allowed object","expected_code":"story_evolution.object_allowlist_closure_invalid"},
+    {"id":"policy_budget_mismatch","mutation":"nested budget direction differs","expected_code":"story_evolution.policy_budget_mismatch"},
+    {"id":"unknown_policy","mutation":"policy.direction=unknown","expected_code":"story_evolution.policy_invalid"},
+    {"id":"p1_without_capability","mutation":"bounded batch contains P1","expected_code":"story_evolution.p1_capability_required"},
+    {"id":"platform_id","mutation":"payload.platform_id=x","expected_code":"story_evolution.payload_forbidden"},
+    {"id":"nested_platform_id","mutation":"payload.nested.result[0].commit_status=committed","expected_code":"story_evolution.payload_forbidden"},
+    {"id":"forward_dependency","mutation":"depends_on=local.two","expected_code":"story_evolution.dependency_invalid"},
+    {"id":"edge_mismatch","mutation":"self dependency edge","expected_code":"story_evolution.dependency_edge_mismatch"},
+    {"id":"narrative_dangling","mutation":"narrative_dependency=local.missing","expected_code":"story_evolution.narrative_dependency_invalid"},
+    {"id":"batch_digest","mutation":"batch_sha256=zeros","expected_code":"story_evolution.batch_digest_mismatch"},
+    {"id":"receipt_count","mutation":"receipt.proposal_count=2","expected_code":"story_evolution.receipt_mismatch"},
+    {"id":"no_change_with_items","mutation":"receipt.status=no_change with item","expected_code":"story_evolution.receipt_status_invalid"},
+    {"id":"negative_current_count","mutation":"current_object_counts.story_thread=-1","expected_code":"story_evolution.integer_invalid"},
+    {"id":"active_capacity","mutation":"current story threads at ceiling plus open proposal","expected_code":"story_evolution.capacity_budget_exceeded"}
+  ]
+}

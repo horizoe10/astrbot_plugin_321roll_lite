@@ -1,0 +1,17 @@
+{
+  "schema": "se-platform-event-negative-vectors/1.0.0",
+  "contract_schema": "se-platform-event-extension/1.0.0",
+  "vectors": [
+    {"id": "visit-counts-missing", "contract": "EventStateSnapshotAdditions", "value": {}, "failure_category": "engine_contract_incompatible"},
+    {"id": "visit-count-negative", "contract": "EventStateSnapshotAdditions", "value": {"visit_counts": {"retry": -1}}, "failure_category": "engine_contract_incompatible"},
+    {"id": "visit-count-boolean", "contract": "EventStateSnapshotAdditions", "value": {"visit_counts": {"retry": true}}, "failure_category": "engine_contract_incompatible"},
+    {"id": "visit-count-unknown-checkpoint", "contract": "EventAdvanceSemantic", "mutation": {"event_state.visit_counts.unknown": 1}, "failure_category": "invalid_proposal"},
+    {"id": "visit-count-exceeds-max-visits", "contract": "EventAdvanceSemantic", "mutation": {"event_state.visit_counts.retry": 99}, "failure_category": "invalid_proposal"},
+    {"id": "gate-response-untyped-object", "contract": "GateResponseSnapshot", "value": {"accepted": true}, "failure_category": "engine_contract_incompatible"},
+    {"id": "gate-response-stale-revision", "contract": "EventAdvanceSemantic", "mutation": {"gate_response.source_revision": 4}, "failure_category": "revision_conflict"},
+    {"id": "gate-response-wrong-gate", "contract": "EventAdvanceSemantic", "mutation": {"gate_response.gate_ref": "gate.event.runtime.1.other"}, "failure_category": "invalid_proposal"},
+    {"id": "gate-response-uncommitted-receipt", "contract": "EventAdvanceSemantic", "mutation": {"committed_receipt_refs": []}, "failure_category": "invalid_proposal"},
+    {"id": "gate-response-fingerprint-mismatch", "contract": "EventAdvanceSemantic", "mutation": {"gate_response.response_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, "failure_category": "invalid_proposal"},
+    {"id": "gate-response-late-result", "contract": "EventAdvanceSemantic", "mutation": {"envelope.expected_revision": 6, "event_state.revision": 7}, "failure_category": "late_result_discarded"}
+  ]
+}

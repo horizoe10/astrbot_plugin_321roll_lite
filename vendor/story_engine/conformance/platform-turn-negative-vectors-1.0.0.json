@@ -1,0 +1,22 @@
+{
+  "schema": "se-platform-turn-negative-vectors/1.0.0",
+  "contract_schema": "se-platform-turn-extension/1.0.0",
+  "platform_baseline": "321roll-public-contracts/0.1.0",
+  "vectors": [
+    {"id": "cancel-before-provider", "trigger": "cancelled_before_start", "expected_status": "cancelled", "expected_problem": "engine.cancelled", "model_calls": 0, "proposals_empty": true},
+    {"id": "cancel-during-provider", "trigger": "cancelled_while_invoke_model_pending", "expected_status": "cancelled", "expected_problem": "engine.cancelled", "proposals_empty": true},
+    {"id": "cancel-mid-stream", "trigger": "cancelled_after_first_provisional_chunk", "expected_status": "cancelled", "expected_problem": "engine.cancelled", "platform_action": "discard_all_provisional_chunks"},
+    {"id": "deadline-before-provider", "trigger": "deadline_elapsed_before_start", "expected_status": "timed_out", "expected_problem": "engine.deadline_exceeded", "model_calls": 0, "proposals_empty": true},
+    {"id": "provider-timeout", "trigger": "provider_timeout_budget_elapsed", "expected_status": "timed_out", "expected_problem": "engine.provider_timeout", "proposals_empty": true},
+    {"id": "provider-rate-limited", "trigger": "provider_rate_limited", "expected_status": "blocked", "expected_problem": "engine.provider_rate_limited", "retryable": true, "proposals_empty": true},
+    {"id": "provider-connection-failed", "trigger": "provider_connection_failed", "expected_status": "blocked", "expected_problem": "engine.provider_unavailable", "retryable": true, "proposals_empty": true},
+    {"id": "provider-empty-output", "trigger": "provider_output_empty", "expected_status": "blocked", "expected_problem": "engine.output_invalid", "proposals_empty": true},
+    {"id": "provider-malformed-output", "trigger": "provider_output_wrong_structure", "expected_status": "blocked", "expected_problem": "engine.output_invalid", "proposals_empty": true},
+    {"id": "provider-capability-insufficient", "trigger": "structured_output_capability_missing", "expected_status": "blocked", "expected_problem": "engine.contract_incompatible", "proposals_empty": true},
+    {"id": "unknown-required-capability", "trigger": "request_required_capability_unknown", "expected_status": "blocked", "expected_problem": "engine.contract_incompatible", "model_calls": 0, "proposals_empty": true},
+    {"id": "idempotency-input-conflict", "trigger": "same_idempotency_key_different_fingerprint", "expected_status": "blocked", "expected_problem": "engine.result_stale", "model_calls_after_conflict": 0, "proposals_empty": true},
+    {"id": "late-result-after-cancel", "trigger": "provider_result_arrives_after_platform_cancel", "platform_failure_category": "late_result_discarded", "platform_commit": false},
+    {"id": "revision-conflict", "trigger": "room_revision_changed_before_commit", "platform_failure_category": "revision_conflict", "platform_commit": false},
+    {"id": "engine-process-abnormal", "trigger": "remote_engine_process_terminated", "platform_failure_category": "engine_unavailable", "platform_commit": false, "safe_retry": "same frozen fingerprint and deterministic provider idempotency key"}
+  ]
+}

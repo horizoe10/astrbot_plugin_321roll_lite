@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/v02/se-hosted-collective-event-proposal-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "snapshot_sha256",
+    "title",
+    "premise",
+    "directions",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-hosted-collective-event-proposal/1.0.0"
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "premise": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "directions": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "direction_ref",
+          "label",
+          "description",
+          "risk",
+          "cost"
+        ],
+        "properties": {
+          "direction_ref": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "risk": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "cost": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

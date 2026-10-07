@@ -1,0 +1,33 @@
+{
+  "schema": "se-profile-compile-negative-vectors/1.0.0",
+  "registry_revision": "se1-p0/3",
+  "vectors": [
+    {
+      "id": "profile.ambient-event.choice-author-unsupported",
+      "fixture": "ambient_choice_author",
+      "expected_error": "profile.checkpoint_count_invalid",
+      "expected_path": "checkpoints"
+    },
+    {
+      "id": "profile.unknown-id",
+      "fixture": "crisis_legacy_author",
+      "mutation": {"profile": "unknown_event"},
+      "expected_error": "profile.unknown",
+      "expected_path": "profile"
+    },
+    {
+      "id": "profile.version-missing",
+      "fixture": "crisis_legacy_author",
+      "mutation": {"profile_version": ""},
+      "expected_error": "engine.profile_version_unsupported",
+      "expected_path": "profile_version"
+    },
+    {
+      "id": "profile.version-unsupported",
+      "fixture": "crisis_legacy_author",
+      "mutation": {"profile_version": "9.9.9"},
+      "expected_error": "engine.profile_version_unsupported",
+      "expected_path": "profile_version"
+    }
+  ]
+}

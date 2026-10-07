@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-character-effect-proposal/1.0.0",
+  "title": "SE typed character effect proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "proposal_ref", "operation_ref", "request_fingerprint", "source_capability_ref", "effect_contract", "effect_type", "target_binding", "expected_revisions", "payload", "source", "reversible", "dedupe_key", "atomic_group_ref"],
+  "properties": {
+    "schema": {"const": "se-character-effect-proposal/1.0.0"},
+    "proposal_ref": {"$ref": "#/$defs/ref"},
+    "operation_ref": {"$ref": "#/$defs/ref"},
+    "request_fingerprint": {"$ref": "#/$defs/hash"},
+    "source_capability_ref": {"enum": ["actor.resource_pool/1.0.0", "actor.vitality/1.0.0"]},
+    "effect_contract": {"const": "character.state.effects/1"},
+    "effect_type": {
+      "enum": [
+        "actor.attribute.set", "actor.attribute.delta",
+        "actor.resource.set", "actor.resource.delta", "actor.resource.set_limit",
+        "actor.progress.set", "actor.progress.advance",
+        "actor.status.upsert", "actor.status.remove", "actor.descriptor.set"
+      ]
+    },
+    "target_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]},
+    "expected_revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_revision", "room_revision"],
+      "properties": {
+        "actor_revision": {"type": "integer", "minimum": 0},
+        "room_revision": {"type": "integer", "minimum": 0}
+      }
+    },
+    "payload": {"type": "object"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "reason_code", "cause_refs"],
+      "properties": {
+        "source_ref": {"$ref": "#/$defs/ref"},
+        "reason_code": {"$ref": "#/$defs/ref"},
+        "cause_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}
+      }
+    },
+    "reversible": {"type": "boolean"},
+    "dedupe_key": {"$ref": "#/$defs/ref"},
+    "atomic_group_ref": {"$ref": "#/$defs/ref"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"effect_type": {"enum": ["actor.resource.set", "actor.resource.delta"]}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/resourceValuePayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"const": "actor.resource.set_limit"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/resourceLimitPayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"enum": ["actor.attribute.set", "actor.attribute.delta"]}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/metricPayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"enum": ["actor.progress.set", "actor.progress.advance"]}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/progressPayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"const": "actor.status.upsert"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/statusUpsertPayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"const": "actor.status.remove"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/statusRemovePayload"}}}
+    },
+    {
+      "if": {"properties": {"effect_type": {"const": "actor.descriptor.set"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/descriptorPayload"}}}
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "resourceValuePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource_ref", "amount", "layer", "threshold_handling"],
+      "properties": {
+        "resource_ref": {"$ref": "#/$defs/ref"},
+        "amount": {"type": "integer"},
+        "layer": {"enum": ["base", "temporary"]},
+        "temporary_layer_ref": {"$ref": "#/$defs/ref"},
+        "temporary_priority": {"type": "integer"},
+        "threshold_handling": {"const": "propose_crossing_signals"}
+      }
+    },
+    "resourceLimitPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource_ref", "maximum", "current_overflow"],
+      "properties": {
+        "resource_ref": {"$ref": "#/$defs/ref"},
+        "maximum": {"type": "integer"},
+        "current_overflow": {"enum": ["clamp", "reject"]}
+      }
+    },
+    "metricPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["metric_ref", "amount"],
+      "properties": {"metric_ref": {"$ref": "#/$defs/ref"}, "amount": {"type": ["integer", "number", "string", "boolean"]}}
+    },
+    "progressPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["progress_ref", "amount"],
+      "properties": {"progress_ref": {"$ref": "#/$defs/ref"}, "amount": {"type": "integer"}}
+    },
+    "statusUpsertPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status_ref", "state", "stacks"],
+      "properties": {"status_ref": {"$ref": "#/$defs/ref"}, "state": {"enum": ["active", "suppressed"]}, "stacks": {"type": "integer", "minimum": 1}}
+    },
+    "statusRemovePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status_ref", "remove_policy"],
+      "properties": {"status_ref": {"$ref": "#/$defs/ref"}, "remove_policy": {"enum": ["all", "one_stack"]}}
+    },
+    "descriptorPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["descriptor_ref", "value"],
+      "properties": {"descriptor_ref": {"$ref": "#/$defs/ref"}, "value": {"type": "string", "minLength": 1, "maxLength": 512}}
+    }
+  }
+}
+

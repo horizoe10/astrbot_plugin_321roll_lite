@@ -1,0 +1,314 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-conflict-procedure-definitions/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source_authority",
+    "definitions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-conflict-procedure-definitions/1.0.0"
+    },
+    "source_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "digest_algorithm",
+        "digest"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "digest_algorithm": {
+          "const": "canonical-json-utf8-v1"
+        },
+        "digest": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "definitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/definition"
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_ref",
+        "label"
+      ],
+      "properties": {
+        "role_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_ref",
+        "phase_ref",
+        "eligible_role_refs",
+        "allowed_actions",
+        "reaction_allowed"
+      ],
+      "properties": {
+        "window_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "phase_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "eligible_role_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "allowed_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "enter",
+              "act",
+              "assist",
+              "react",
+              "negotiate",
+              "retreat",
+              "surrender",
+              "resolve",
+              "aftermath"
+            ]
+          }
+        },
+        "reaction_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "procedure_ref",
+        "label",
+        "description",
+        "conflict_kinds",
+        "participant_roles",
+        "objective_policy",
+        "phase_order",
+        "windows",
+        "priority_policy",
+        "exit_policy",
+        "aftermath_policy"
+      ],
+      "properties": {
+        "procedure_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "conflict_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "combat",
+              "chase",
+              "contest",
+              "opposition",
+              "nonviolent"
+            ]
+          }
+        },
+        "participant_roles": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/role"
+          },
+          "uniqueItems": true
+        },
+        "objective_policy": {
+          "const": "platform_snapshot"
+        },
+        "phase_order": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "windows": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/window"
+          }
+        },
+        "priority_policy": {
+          "const": "platform_committed_receipt"
+        },
+        "exit_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcomes",
+            "nonviolent_actions",
+            "vitality_depletion",
+            "terminal_owner"
+          ],
+          "properties": {
+            "outcomes": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "resolved",
+                  "withdrawn",
+                  "surrendered",
+                  "stalemate",
+                  "human_dm"
+                ]
+              }
+            },
+            "nonviolent_actions": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "negotiate",
+                  "retreat",
+                  "surrender"
+                ]
+              }
+            },
+            "vitality_depletion": {
+              "const": "signal_only"
+            },
+            "terminal_owner": {
+              "const": "fate_rescue_owner"
+            }
+          }
+        },
+        "aftermath_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cause_receipt_required",
+            "permanent_consequence_owner"
+          ],
+          "properties": {
+            "cause_receipt_required": {
+              "const": true
+            },
+            "permanent_consequence_owner": {
+              "const": "321_platform"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "windows": {
+              "contains": {
+                "properties": {
+                  "allowed_actions": {
+                    "contains": {
+                      "const": "negotiate"
+                    }
+                  }
+                },
+                "required": [
+                  "allowed_actions"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "windows": {
+              "contains": {
+                "properties": {
+                  "allowed_actions": {
+                    "contains": {
+                      "const": "retreat"
+                    }
+                  }
+                },
+                "required": [
+                  "allowed_actions"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "windows": {
+              "contains": {
+                "properties": {
+                  "allowed_actions": {
+                    "contains": {
+                      "const": "surrender"
+                    }
+                  }
+                },
+                "required": [
+                  "allowed_actions"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

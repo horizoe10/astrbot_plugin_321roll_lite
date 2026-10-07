@@ -1,0 +1,106 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "nameless-sword-tomb",
+  "acts": [
+    {
+      "number": 1,
+      "title": "霜降前夜",
+      "lead": "守冢的人，今年没有下山来喝这杯酒。",
+      "weather": "snow",
+      "ambience": [
+        "wind",
+        "murmur"
+      ],
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "剑冢甬道",
+      "lead": "剑穗的颜色，记着年份。",
+      "weather": "dust",
+      "ambience": [
+        "drip",
+        "wind"
+      ],
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "冢底剑台",
+      "lead": "无名剑不是兵器，是一把钥匙。",
+      "weather": "dust",
+      "ambience": [
+        "drip"
+      ],
+      "image": "act-3"
+    },
+    {
+      "number": 4,
+      "title": "冢门开合",
+      "lead": "水到过哪里，谁在下面守过。",
+      "weather": "snow",
+      "ambience": [
+        "river",
+        "wind"
+      ],
+      "image": "act-4"
+    }
+  ],
+  "places": [
+    {
+      "entry": "frost-inn",
+      "name": "〔霜降客栈〕",
+      "image": "place-frost-inn",
+      "aliases": [
+        "霜降客栈"
+      ]
+    },
+    {
+      "entry": "luting",
+      "name": "〔芦汀〕",
+      "image": "place-luting",
+      "aliases": [
+        "芦汀"
+      ]
+    },
+    {
+      "entry": "inner-wheel",
+      "name": "山腹内轮室",
+      "image": "place-inner-wheel",
+      "aliases": [
+        "内轮"
+      ]
+    },
+    {
+      "entry": "ice-ford",
+      "name": "冰河渡口",
+      "image": "place-ice-ford",
+      "aliases": [
+        "渡口"
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "none-left",
+      "name": "无人留下",
+      "rule": "改出不需要人守轮的办法，开门放水，所有人下山",
+      "image": "ending-none-left"
+    },
+    {
+      "id": "one-stayed",
+      "name": "有人留下",
+      "rule": "按旧法开门，有人留在冢底推住内轮",
+      "image": "ending-one-stayed"
+    },
+    {
+      "id": "unopened",
+      "name": "不开冢门",
+      "rule": "冢门没有打开，众人下山组织芦汀撤离",
+      "image": "ending-unopened"
+    }
+  ],
+  "shared": {
+    "place-frost-inn": "act-1"
+  }
+}

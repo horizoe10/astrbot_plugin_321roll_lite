@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "se-event-composition-ir/1.2.0",
+  "type": "object", "additionalProperties": true,
+  "required": ["schema", "profile", "profile_version", "source", "identity", "capability_closure", "checkpoint_graph", "guard_contract", "guard_capability", "fact_catalog", "fact_catalog_sha256", "guard_tree", "guard_tree_sha256", "choice_contract", "choice_capability", "required_platform_features", "initial_checkpoint_ref", "choice_sets", "choice_semantics_sha256", "event_ir_sha256"],
+  "properties": {
+    "schema": {"const": "se-event-composition-ir/1.2.0"}, "guard_contract": {"const": "se-condition-tree/1.0.0"}, "guard_capability": {"const": "event.guard.evaluate/1.0.0"},
+    "choice_contract": {"const": "se-event-choice-semantics/1.0.0"}, "choice_capability": {"const": "event.choice_set/1.0.0"}, "required_platform_features": {"const": ["event.choice_set/1.0.0"]},
+    "initial_checkpoint_ref": {"$ref": "#/$defs/id"}, "choice_sets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/compiledChoiceSet"}}, "choice_semantics_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+    "compiledChoiceSet": {"type": "object", "additionalProperties": false, "required": ["checkpoint_ref", "phase_ref", "owner_binding", "guard_tree_sha256", "mode", "expiry_seconds", "cardinality", "choices"], "properties": {"checkpoint_ref": {"$ref": "#/$defs/id"}, "phase_ref": {"$ref": "#/$defs/id"}, "owner_binding": {"const": "binding.actor.current"}, "guard_tree_sha256": {"$ref": "#/$defs/hash"}, "mode": {"const": "choice_only"}, "expiry_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "cardinality": {"type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": {"minimum": {"const": 1}, "maximum": {"const": 1}}}, "choices": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "object", "additionalProperties": false, "required": ["choice_ref", "route_ref", "display_key", "label", "purpose", "cost", "risk", "limitations"], "properties": {"choice_ref": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "route_ref": {"$ref": "#/$defs/id"}, "display_key": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "label": {"$ref": "se-event-choice-semantics-1.0.0.schema.json#/$defs/text80"}, "purpose": {"$ref": "se-event-choice-semantics-1.0.0.schema.json#/$defs/text240"}, "cost": {"$ref": "se-event-choice-semantics-1.0.0.schema.json#/$defs/text160"}, "risk": {"$ref": "se-event-choice-semantics-1.0.0.schema.json#/$defs/text160"}, "limitations": {"$ref": "se-event-choice-semantics-1.0.0.schema.json#/$defs/text160"}}}}}}
+  }
+}

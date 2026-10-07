@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-turn-interaction-engine-handshake/1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "engine_version",
+    "capability",
+    "snapshot_contract",
+    "input_contract",
+    "result_contract",
+    "artifact_sha256",
+    "authority_owner",
+    "supported_input_contracts",
+    "features"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-turn-interaction-engine-handshake/1.1.0"
+    },
+    "engine_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "capability": {
+      "const": "turn.interaction/1.0.0"
+    },
+    "snapshot_contract": {
+      "const": "se-turn-interaction-snapshot/1.0.0"
+    },
+    "input_contract": {
+      "const": "se-player-turn-input/1.0.0"
+    },
+    "result_contract": {
+      "const": "se-turn-interaction-evaluation/1.0.0"
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "authority_owner": {
+      "const": "321_platform"
+    },
+    "supported_input_contracts": {
+      "const": [
+        "se-player-turn-input/1.0.0",
+        "se-player-turn-input/1.1.0"
+      ]
+    },
+    "features": {
+      "const": [
+        "turn_interaction.entity_refs/1.0.0"
+      ]
+    }
+  }
+}

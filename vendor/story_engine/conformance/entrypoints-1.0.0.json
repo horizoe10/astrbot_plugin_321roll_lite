@@ -1,0 +1,53 @@
+{
+  "schema": "se-story-engine-entrypoints/1.0.0",
+  "engine_id": "party321.story_engine",
+  "engine_version": "1.0.0.dev2",
+  "contract_version": "story-engine-port/1.0.0",
+  "embedded": {
+    "entry_point_group": "party321.story_engine.embedded",
+    "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_embedded_story_engine",
+    "methods": ["describe", "readiness", "resolve_turn", "resolve_turn_stream", "evaluate_event"],
+    "bridge_owner": "321_platform"
+  },
+  "remote": {
+    "entry_point_group": "party321.story_engine.remote",
+    "entry_point_name": "narrative",
+    "callable": "story_engine.entrypoints:create_remote_story_engine",
+    "dispatch_contract": "se-remote-dispatch/1.1.0",
+    "methods": ["health", "describe", "readiness", "capabilities", "resolve_turn", "resolve_turn_stream", "evaluate_event"],
+    "stream_dispatch_method": "dispatch_stream",
+    "transport_auth_tls_owner": "321_platform",
+    "bridge_owner": "321_platform"
+  },
+  "legacy_event_entrypoints": {
+    "embedded": {
+      "entry_point_group": "party321.story_engine.embedded",
+      "entry_point_name": "event",
+      "callable": "story_engine.entrypoints:create_embedded_event_engine"
+    },
+    "remote": {
+      "entry_point_group": "party321.story_engine.remote",
+      "entry_point_name": "event",
+      "callable": "story_engine.entrypoints:create_remote_event_engine",
+      "dispatch_contract": "se-remote-dispatch/1.0.0",
+      "methods": ["health", "describe", "readiness", "capabilities", "evaluate_event"]
+    }
+  },
+  "required_platform_features": [
+    "authoritative-turn-commit/1",
+    "event-gate-response/1",
+    "event-visit-counts/1",
+    "late-result-rejection/1",
+    "operation-envelope/1",
+    "platform-bridge/1.0.0",
+    "proposal-validation/1"
+  ],
+  "optional_platform_features": ["artifact-slice/1", "provider-native-streaming/1"],
+  "required_engine_capabilities": ["base.narrative"],
+  "optional_engine_capabilities": ["narrative.stream", "narrative.structured_output"],
+  "required_provider_capabilities": ["structured_output"],
+  "optional_provider_capabilities": ["streaming"],
+  "authority_owner": "321_platform",
+  "late_result_policy": "platform rejects cancelled, timed-out, late, fingerprint-mismatched or revision-mismatched results before commit"
+}

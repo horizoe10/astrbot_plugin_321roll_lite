@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "se-resolution-check-definitions/1.0.0",
+  "type": "object", "additionalProperties": false, "required": ["schema", "definitions"],
+  "properties": {
+    "schema": {"const": "se-resolution-check-definitions/1.0.0"},
+    "definitions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/definition"}}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"},
+    "definition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["definition_ref", "check_kind", "rule_ref", "difficulty", "actor_inputs", "modifier_policy", "assist_policy", "retry_policy", "opposed_policy", "seed_policy", "result_bands", "no_roll_policy", "fallback_policy"],
+      "properties": {
+        "definition_ref": {"$ref": "#/$defs/ref"}, "check_kind": {"enum": ["ability", "skill", "tool", "combined", "opposed"]}, "rule_ref": {"$ref": "#/$defs/ref"},
+        "difficulty": {"type": "object", "additionalProperties": false, "required": ["source", "fixed_rating", "public_label"], "properties": {"source": {"enum": ["fixed", "platform_snapshot", "host_confirm"]}, "fixed_rating": {"type": ["integer", "null"], "minimum": 0, "maximum": 100}, "public_label": {"type": "string", "minLength": 1, "maxLength": 160}}},
+        "actor_inputs": {"type": "object", "additionalProperties": false, "required": ["ability_refs", "skill_refs", "tool_refs", "require_actor"], "properties": {"ability_refs": {"$ref": "#/$defs/refs"}, "skill_refs": {"$ref": "#/$defs/refs"}, "tool_refs": {"$ref": "#/$defs/refs"}, "require_actor": {"const": true}}},
+        "modifier_policy": {"type": "object", "additionalProperties": false, "required": ["allow_advantage", "allow_disadvantage", "stacking", "maximum_receipts"], "properties": {"allow_advantage": {"type": "boolean"}, "allow_disadvantage": {"type": "boolean"}, "stacking": {"const": "cancel_each_other"}, "maximum_receipts": {"type": "integer", "minimum": 0, "maximum": 32}}},
+        "assist_policy": {"type": "object", "additionalProperties": false, "required": ["allowed", "maximum_assists"], "properties": {"allowed": {"type": "boolean"}, "maximum_assists": {"type": "integer", "minimum": 0, "maximum": 16}}},
+        "retry_policy": {"type": "object", "additionalProperties": false, "required": ["allowed", "maximum_retries", "cost_required"], "properties": {"allowed": {"type": "boolean"}, "maximum_retries": {"type": "integer", "minimum": 0, "maximum": 16}, "cost_required": {"type": "boolean"}}},
+        "opposed_policy": {"type": "object", "additionalProperties": false, "required": ["allowed", "target_snapshot_required"], "properties": {"allowed": {"type": "boolean"}, "target_snapshot_required": {"type": "boolean"}}},
+        "seed_policy": {"const": "platform_provided"},
+        "result_bands": {"type": "array", "minItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["outcome", "degree", "public_label"], "properties": {"outcome": {"enum": ["success", "failure"]}, "degree": {"$ref": "#/$defs/ref"}, "public_label": {"type": "string", "minLength": 1, "maxLength": 160}}}},
+        "no_roll_policy": {"enum": ["allow_preview_only", "block"]}, "fallback_policy": {"enum": ["no_roll", "host_confirm", "block"]}
+      }
+    },
+    "refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}
+  }
+}

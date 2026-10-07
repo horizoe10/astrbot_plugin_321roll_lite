@@ -1,0 +1,18 @@
+{
+  "schema": "se-resolution-rule-positive-vectors/1.0.0",
+  "candidate_contract": "SP_thirteenth-seat-new-era/worktree/author/se1/v02/resolution_rule_contract.json",
+  "world_authority": "SP_thirteenth-seat-new-era/worktree/world/core.json",
+  "expected": {
+    "definition_schema": "se-resolution-rule-definition-ir/1.0.0",
+    "modifier_catalog_schema": "se-modifier-source-catalog-ir/1.0.0",
+    "rule_catalog_schema": "se-resolution-rule-catalog-ir/1.0.0",
+    "canonical_schema": "se-canonical-story-pack-ir/1.7.0",
+    "artifact_schema": "se-story-artifact/1.7.0",
+    "target_abi": "se-compiler/1.7.0",
+    "resolution_rule_ref": "rule.resolution.v02.standard-d20",
+    "modifier_sources": 2,
+    "bands": 5,
+    "platform_rng": true,
+    "post_resolution_receipt_bound": true
+  }
+}

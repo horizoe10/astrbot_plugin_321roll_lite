@@ -1,0 +1,552 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-luck-action-bindings-ir/1.1.0",
+  "description": "Compiled luck-action binding catalog. One entry per bound action offer: the engine-exact pre-roll check the platform passes back unchanged, the preserved authored declaration, the swap recipes with their stable slot bindings and the clocks that must stay non-terminal, the leave-door remedy entries and the all-in benefit pairs. Normalised from the Pack author block; runtime resolves entries by offer_ref only and never reads an author path.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entries",
+    "document_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-action-bindings-ir/1.1.0"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "offer_ref",
+          "offer_sha256",
+          "event_ref",
+          "choice_ref",
+          "method_refs",
+          "resolution_definition_ref",
+          "resolution_definition_sha256",
+          "resolution_rule_ref",
+          "resolution_rule_definition_sha256",
+          "check",
+          "declaration",
+          "attempt_clock",
+          "recipes",
+          "nonterminal_clock_refs",
+          "remedy_entries",
+          "all_in_benefits"
+        ],
+        "properties": {
+          "offer_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "offer_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "event_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "choice_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "method_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          },
+          "resolution_definition_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "resolution_definition_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "resolution_rule_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "resolution_rule_definition_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "check": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dice",
+              "purpose",
+              "risk",
+              "opposed",
+              "group_result",
+              "visible_inputs",
+              "remedy_chain",
+              "ordinary_k3"
+            ],
+            "properties": {
+              "dice": {
+                "const": "standard_d20"
+              },
+              "purpose": {
+                "enum": [
+                  "investigation",
+                  "craft",
+                  "movement",
+                  "escape",
+                  "negotiation",
+                  "environment",
+                  "attack"
+                ]
+              },
+              "risk": {
+                "const": true
+              },
+              "opposed": {
+                "const": false
+              },
+              "group_result": {
+                "const": false
+              },
+              "visible_inputs": {
+                "const": true
+              },
+              "remedy_chain": {
+                "const": false
+              },
+              "ordinary_k3": {
+                "type": "boolean"
+              }
+            }
+          },
+          "declaration": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method_ref",
+              "purpose",
+              "risk",
+              "opposed",
+              "group_result",
+              "attribute_ref",
+              "difficulty",
+              "visible_inputs",
+              "tool_refs",
+              "tool_bonus",
+              "ordinary_k3",
+              "ordinary_k3_guard",
+              "remedy_chain"
+            ],
+            "properties": {
+              "method_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "purpose": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              },
+              "risk": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "opposed": {
+                "const": false
+              },
+              "group_result": {
+                "const": false
+              },
+              "attribute_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "difficulty": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 40
+              },
+              "visible_inputs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              },
+              "tool_refs": {
+                "type": "array",
+                "maxItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              },
+              "tool_bonus": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "ordinary_k3": {
+                "type": "boolean"
+              },
+              "ordinary_k3_guard": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+              },
+              "remedy_chain": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "recipes": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "recipe_ref",
+                "recipe_sha256",
+                "slots"
+              ],
+              "properties": {
+                "recipe_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "recipe_sha256": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "slots": {
+                  "type": "object",
+                  "maxProperties": 4,
+                  "additionalProperties": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  }
+                }
+              }
+            }
+          },
+          "nonterminal_clock_refs": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+            }
+          },
+          "remedy_entries": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "entry_ref",
+                "method_ref",
+                "chain_ref",
+                "target_ref",
+                "scene_ref",
+                "preconditions",
+                "attribute_ref",
+                "difficulty",
+                "tools",
+                "expires",
+                "consequences"
+              ],
+              "properties": {
+                "entry_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "method_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "chain_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "target_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "scene_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "preconditions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  }
+                },
+                "attribute_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "difficulty": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 40
+                },
+                "tools": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  }
+                },
+                "expires": {
+                  "enum": [
+                    "next_action_end",
+                    "scene_exit"
+                  ]
+                },
+                "consequences": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "all_in_benefits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "benefit_ref",
+                "source_ref",
+                "permission_ref",
+                "object_ref"
+              ],
+              "properties": {
+                "benefit_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "permission_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                },
+                "object_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                }
+              }
+            },
+            "minItems": 0,
+            "maxItems": 2
+          },
+          "attempt_clock": {
+            "description": "band 外的一次提交推进：最终提交后按 delta 移动该公开时钟，delta 保留正负方向，threshold_event 在达到 threshold_value 时关闭对应段；null 表示本动作没有 band 外时钟推进。",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "clock_ref",
+                  "visibility",
+                  "initial_value",
+                  "maximum",
+                  "delta",
+                  "advance",
+                  "threshold_event",
+                  "threshold_value"
+                ],
+                "properties": {
+                  "clock_ref": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                  },
+                  "visibility": {
+                    "const": "public"
+                  },
+                  "initial_value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99
+                  },
+                  "maximum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99
+                  },
+                  "delta": {
+                    "type": "integer",
+                    "minimum": -5,
+                    "maximum": 5,
+                    "not": {
+                      "const": 0
+                    }
+                  },
+                  "advance": {
+                    "const": "once_per_commit"
+                  },
+                  "threshold_event": {
+                    "enum": [
+                      "section_exit",
+                      "contact_ends",
+                      "far_search_stops",
+                      "side_room_closes"
+                    ]
+                  },
+                  "threshold_value": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "condition_sources": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "condition_ref",
+                    "kind",
+                    "checkpoint_ref"
+                  ],
+                  "properties": {
+                    "condition_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "kind": {
+                      "const": "event_checkpoint"
+                    },
+                    "checkpoint_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "condition_ref",
+                    "kind",
+                    "clock_ref",
+                    "operator",
+                    "value"
+                  ],
+                  "properties": {
+                    "condition_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "kind": {
+                      "const": "attempt_clock_after"
+                    },
+                    "clock_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "operator": {
+                      "enum": [
+                        "lt",
+                        "gt"
+                      ]
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 99
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "condition_ref",
+                    "kind",
+                    "band_ref",
+                    "fact_ref",
+                    "value"
+                  ],
+                  "properties": {
+                    "condition_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "kind": {
+                      "const": "result_fact"
+                    },
+                    "band_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "fact_ref": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+                    },
+                    "value": {
+                      "const": true
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "document_sha256": {
+      "description": "Canonical digest of the catalog without this field.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

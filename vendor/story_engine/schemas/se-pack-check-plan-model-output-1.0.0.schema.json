@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "difficulty_tier",
+    "reason",
+    "source_fact_refs"
+  ],
+  "properties": {
+    "difficulty_tier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "source_fact_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://321roll.local/contracts/pack-check-plan-model-output/1.0.0"
+}

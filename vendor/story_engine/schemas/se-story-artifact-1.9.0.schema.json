@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-story-artifact/1.9.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "engine_spec", "target_abi", "package", "canonical_ir_sha256", "compiler_contract_fingerprint", "content_sha256", "profile_registry", "profile_contracts", "resource_definitions", "resource_catalog_sha256", "effect_contracts", "event_compositions", "capability_closure", "source_map", "projection_plan", "diagnostics_summary", "v02_extension", "artifact_sha256"],
+  "properties": {
+    "schema": {"const": "se-story-artifact/1.9.0"},
+    "engine_spec": {"const": "1.0.0"},
+    "target_abi": {"const": "se-compiler/1.9.0"},
+    "package": {"$ref": "#/$defs/package"},
+    "canonical_ir_sha256": {"$ref": "#/$defs/digest"},
+    "compiler_contract_fingerprint": {"$ref": "#/$defs/digest"},
+    "content_sha256": {"$ref": "#/$defs/digest"},
+    "profile_registry": {"type": "object"},
+    "profile_contracts": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "provider_contracts": {"type": "object"},
+    "resource_definitions": {"type": "array", "items": {"type": "object"}},
+    "resource_catalog_sha256": {"$ref": "#/$defs/digest"},
+    "effect_contracts": {"type": "array", "items": {"type": "object"}},
+    "event_compositions": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "capability_closure": {"type": "object"},
+    "source_map": {"type": "array", "items": {"type": "object"}},
+    "projection_plan": {"type": "object"},
+    "diagnostics_summary": {"type": "object"},
+    "turn_interaction_policies": {"type": "object"},
+    "resolution_check_definitions": {"type": "object"},
+    "character_build_definitions": {"type": "object"},
+    "character_progression_definitions": {"type": "object"},
+    "reward_settlement_definitions": {"type": "object"},
+    "inventory_equipment_definitions": {"type": "object"},
+    "ability_execution_definitions": {"type": "object"},
+    "conflict_procedure_definitions": {"type": "object"},
+    "recovery_cycle_definitions": {"type": "object"},
+    "resolution_rule_definitions": {"type": "array", "items": {"type": "object"}},
+    "modifier_source_catalog": {"type": "object"},
+    "resolution_rule_catalog": {"type": "object"},
+    "resolution_action_offers": {"type": "object"},
+    "v02_extension": {"$ref": "#/$defs/v02Extension"},
+    "artifact_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_id", "content_version"],
+      "properties": {"package_id": {"type": "string", "minLength": 1}, "content_version": {"type": "string", "minLength": 1}}
+    },
+    "sourceBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "raw_sha256", "modules"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|.*(?:^|/)\\.\\.(?:/|$)).+$"},
+        "raw_sha256": {"$ref": "#/$defs/digest"},
+        "modules": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["materials", "narrative_style", "story_evolution", "story_flow"]}}
+      }
+    },
+    "zeroModelCalls": {
+      "type": "object", "additionalProperties": false,
+      "required": ["narrative_style", "materials", "story_flow", "story_evolution", "total"],
+      "properties": {"narrative_style": {"const": 0}, "materials": {"const": 0}, "story_flow": {"const": 0}, "story_evolution": {"const": 0}, "total": {"const": 0}}
+    },
+    "v02Extension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "candidate_version", "installable", "story_pack_ref", "source_bindings", "source_bindings_sha256", "dependency_digests", "dependency_digests_sha256", "semantic_digests", "semantic_digests_sha256", "products", "model_calls", "aggregate_sha256"],
+      "properties": {
+        "schema": {"const": "se-v02-extension-candidate/1.0.0"},
+        "candidate_version": {"const": "unassigned"},
+        "installable": {"const": false},
+        "story_pack_ref": {"type": "string", "minLength": 1},
+        "source_bindings": {"type": "array", "minItems": 12, "maxItems": 12, "items": {"$ref": "#/$defs/sourceBinding"}},
+        "source_bindings_sha256": {"$ref": "#/$defs/digest"},
+        "dependency_digests": {"type": "object", "minProperties": 7, "maxProperties": 7, "additionalProperties": {"$ref": "#/$defs/digest"}},
+        "dependency_digests_sha256": {"$ref": "#/$defs/digest"},
+        "semantic_digests": {"type": "object", "minProperties": 6, "maxProperties": 6, "additionalProperties": {"$ref": "#/$defs/digest"}},
+        "semantic_digests_sha256": {"$ref": "#/$defs/digest"},
+        "products": {
+          "type": "object", "additionalProperties": false,
+          "required": ["narrative_style", "materials", "story_flow", "story_evolution"],
+          "properties": {"narrative_style": {"type": "object"}, "materials": {"type": "object"}, "story_flow": {"type": "array", "minItems": 10, "maxItems": 10}, "story_evolution": {"type": "object"}}
+        },
+        "model_calls": {"$ref": "#/$defs/zeroModelCalls"},
+        "aggregate_sha256": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

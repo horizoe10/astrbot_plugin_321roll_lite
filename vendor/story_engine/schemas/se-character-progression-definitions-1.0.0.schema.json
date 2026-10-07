@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-character-progression-definitions/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "definitions"],
+  "properties": {
+    "schema": {"const": "se-character-progression-definitions/1.0.0"},
+    "definitions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/definition"}}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"},
+    "refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+    "threshold": {"type": "object", "additionalProperties": false, "required": ["value", "label", "grant_points"], "properties": {"value": {"type": "integer", "minimum": 0}, "label": {"type": "string", "minLength": 1}, "grant_points": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}}},
+    "track": {"type": "object", "additionalProperties": false, "required": ["track_ref", "label", "kind", "starting_value", "cap", "thresholds"], "properties": {"track_ref": {"$ref": "#/$defs/ref"}, "label": {"type": "string", "minLength": 1}, "kind": {"enum": ["xp", "level", "milestone", "rank"]}, "starting_value": {"type": "integer", "minimum": 0}, "cap": {"type": "integer", "minimum": 0}, "thresholds": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/threshold"}}}},
+    "pool": {"type": "object", "additionalProperties": false, "required": ["pool_ref", "label", "cap", "overflow"], "properties": {"pool_ref": {"$ref": "#/$defs/ref"}, "label": {"type": "string", "minLength": 1}, "cap": {"type": "integer", "minimum": 0}, "overflow": {"enum": ["discard", "bank", "block"]}}},
+    "unlock": {"type": "object", "additionalProperties": false, "required": ["unlock_ref", "label", "pool_ref", "cost", "requires", "excludes"], "properties": {"unlock_ref": {"$ref": "#/$defs/ref"}, "label": {"type": "string", "minLength": 1}, "pool_ref": {"$ref": "#/$defs/ref"}, "cost": {"type": "integer", "minimum": 0}, "requires": {"$ref": "#/$defs/refs"}, "excludes": {"$ref": "#/$defs/refs"}}},
+    "trackReallocation": {"type": "object", "additionalProperties": false, "required": ["allowed", "track_refs", "preserve_total"], "properties": {"allowed": {"type": "boolean"}, "track_refs": {"$ref": "#/$defs/refs"}, "preserve_total": {"const": true}}},
+    "respecPolicy": {"type": "object", "additionalProperties": false, "required": ["allowed", "self_confirmation_required", "gate_required", "track_reallocation"], "properties": {"allowed": {"type": "boolean"}, "self_confirmation_required": {"type": "boolean"}, "gate_required": {"type": "boolean"}, "track_reallocation": {"$ref": "#/$defs/trackReallocation"}}},
+    "definition": {"type": "object", "additionalProperties": false, "required": ["progression_ref", "label", "model", "tracks", "point_pools", "unlocks", "overflow_policy", "defer_allowed", "respec_policy"], "properties": {"progression_ref": {"$ref": "#/$defs/ref"}, "label": {"type": "string", "minLength": 1}, "model": {"enum": ["none", "xp", "level", "milestone", "rank", "mixed"]}, "tracks": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/track"}}, "point_pools": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/pool"}}, "unlocks": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/unlock"}}, "overflow_policy": {"enum": ["discard", "bank", "block"]}, "defer_allowed": {"type": "boolean"}, "respec_policy": {"$ref": "#/$defs/respecPolicy"}}}
+  }
+}

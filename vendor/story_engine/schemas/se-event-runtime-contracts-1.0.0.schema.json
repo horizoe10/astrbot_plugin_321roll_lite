@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-event-runtime-contracts/1.0.0",
+  "title": "SE 1 Event Runtime Contracts",
+  "$defs": {
+    "EventStateSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "instance_ref", "definition_ref", "definition_sha256", "artifact_ref", "artifact_sha256", "profile", "profile_version", "capability_closure_sha256", "status", "phase", "current_checkpoint_ref", "revision", "locked_route_ref", "eligible_route_refs", "pending_gate_refs", "child_receipt_refs", "budgets_used", "deadline_at", "audience_hint", "last_authoritative_reason_ref", "snapshot_fingerprint", "visit_counts"],
+      "properties": {
+        "contract_version": {"const": "event-state/1.0.0"},
+        "instance_ref": {"$ref": "#/$defs/ref"}, "definition_ref": {"$ref": "#/$defs/ref"},
+        "definition_sha256": {"$ref": "#/$defs/digest"}, "artifact_ref": {"$ref": "#/$defs/ref"},
+        "artifact_sha256": {"$ref": "#/$defs/digest"}, "profile": {"$ref": "#/$defs/ref"},
+        "profile_version": {"$ref": "#/$defs/ref"}, "capability_closure_sha256": {"$ref": "#/$defs/digest"},
+        "status": {"enum": ["latent", "armed", "triggered", "active", "paused", "resolving", "aftermath", "resolved", "archived", "blocked", "cancelled"]},
+        "phase": {"$ref": "#/$defs/ref"}, "current_checkpoint_ref": {"type": ["string", "null"]},
+        "revision": {"type": "integer", "minimum": 0}, "locked_route_ref": {"type": ["string", "null"]},
+        "eligible_route_refs": {"$ref": "#/$defs/refs"}, "pending_gate_refs": {"$ref": "#/$defs/refs"},
+        "child_receipt_refs": {"$ref": "#/$defs/refs"},
+        "budgets_used": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "deadline_at": {"type": "string", "format": "date-time"}, "audience_hint": {"$ref": "#/$defs/ref"},
+        "last_authoritative_reason_ref": {"type": ["string", "null"]}, "snapshot_fingerprint": {"$ref": "#/$defs/digest"},
+        "visit_counts": {"type": "object", "propertyNames": {"$ref": "#/$defs/ref"}, "additionalProperties": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "EventAdvanceRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["envelope", "event_state", "actor_snapshot", "action_roster_snapshot", "legal_action_refs", "allowed_capability_refs", "selected_action_ref", "route_choice_ref", "gate_response", "world_snapshot", "rule_snapshot", "narrative_snapshot", "committed_receipt_refs"],
+      "properties": {
+        "envelope": {"type": "object"}, "event_state": {"$ref": "#/$defs/EventStateSnapshot"},
+        "actor_snapshot": {"type": "object"}, "action_roster_snapshot": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+        "legal_action_refs": {"$ref": "#/$defs/nonEmptyRefs"}, "allowed_capability_refs": {"$ref": "#/$defs/refs"},
+        "selected_action_ref": {"type": ["string", "null"]}, "route_choice_ref": {"type": ["string", "null"]},
+        "gate_response": {"oneOf": [{"$ref": "#/$defs/GateResponseSnapshot"}, {"type": "null"}]}, "world_snapshot": {"type": "object"},
+        "rule_snapshot": {"type": "object"}, "narrative_snapshot": {"type": "object"},
+        "committed_receipt_refs": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "GateResponseSnapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "gate_ref", "gate_type", "decision", "source_revision", "decided_by_ref", "decision_receipt_ref", "decided_at", "response_fingerprint"],
+      "properties": {
+        "contract_version": {"const": "event-gate-response/1.0.0"}, "gate_ref": {"$ref": "#/$defs/ref"},
+        "gate_type": {"enum": ["player_choice", "vote", "actor_consent", "rescue", "terminal", "ending", "human_dm"]},
+        "decision": {"enum": ["accepted", "rejected"]}, "source_revision": {"type": "integer", "minimum": 0},
+        "decided_by_ref": {"$ref": "#/$defs/ref"}, "decision_receipt_ref": {"$ref": "#/$defs/ref"},
+        "decided_at": {"type": "string", "format": "date-time"}, "response_fingerprint": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "EventAdvanceResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["engine_contract_version", "operation_ref", "request_fingerprint", "expected_revision", "status", "next_event_state_proposal", "effect_proposals", "causal_link_proposals", "available_action_semantics", "pending_gate_proposals", "projection_fragments", "used_receipt_refs", "warnings", "problems", "result_fingerprint"],
+      "properties": {
+        "engine_contract_version": {"const": "story-engine-port/1.0.0"}, "operation_ref": {"$ref": "#/$defs/ref"},
+        "request_fingerprint": {"$ref": "#/$defs/digest"}, "expected_revision": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["proposed", "no_change", "needs_input", "blocked", "cancelled", "timed_out"]},
+        "next_event_state_proposal": {"type": ["object", "null"]}, "effect_proposals": {"type": "array", "items": {"type": "object"}},
+        "causal_link_proposals": {"type": "array", "items": {"type": "object"}}, "available_action_semantics": {"type": "array", "items": {"type": "object"}},
+        "pending_gate_proposals": {"type": "array", "items": {"type": "object"}}, "projection_fragments": {"type": "array", "items": {"type": "object"}},
+        "used_receipt_refs": {"$ref": "#/$defs/refs"}, "warnings": {"type": "array", "items": {"type": "string"}},
+        "problems": {"type": "array", "items": {"type": "object"}}, "result_fingerprint": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+    "nonEmptyRefs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}}
+  }
+}

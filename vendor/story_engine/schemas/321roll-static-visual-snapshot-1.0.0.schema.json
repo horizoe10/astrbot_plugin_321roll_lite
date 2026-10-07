@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "321roll-static-visual-snapshot/1.0.0",
+  "description": "平台在Provider调用前冻结并claim的静态视觉快照。所有上下文已由Platform按受众裁剪并权威提交，Engine只能使用本对象内的内容，不得再读文件或其他读接口。snapshot_sha256 = canonical_fingerprint(去掉自身字段的规范化JSON)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation_ref",
+    "idempotency_key",
+    "deadline_at",
+    "task_ref",
+    "subject_ref",
+    "visual_version",
+    "source_sha256",
+    "audience_kind",
+    "audience_ref",
+    "context",
+    "style",
+    "snapshot_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "321roll-static-visual-snapshot/1.0.0"
+    },
+    "operation_ref": {
+      "$ref": "#/$defs/port_ref"
+    },
+    "idempotency_key": {
+      "$ref": "#/$defs/port_ref",
+      "description": "平台冻结的唯一自动尝试；Engine原样作为模型调用幂等键，不重试。"
+    },
+    "deadline_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 64,
+      "description": "带时区的ISO-8601时间；Engine按原值传给模型调用。"
+    },
+    "task_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "visual_version": {
+      "$ref": "#/$defs/ref"
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "audience_kind": {
+      "enum": [
+        "room",
+        "owner",
+        "actor",
+        "participants"
+      ]
+    },
+    "audience_ref": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "maxLength": 160
+        }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "description",
+        "facts",
+        "appearance"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "facts": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "appearance": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "style_ref",
+        "instruction",
+        "palette"
+      ],
+      "properties": {
+        "style_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "palette": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        }
+      }
+    },
+    "snapshot_sha256": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "audience_kind": {
+            "enum": [
+              "owner",
+              "actor",
+              "participants"
+            ]
+          }
+        },
+        "required": [
+          "audience_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "audience_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "audience_ref": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "$ref": "#/$defs/ref"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$"
+    },
+    "port_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

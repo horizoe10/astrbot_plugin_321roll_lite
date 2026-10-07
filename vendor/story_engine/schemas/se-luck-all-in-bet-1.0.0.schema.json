@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-luck-all-in-bet/1.0.0",
+  "description": "掷前孤注的冻结块：两项已登记收益、一次费用与败兆提交，以及与掷后干预的互斥。平台整体冻结本块，按 all_in_sha256 证明提交的赌注与引擎提案一致，再让本人在两项 benefit_ref 中选一；本块不替玩家选择。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mode",
+    "extra_echo",
+    "empty",
+    "coin_waiver",
+    "reaction",
+    "benefits",
+    "benefit_choice_required",
+    "benefit_results",
+    "doom_results",
+    "doom_added",
+    "exclusive_with_post_roll",
+    "all_in_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-luck-all-in-bet/1.0.0"
+    },
+    "mode": {
+      "const": "all_in"
+    },
+    "extra_echo": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6,
+      "description": "掷前支付的回响费用，最后由平台按实际结算扣除。"
+    },
+    "empty": {
+      "const": false
+    },
+    "coin_waiver": {
+      "const": false
+    },
+    "reaction": {
+      "const": false,
+      "description": "孤注不消耗反应权限。"
+    },
+    "benefits": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "benefit_ref",
+          "source_ref",
+          "permission_ref",
+          "object_ref"
+        ],
+        "properties": {
+          "benefit_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "permission_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          },
+          "object_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"
+          }
+        }
+      },
+      "description": "掷前已初始化、未领取的收益；平台只允许本人选其中一项。"
+    },
+    "benefit_choice_required": {
+      "const": true
+    },
+    "benefit_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "critical_failure",
+          "normal_failure",
+          "success_with_cost",
+          "full_success",
+          "critical_success"
+        ]
+      }
+    },
+    "doom_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "critical_failure",
+          "normal_failure",
+          "success_with_cost",
+          "full_success",
+          "critical_success"
+        ]
+      }
+    },
+    "doom_added": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "exclusive_with_post_roll": {
+      "const": true
+    },
+    "all_in_sha256": {
+      "description": "本块去掉该字段后的 canonical 摘要。",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

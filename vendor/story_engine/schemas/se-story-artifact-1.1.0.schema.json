@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-story-artifact/1.1.0",
+  "title": "SE dev3 Runtime Artifact draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "engine_spec", "target_abi", "package", "canonical_ir_sha256", "compiler_contract_fingerprint", "content_sha256", "profile_registry", "profile_contracts", "resource_definitions", "resource_catalog_sha256", "effect_contracts", "event_compositions", "capability_closure", "source_map", "projection_plan", "diagnostics_summary", "artifact_sha256"],
+  "properties": {
+    "schema": {"const": "se-story-artifact/1.1.0"},
+    "engine_spec": {"const": "1.0.0"},
+    "target_abi": {"const": "se-compiler/1.1.0"},
+    "package": {"type": "object", "additionalProperties": false, "required": ["package_id", "content_version"], "properties": {"package_id": {"type": "string", "minLength": 1}, "content_version": {"type": "string", "minLength": 1}}},
+    "canonical_ir_sha256": {"$ref": "#/$defs/hash"},
+    "compiler_contract_fingerprint": {"$ref": "#/$defs/hash"},
+    "content_sha256": {"$ref": "#/$defs/hash"},
+    "profile_registry": {"$ref": "#/$defs/registryIdentity"},
+    "profile_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/profileIdentity"}},
+    "resource_definitions": {"type": "array", "items": {"type": "object"}},
+    "resource_catalog_sha256": {"$ref": "#/$defs/hash"},
+    "effect_contracts": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/effectContract"}},
+    "event_compositions": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "capability_closure": {"type": "object"},
+    "source_map": {"type": "array", "items": {"type": "object"}},
+    "projection_plan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "execution_owner", "projection_owner"],
+      "properties": {"kind": {"const": "bounded_proposal_only"}, "execution_owner": {"const": "321_platform"}, "projection_owner": {"const": "321_platform"}}
+    },
+    "diagnostics_summary": {"type": "object", "additionalProperties": false, "required": ["warnings", "errors"], "properties": {"warnings": {"type": "integer", "minimum": 0}, "errors": {"const": 0}}},
+    "artifact_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "registryIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "registry_version", "revision", "fingerprint", "selection_policy"],
+      "properties": {"schema": {"const": "se-profile-registry/1.1.0"}, "registry_version": {"const": "1.1.0"}, "revision": {"type": "string"}, "fingerprint": {"$ref": "#/$defs/hash"}, "selection_policy": {"const": "exact_version_required"}}
+    },
+    "profileIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_id", "profile_version", "contract_sha256"],
+      "properties": {"profile_id": {"type": "string"}, "profile_version": {"type": "string"}, "contract_sha256": {"$ref": "#/$defs/hash"}}
+    },
+    "effectContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capability_ref", "provider_contract_sha256"],
+      "properties": {
+        "capability_ref": {"type": "string"},
+        "provider_contract_sha256": {"$ref": "#/$defs/hash"},
+        "contract_sha256": {"$ref": "#/$defs/hash"},
+        "contract": {"type": "object"}
+      },
+      "dependentRequired": {"contract": ["contract_sha256"], "contract_sha256": ["contract"]}
+    }
+  }
+}

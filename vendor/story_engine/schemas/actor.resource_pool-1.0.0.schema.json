@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "actor.resource_pool/1.0.0",
+  "title": "actor.resource_pool 1.0.0 author definitions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "capability", "definitions"],
+  "properties": {
+    "schema": {"const": "se-actor-resource-definitions/1.0.0"},
+    "capability": {"const": "actor.resource_pool/1.0.0"},
+    "definitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/resourceDefinition"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+    "resourceDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "label", "kind", "numeric_type", "minimum", "base_maximum", "initialization", "clamp_policy", "overflow_policy", "temporary_layers", "thresholds", "visibility", "tags"],
+      "properties": {
+        "resource_id": {"$ref": "#/$defs/id"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 80},
+        "kind": {"enum": ["vitality", "stamina", "mana", "shield", "stress", "custom"]},
+        "numeric_type": {"const": "integer"},
+        "minimum": {"type": "integer"},
+        "base_maximum": {"type": "integer"},
+        "initialization": {"$ref": "#/$defs/initialization"},
+        "clamp_policy": {"enum": ["clamp", "reject"]},
+        "overflow_policy": {"enum": ["discard", "reject"]},
+        "temporary_layers": {"$ref": "#/$defs/temporaryLayers"},
+        "thresholds": {"type": "array", "items": {"$ref": "#/$defs/threshold"}},
+        "visibility": {"$ref": "#/$defs/visibility"},
+        "tags": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}}
+      }
+    },
+    "initialization": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"const": "full"}}},
+        {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"const": "minimum"}}},
+        {"type": "object", "additionalProperties": false, "required": ["mode", "value"], "properties": {"mode": {"const": "fixed"}, "value": {"type": "integer"}}}
+      ]
+    },
+    "temporaryLayers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "absorb_order", "expiry_policy"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "absorb_order": {"const": "highest_priority_then_oldest"},
+        "expiry_policy": {"const": "explicit_receipt_only"}
+      }
+    },
+    "threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "signal", "repeat_policy"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "at_or_below": {"type": "integer"},
+        "at_or_above": {"type": "integer"},
+        "signal": {"$ref": "#/$defs/id"},
+        "repeat_policy": {"enum": ["on_crossing", "once_per_operation"]}
+      },
+      "oneOf": [
+        {"required": ["at_or_below"], "not": {"required": ["at_or_above"]}},
+        {"required": ["at_or_above"], "not": {"required": ["at_or_below"]}}
+      ]
+    },
+    "visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "audiences"],
+      "properties": {
+        "default": {"const": "hidden"},
+        "audiences": {
+          "type": "object",
+          "propertyNames": {"enum": ["actor", "party", "public", "dm", "admin"]},
+          "additionalProperties": {"enum": ["exact", "band", "hidden"]}
+        },
+        "band_basis": {"const": "effective_range_basis_points_floor"},
+        "bands": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/band"}}
+      }
+    },
+    "band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["band_id", "minimum_basis_points", "maximum_basis_points", "label"],
+      "properties": {
+        "band_id": {"$ref": "#/$defs/id"},
+        "minimum_basis_points": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "maximum_basis_points": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "label": {"type": "string", "minLength": 1, "maxLength": 80}
+      }
+    }
+  }
+}
+

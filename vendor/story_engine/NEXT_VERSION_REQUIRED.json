@@ -1,0 +1,38 @@
+{
+  "schema": "se-active-source-version-guard/1.1.0",
+  "current_distribution_version": "1.0.0rc26",
+  "working_tree_candidate": "1.0.0rc26",
+  "installable": true,
+  "next_version_required": false,
+  "formal_version_owner_decision": "assigned:1.0.0rc26",
+  "blocked_active_release_versions": [
+    "1.0.0.dev4",
+    "1.0.0.dev5",
+    "1.0.0.dev6"
+  ],
+  "reasons": [
+    "post_dev5_source_diverged_from_formal_snapshot",
+    "catastrophic_event_1_1_0",
+    "turn_interaction_1_0_0",
+    "resolution_check_1_0_0",
+    "character_build_1_0_0",
+    "character_progression_1_0_0",
+    "reward_settlement_1_0_0",
+    "inventory_equipment_1_0_0",
+    "ability_execution_1_0_0",
+    "conflict_event_1_0_0",
+    "conflict_procedure_1_0_0",
+    "recovery_cycle_1_1_0",
+    "recovery_event_1_0_0",
+    "recovery_cycle_2_0_0",
+    "recovery_event_2_0_0",
+    "conflict_recovery_union_2",
+    "ability_provider_contracts_1_1_0",
+    "compiler_extension_abi_1_9_0",
+    "materials_1_0_0",
+    "narrative_style_1_0_0",
+    "story_evolution_1_0_0",
+    "story_flow_1_0_0"
+  ],
+  "formal_artifacts_unchanged": true
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-actor-resource-runtime/1.0.0",
+  "title": "Actor resource frozen snapshot and non-authoritative preview",
+  "oneOf": [
+    {"$ref": "#/$defs/snapshot"},
+    {"$ref": "#/$defs/preview"}
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer_ref", "amount", "priority", "created_order"],
+      "properties": {
+        "layer_ref": {"$ref": "#/$defs/ref"},
+        "amount": {"type": "integer", "minimum": 0},
+        "priority": {"type": "integer", "minimum": 0},
+        "created_order": {"type": "integer", "minimum": 0}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "actor_binding", "resource_ref", "definition_sha256", "base_current", "base_maximum", "effective_maximum", "temporary_layers", "modifier_receipt_refs", "threshold_states", "audience_policy_sha256", "actor_revision", "snapshot_fingerprint"],
+      "properties": {
+        "schema": {"const": "se-actor-resource-snapshot/1.0.0"},
+        "actor_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]},
+        "resource_ref": {"$ref": "#/$defs/ref"},
+        "definition_sha256": {"$ref": "#/$defs/hash"},
+        "base_current": {"type": "integer"},
+        "base_maximum": {"type": "integer"},
+        "effective_maximum": {"type": "integer"},
+        "temporary_layers": {"type": "array", "items": {"$ref": "#/$defs/layer"}},
+        "modifier_receipt_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "threshold_states": {"type": "object", "additionalProperties": {"type": "boolean"}},
+        "audience_policy_sha256": {"$ref": "#/$defs/hash"},
+        "actor_revision": {"type": "integer", "minimum": 0},
+        "snapshot_fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "resource_ref", "actor_binding", "actor_revision", "base_before", "base_after", "temporary_absorbed", "temporary_layers_after", "threshold_signal_proposals", "authoritative"],
+      "properties": {
+        "schema": {"const": "se-actor-resource-change-preview/1.0.0"},
+        "resource_ref": {"$ref": "#/$defs/ref"},
+        "actor_binding": {"enum": ["binding.actor.current", "binding.actor.selected"]},
+        "actor_revision": {"type": "integer", "minimum": 0},
+        "base_before": {"type": "integer"},
+        "base_after": {"type": "integer"},
+        "temporary_absorbed": {"type": "integer", "minimum": 0},
+        "temporary_layers_after": {"type": "array", "items": {"$ref": "#/$defs/layer"}},
+        "threshold_signal_proposals": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+        "authoritative": {"const": false}
+      }
+    }
+  }
+}

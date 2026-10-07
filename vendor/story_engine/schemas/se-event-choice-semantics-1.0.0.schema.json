@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "se-event-choice-semantics/1.0.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["checkpoint_ref", "phase_ref", "owner_binding", "guard_ref", "mode", "expiry_seconds", "cardinality", "choices"],
+  "properties": {
+    "checkpoint_ref": {"$ref": "#/$defs/id"}, "phase_ref": {"$ref": "#/$defs/id"},
+    "owner_binding": {"const": "binding.actor.current"}, "guard_ref": {"const": "event.guard"}, "mode": {"const": "choice_only"},
+    "expiry_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "cardinality": {"type": "object", "additionalProperties": false, "required": ["minimum", "maximum"], "properties": {"minimum": {"const": 1}, "maximum": {"const": 1}}},
+    "choices": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/choice"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+    "text80": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\s\\u0000-\\u001F\\u007F](?:[^\\u0000-\\u001F\\u007F]*[^\\s\\u0000-\\u001F\\u007F])?$"},
+    "text160": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[^\\s\\u0000-\\u001F\\u007F](?:[^\\u0000-\\u001F\\u007F]*[^\\s\\u0000-\\u001F\\u007F])?$"},
+    "text240": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[^\\s\\u0000-\\u001F\\u007F](?:[^\\u0000-\\u001F\\u007F]*[^\\s\\u0000-\\u001F\\u007F])?$"},
+    "choice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["choice_ref", "route_ref", "display_key", "label", "purpose", "cost", "risk", "limitations"],
+      "properties": {"choice_ref": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "route_ref": {"$ref": "#/$defs/id"}, "display_key": {"enum": ["A", "B", "C", "D", "1", "2", "3", "4"]}, "label": {"$ref": "#/$defs/text80"}, "purpose": {"$ref": "#/$defs/text240"}, "cost": {"$ref": "#/$defs/text160"}, "risk": {"$ref": "#/$defs/text160"}, "limitations": {"$ref": "#/$defs/text160"}}
+    }
+  }
+}

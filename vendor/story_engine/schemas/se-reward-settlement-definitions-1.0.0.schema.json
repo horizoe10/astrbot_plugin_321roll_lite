@@ -1,0 +1,282 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "se-reward-settlement-definitions/1.0.0",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "target_definitions",
+        "definitions"
+    ],
+    "properties": {
+        "schema": {
+            "const": "se-reward-settlement-definitions/1.0.0"
+        },
+        "target_definitions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/target"
+            }
+        },
+        "definitions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/definition"
+            }
+        }
+    },
+    "$defs": {
+        "ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+        },
+        "refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/ref"
+            }
+        },
+        "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "target_ref",
+                "kind",
+                "label",
+                "definition_sha256"
+            ],
+            "properties": {
+                "target_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "kind": {
+                    "enum": [
+                        "currency",
+                        "progression",
+                        "inventory",
+                        "ability"
+                    ]
+                },
+                "label": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "definition_sha256": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "eligibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "mode",
+                "minimum",
+                "maximum"
+            ],
+            "properties": {
+                "mode": {
+                    "enum": [
+                        "actor",
+                        "party",
+                        "explicit_roster"
+                    ]
+                },
+                "minimum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                },
+                "maximum": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                }
+            }
+        },
+        "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "entry_ref",
+                "target_ref",
+                "quantity",
+                "scope",
+                "overflow",
+                "choice_group_ref"
+            ],
+            "properties": {
+                "entry_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "target_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "scope": {
+                    "enum": [
+                        "personal",
+                        "shared"
+                    ]
+                },
+                "overflow": {
+                    "enum": [
+                        "block",
+                        "defer",
+                        "discard"
+                    ]
+                },
+                "choice_group_ref": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/ref"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "group": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "group_ref",
+                "label",
+                "entry_refs",
+                "select_exactly"
+            ],
+            "properties": {
+                "group_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "label": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "entry_refs": {
+                    "type": "array",
+                    "minItems": 2,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "select_exactly": {
+                    "const": 1
+                }
+            }
+        },
+        "policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "allow_defer",
+                "allow_decline",
+                "expiry_required"
+            ],
+            "properties": {
+                "allow_defer": {
+                    "type": "boolean"
+                },
+                "allow_decline": {
+                    "type": "boolean"
+                },
+                "expiry_required": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "definition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "reward_ref",
+                "label",
+                "cause_types",
+                "cause_refs",
+                "eligibility",
+                "allocation_mode",
+                "entries",
+                "choice_groups",
+                "claim_policy",
+                "dedupe_scope"
+            ],
+            "properties": {
+                "reward_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "label": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "cause_types": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": [
+                            "encounter",
+                            "quest",
+                            "milestone",
+                            "exploration",
+                            "social",
+                            "crafting",
+                            "host_award"
+                        ]
+                    }
+                },
+                "cause_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {"$ref": "#/$defs/ref"}
+                },
+                "eligibility": {
+                    "$ref": "#/$defs/eligibility"
+                },
+                "allocation_mode": {
+                    "enum": [
+                        "personal",
+                        "shared",
+                        "mixed"
+                    ]
+                },
+                "entries": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/entry"
+                    }
+                },
+                "choice_groups": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/group"
+                    }
+                },
+                "claim_policy": {
+                    "$ref": "#/$defs/policy"
+                },
+                "dedupe_scope": {
+                    "enum": [
+                        "cause_reward_actor",
+                        "cause_reward_party"
+                    ]
+                }
+            }
+        }
+    }
+}

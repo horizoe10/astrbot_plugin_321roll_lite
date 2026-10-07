@@ -1,0 +1,670 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "se-reward-settlement-runtime/1.0.0",
+    "oneOf": [
+        {
+            "$ref": "#/$defs/request"
+        },
+        {
+            "$ref": "#/$defs/result"
+        }
+    ],
+    "$defs": {
+        "ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+        },
+        "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "revision": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "values": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+            }
+        },
+        "envelope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "engine_contract_version",
+                "operation_ref",
+                "trace_ref",
+                "idempotency_key",
+                "request_fingerprint",
+                "deadline_at",
+                "session_ref",
+                "expected_revision",
+                "operation_type"
+            ],
+            "properties": {
+                "engine_contract_version": {
+                    "const": "story-engine-port/1.0.0"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "trace_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "idempotency_key": {
+                    "$ref": "#/$defs/ref"
+                },
+                "request_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                },
+                "deadline_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "session_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "expected_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "operation_type": {
+                    "const": "evaluate_reward_settlement"
+                }
+            }
+        },
+        "receipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "receipt_ref",
+                "cause_ref",
+                "cause_type",
+                "room_ref",
+                "room_revision",
+                "reward_ref",
+                "definition_sha256",
+                "reward_revision",
+                "eligible_actor_refs",
+                "dedupe_key",
+                "expires_at",
+                "committed",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "platform-reward-cause-receipt/1.0.0"
+                },
+                "receipt_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "cause_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "cause_type": {
+                    "enum": [
+                        "encounter",
+                        "quest",
+                        "milestone",
+                        "exploration",
+                        "social",
+                        "crafting",
+                        "host_award"
+                    ]
+                },
+                "room_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "room_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "reward_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "reward_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "eligible_actor_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "dedupe_key": {
+                    "$ref": "#/$defs/ref"
+                },
+                "expires_at": {
+                    "oneOf": [
+                        {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "committed": {
+                    "const": true
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "room_ref",
+                "reward_ref",
+                "definition_sha256",
+                "room_revision",
+                "reward_revision",
+                "eligible_actor_refs",
+                "actor_revisions",
+                "allocations",
+                "choices",
+                "prior_claim_actor_refs",
+                "declined_actor_refs",
+                "deferred_actor_refs",
+                "consumed_dedupe_keys",
+                "cause_receipt",
+                "expired",
+                "expected_session_revision",
+                "fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-reward-settlement-snapshot/1.0.0"
+                },
+                "room_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "reward_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "definition_sha256": {
+                    "$ref": "#/$defs/hash"
+                },
+                "room_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "reward_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "eligible_actor_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "actor_revisions": {
+                    "$ref": "#/$defs/values"
+                },
+                "allocations": {
+                    "type": "object",
+                    "additionalProperties": {"$ref":"#/$defs/values"}
+                },
+                "choices": {
+                    "type": "object",
+                    "additionalProperties": {"type":"object","additionalProperties":{"$ref":"#/$defs/ref"}}
+                },
+                "prior_claim_actor_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "declined_actor_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "deferred_actor_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "consumed_dedupe_keys": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/ref"
+                    }
+                },
+                "cause_receipt": {
+                    "$ref": "#/$defs/receipt"
+                },
+                "expired": {"type":"boolean"},
+                "expected_session_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            }
+        },
+        "request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "envelope",
+                "action",
+                "snapshot",
+                "input"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-reward-settlement-evaluation/1.0.0"
+                },
+                "envelope": {
+                    "$ref": "#/$defs/envelope"
+                },
+                "action": {
+                    "enum": [
+                        "preview",
+                        "allocate",
+                        "choose",
+                        "claim",
+                        "decline",
+                        "defer",
+                        "expire"
+                    ]
+                },
+                "snapshot": {
+                    "$ref": "#/$defs/snapshot"
+                },
+                "input": {
+                    "type": "object"
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "enum": [
+                                    "preview",
+                                    "expire"
+                                ]
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "maxProperties": 0
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "allocate"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "entry_ref",
+                                    "allocations"
+                                ],
+                                "properties": {
+                                    "entry_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "allocations": {
+                                        "$ref": "#/$defs/values"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "const": "choose"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "actor_ref",
+                                    "group_ref",
+                                    "entry_ref"
+                                ],
+                                "properties": {
+                                    "actor_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "group_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    },
+                                    "entry_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": {
+                                "enum": [
+                                    "claim",
+                                    "decline",
+                                    "defer"
+                                ]
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "input": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "actor_ref"
+                                ],
+                                "properties": {
+                                    "actor_ref": {
+                                        "$ref": "#/$defs/ref"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "public": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "reward_label",
+                "cause_type",
+                "eligible_count",
+                "allocation_mode",
+                "choice_groups",
+                "entries",
+                "claim_state",
+                "expires"
+            ],
+            "properties": {
+                "reward_label": {"type":"string","minLength":1},
+                "cause_type": {
+                    "enum": [
+                        "encounter",
+                        "quest",
+                        "milestone",
+                        "exploration",
+                        "social",
+                        "crafting",
+                        "host_award"
+                    ]
+                },
+                "eligible_count": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "allocation_mode": {
+                    "enum": [
+                        "personal",
+                        "shared",
+                        "mixed"
+                    ]
+                },
+                "choice_groups": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "entries": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","target_kind","quantity","scope","overflow","choice_group_label"],"properties":{"label":{"type":"string","minLength":1},"target_kind":{"enum":["currency","progression","inventory","ability"]},"quantity":{"type":"integer","minimum":1},"scope":{"enum":["personal","shared"]},"overflow":{"enum":["block","defer","discard"]},"choice_group_label":{"oneOf":[{"type":"string","minLength":1},{"type":"null"}]}}}},
+                "claim_state": {
+                    "enum": [
+                        "open",
+                        "expired"
+                    ]
+                },
+                "expires": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "award": {"type":"object","additionalProperties":false,"required":["actor_ref","entry_ref","target_ref","target_kind","target_definition_sha256","quantity","overflow"],"properties":{"actor_ref":{"$ref":"#/$defs/ref"},"entry_ref":{"$ref":"#/$defs/ref"},"target_ref":{"$ref":"#/$defs/ref"},"target_kind":{"enum":["currency","progression","inventory","ability"]},"target_definition_sha256":{"$ref":"#/$defs/hash"},"quantity":{"type":"integer","minimum":1},"overflow":{"enum":["block","defer","discard"]}}},
+        "privatePreview": {"type":"object","additionalProperties":false,"required":["base_reward_revision","cause_ref","dedupe_key"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"cause_ref":{"$ref":"#/$defs/ref"},"dedupe_key":{"$ref":"#/$defs/ref"}}},
+        "privateAllocation": {"type":"object","additionalProperties":false,"required":["base_reward_revision","entry_ref","set_allocations"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"entry_ref":{"$ref":"#/$defs/ref"},"set_allocations":{"$ref":"#/$defs/values"}}},
+        "privateChoice": {"type":"object","additionalProperties":false,"required":["base_reward_revision","actor_ref","group_ref","entry_ref","set_choices"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"actor_ref":{"$ref":"#/$defs/ref"},"group_ref":{"$ref":"#/$defs/ref"},"entry_ref":{"$ref":"#/$defs/ref"},"set_choices":{"type":"object","additionalProperties":{"type":"object","additionalProperties":{"$ref":"#/$defs/ref"}}}}},
+        "dedupeMaterial": {"type":"object","additionalProperties":false,"required":["schema","base_key","scope","reward_ref","definition_sha256","actor_ref"],"properties":{"schema":{"const":"se-reward-claim-dedupe-material/1.0.0"},"base_key":{"$ref":"#/$defs/ref"},"scope":{"enum":["cause_reward_actor","cause_reward_party"]},"reward_ref":{"$ref":"#/$defs/ref"},"definition_sha256":{"$ref":"#/$defs/hash"},"actor_ref":{"oneOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}}},
+        "privateClaim": {"type":"object","additionalProperties":false,"required":["base_reward_revision","initiator_actor_ref","actor_revisions","cause_ref","dedupe_key","dedupe_material","atomic_awards","claim_actor_refs","remove_deferred_actor_refs","platform_commit_required"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"initiator_actor_ref":{"$ref":"#/$defs/ref"},"actor_revisions":{"$ref":"#/$defs/values"},"cause_ref":{"$ref":"#/$defs/ref"},"dedupe_key":{"$ref":"#/$defs/ref"},"dedupe_material":{"$ref":"#/$defs/dedupeMaterial"},"atomic_awards":{"type":"array","items":{"$ref":"#/$defs/award"}},"claim_actor_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"remove_deferred_actor_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"platform_commit_required":{"const":true}}},
+        "privateDecline": {"type":"object","additionalProperties":false,"required":["base_reward_revision","actor_ref","append_declined_actor_ref","remove_deferred_actor_refs"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"actor_ref":{"$ref":"#/$defs/ref"},"append_declined_actor_ref":{"$ref":"#/$defs/ref"},"remove_deferred_actor_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}},
+        "privateDefer": {"type":"object","additionalProperties":false,"required":["base_reward_revision","actor_ref","append_deferred_actor_ref"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"actor_ref":{"$ref":"#/$defs/ref"},"append_deferred_actor_ref":{"$ref":"#/$defs/ref"}}},
+        "privateExpire": {"type":"object","additionalProperties":false,"required":["base_reward_revision","expire_unclaimed_actor_refs","set_expired"],"properties":{"base_reward_revision":{"$ref":"#/$defs/revision"},"expire_unclaimed_actor_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"set_expired":{"const":true}}},
+        "proposal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "proposal_ref",
+                "operation_ref",
+                "source_reward_revision",
+                "kind",
+                "public_preview",
+                "private_reconciliation",
+                "validation_errors",
+                "requires_platform_commit",
+                "commits_state"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-reward-settlement-proposal/1.0.0"
+                },
+                "proposal_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "source_reward_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "kind": {
+                    "enum": [
+                        "preview",
+                        "allocation",
+                        "choice",
+                        "claim",
+                        "decline",
+                        "defer",
+                        "expire",
+                        "validation"
+                    ]
+                },
+                "public_preview": {
+                    "$ref": "#/$defs/public"
+                },
+                "private_reconciliation": {},
+                "validation_errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requires_platform_commit": {
+                    "const": true
+                },
+                "commits_state": {
+                    "const": false
+                }
+            },
+            "oneOf": [
+                {"properties":{"kind":{"const":"validation"},"private_reconciliation":{"type":"null"}}},
+                {"properties":{"kind":{"const":"preview"},"private_reconciliation":{"$ref":"#/$defs/privatePreview"}}},
+                {"properties":{"kind":{"const":"allocation"},"private_reconciliation":{"$ref":"#/$defs/privateAllocation"}}},
+                {"properties":{"kind":{"const":"choice"},"private_reconciliation":{"$ref":"#/$defs/privateChoice"}}},
+                {"properties":{"kind":{"const":"claim"},"private_reconciliation":{"$ref":"#/$defs/privateClaim"}}},
+                {"properties":{"kind":{"const":"decline"},"private_reconciliation":{"$ref":"#/$defs/privateDecline"}}},
+                {"properties":{"kind":{"const":"defer"},"private_reconciliation":{"$ref":"#/$defs/privateDefer"}}},
+                {"properties":{"kind":{"const":"expire"},"private_reconciliation":{"$ref":"#/$defs/privateExpire"}}}
+            ]
+        },
+        "problem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "code",
+                "failed_operation",
+                "reason",
+                "automatic_handling",
+                "next_action",
+                "retryable"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "failed_operation": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "automatic_handling": {
+                    "type": "string"
+                },
+                "next_action": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "operation_ref",
+                "request_fingerprint",
+                "expected_revision",
+                "source_reward_revision",
+                "status",
+                "proposal",
+                "problems",
+                "result_fingerprint"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "se-reward-settlement-result/1.0.0"
+                },
+                "operation_ref": {
+                    "$ref": "#/$defs/ref"
+                },
+                "request_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                },
+                "expected_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "source_reward_revision": {
+                    "$ref": "#/$defs/revision"
+                },
+                "status": {
+                    "enum": [
+                        "proposed",
+                        "invalid",
+                        "blocked",
+                        "cancelled",
+                        "timed_out"
+                    ]
+                },
+                "proposal": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/proposal"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "problems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/problem"
+                    }
+                },
+                "result_fingerprint": {
+                    "$ref": "#/$defs/hash"
+                }
+            },
+            "oneOf": [
+                {
+                    "properties": {
+                        "status": {
+                            "enum": [
+                                "proposed",
+                                "invalid"
+                            ]
+                        },
+                        "proposal": {
+                            "$ref": "#/$defs/proposal"
+                        },
+                        "problems": {
+                            "maxItems": 0
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "status": {
+                            "enum": [
+                                "blocked",
+                                "cancelled",
+                                "timed_out"
+                            ]
+                        },
+                        "proposal": {
+                            "type": "null"
+                        },
+                        "problems": {
+                            "minItems": 1
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

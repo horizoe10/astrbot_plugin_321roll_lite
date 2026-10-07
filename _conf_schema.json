@@ -1,0 +1,54 @@
+{
+  "admin_ids": {
+    "description": "管理员用户 ID",
+    "type": "list",
+    "default": [],
+    "hint": "可以开团、主持和使用后台操作的平台用户 ID。AstrBot 管理员默认也有权限。"
+  },
+  "group_whitelist_enabled": {
+    "description": "启用群白名单",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后只有白名单内的群可以使用 /团。"
+  },
+  "allowed_groups": {
+    "description": "群白名单",
+    "type": "list",
+    "default": [],
+    "hint": "填写群号（平台群 ID）。"
+  },
+  "chat_provider_id": {
+    "description": "叙事模型提供方 ID",
+    "type": "string",
+    "default": "",
+    "hint": "留空时使用该会话当前的聊天模型。"
+  },
+  "model_timeout_seconds": {
+    "description": "单次模型调用超时（秒）",
+    "type": "int",
+    "default": 120
+  },
+  "model_attempts": {
+    "description": "模型输出校验失败时的最多尝试次数",
+    "type": "int",
+    "default": 3,
+    "hint": "1 到 3。"
+  },
+  "turn_timeout_seconds": {
+    "description": "行动回合超时（秒）",
+    "type": "int",
+    "default": 300,
+    "hint": "超时后按风险最低的选项自动行动；0 表示不限时。"
+  },
+  "default_seat_cap": {
+    "description": "默认房间人数上限",
+    "type": "int",
+    "default": 4
+  },
+  "max_seat_cap": {
+    "description": "房间人数上限的最大值",
+    "type": "int",
+    "default": 8,
+    "hint": "文字群聊人数过多会让轮转变慢。"
+  }
+}

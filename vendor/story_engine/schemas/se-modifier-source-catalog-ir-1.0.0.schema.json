@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-modifier-source-catalog-ir/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source_authority", "sources", "catalog_sha256"],
+  "properties": {
+    "schema": {"const": "se-modifier-source-catalog-ir/1.0.0"},
+    "source_authority": {"type": "object", "additionalProperties": false, "required": ["path", "digest_algorithm", "digest"], "properties": {"path": {"const": "world/core.json"}, "digest_algorithm": {"const": "canonical-json-utf8-v1"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "sources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/source"}},
+    "catalog_sha256": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "scalar": {"type": ["string", "number", "integer", "boolean", "null"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["modifier_source_ref", "world_authority_binding", "conditions", "effect", "stacking", "narrative_constraint", "source_sha256"],
+      "properties": {
+        "modifier_source_ref": {"$ref": "#/$defs/ref"},
+        "world_authority_binding": {"type": "object", "additionalProperties": false, "required": ["source_path", "rule_id", "world_rule_sha256"], "properties": {"source_path": {"const": "world/core.json"}, "rule_id": {"$ref": "#/$defs/ref"}, "world_rule_sha256": {"$ref": "#/$defs/digest"}}},
+        "conditions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "additionalProperties": false, "required": ["scope", "ref", "operator", "value"], "properties": {"scope": {"enum": ["action", "scene", "target", "actor"]}, "ref": {"$ref": "#/$defs/ref"}, "operator": {"const": "equals"}, "value": {"$ref": "#/$defs/scalar"}}}},
+        "effect": {"type": "object", "additionalProperties": false, "required": ["target_ref", "amount"], "properties": {"target_ref": {"const": "custom:check_modifier"}, "amount": {"type": "integer"}}},
+        "stacking": {"type": "object", "additionalProperties": false, "required": ["group", "limit", "strategy"], "properties": {"group": {"$ref": "#/$defs/ref"}, "limit": {"type": "integer", "minimum": 1}, "strategy": {"enum": ["highest", "lowest", "sum"]}}},
+        "narrative_constraint": {"type": "string", "minLength": 1, "maxLength": 600},
+        "source_sha256": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

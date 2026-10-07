@@ -1,0 +1,77 @@
+{
+  "schema": "se-narrative-style-conformance/1.0.0",
+  "positive": {
+    "profile": {
+      "schema": "narrative-style-profile/1.0.0",
+      "profile_ref": "style.wanbang-witness",
+      "profile_version": "1.0.0",
+      "locale": "zh-CN",
+      "label": "万邦见证",
+      "public_summary": "克制、具体，重视责任与当事者声音。",
+      "world_voice_summary": "政治奇幻中的制度程序、生活痕迹和选择代价并重。",
+      "base_instruction": "使用第三人称限知；短句确认行动，较长句展开已提交后果；不替角色下结论。",
+      "hard_constraints": [
+        "保留已提交事实、规则收据、玩家能动性和人物自称。",
+        "不把未确认推断写成事实，不替玩家决定情感、承诺或牺牲。",
+        "事实、规则、同意、Choice、权限和 audience 优先于文风。"
+      ],
+      "forbidden_expressions": ["作者或模型自我指涉", "无来源的全知旁白", "现代互联网黑话"],
+      "audience_ceiling": ["public", "party", "actor"],
+      "default_preset": "balanced",
+      "allowed_presets": ["dialogue_high", "dialogue_soft", "balanced", "description_soft", "description_high"],
+      "preset_definitions": [
+        {"preset": "dialogue_high", "dialogue_weight": 80, "description_weight": 20, "directive": "对白主导推进。", "prohibition": "不得隐藏规则与行动出口。"},
+        {"preset": "dialogue_soft", "dialogue_weight": 65, "description_weight": 35, "directive": "对白偏多并保持因果。", "prohibition": "不得替玩家下结论。"},
+        {"preset": "balanced", "dialogue_weight": 50, "description_weight": 50, "directive": "平衡对白、行动与环境。", "prohibition": "不得套用固定模板。"},
+        {"preset": "description_soft", "dialogue_weight": 35, "description_weight": 65, "directive": "描写偏多并保留必要对白。", "prohibition": "不得拖延玩家选择。"},
+        {"preset": "description_high", "dialogue_weight": 20, "description_weight": 80, "directive": "提高空间与感官密度。", "prohibition": "不得省略 Choice、风险或下一步。"}
+      ],
+      "phase_variants": [
+        {"variant_ref": "style.variant.cooperative", "phase": "cooperative", "instruction": "多人行动清晰轮换，地点和目标可见。", "audience_ceiling": ["public", "party", "actor"], "narrative_distance": "靠近当前行动者但不读心", "sentence_rhythm": "行动短句与后果长句交替", "sensory_focus": ["声音", "材质"]},
+        {"variant_ref": "style.variant.private", "phase": "private_parallel", "instruction": "叙述距离更近，减少旁观信息，只写本人可感知内容。", "audience_ceiling": ["actor"], "narrative_distance": "贴近当前 actor 的有限感知", "sentence_rhythm": "短促并保留不确定性", "sensory_focus": ["呼吸", "触感"]},
+        {"variant_ref": "style.variant.regroup", "phase": "regroup", "instruction": "先写公开变化，再写公开关系与世界余波。", "audience_ceiling": ["public", "party", "actor"], "narrative_distance": "在公开参与者之间有限切换", "sentence_rhythm": "先列变化后收束行动", "sensory_focus": ["人群", "空间"]},
+        {"variant_ref": "style.variant.conflict", "phase": "public_conflict", "instruction": "动作窗口、立场与退出路径清晰。", "audience_ceiling": ["public", "party", "actor"], "narrative_distance": "保持可观察行为", "sentence_rhythm": "短句提高可执行性", "sensory_focus": ["动作", "距离"]},
+        {"variant_ref": "style.variant.finale", "phase": "finale", "instruction": "尺度扩大后落回具体牺牲、受益者与未决责任。", "audience_ceiling": ["public", "party", "actor"], "narrative_distance": "略远但仍为限知", "sentence_rhythm": "段落扩张后明确收束", "sensory_focus": ["回声", "尺度"]},
+        {"variant_ref": "style.variant.epilogue", "phase": "epilogue", "instruction": "节奏放缓，明确时间、变化和仍未解决之事。", "audience_ceiling": ["public", "party", "actor"], "narrative_distance": "从具体人物观察时间变化", "sentence_rhythm": "舒缓但不新增结论", "sensory_focus": ["日常器物", "天气"]}
+      ],
+      "customization": {"enabled": true, "max_chars": 600, "allowed_topics": ["句式节奏", "感官重点", "叙述距离"]},
+      "budgets": {"base_max_chars": 900, "variant_max_chars": 300, "compiled_max_chars": 1800}
+    },
+    "expected": {"phase_count": 6, "preset_count": 5, "slice_count": 30, "model_calls": 0, "private_audience": ["actor"]}
+  },
+  "negative": [
+    {"id": "profile_missing", "expected_code": "style_profile_missing"},
+    {"id": "unknown_field", "expected_code": "style_profile_incompatible"},
+    {"id": "unsupported_schema", "expected_code": "style_contract_unsupported"},
+    {"id": "missing_preset", "expected_code": "style_profile_incompatible"},
+    {"id": "default_unknown", "expected_code": "style_profile_incompatible"},
+    {"id": "duplicate_phase", "expected_code": "style_variant_invalid"},
+    {"id": "missing_phase", "expected_code": "style_variant_invalid"},
+    {"id": "audience_expansion", "expected_code": "style_policy_conflict"},
+    {"id": "unknown_audience", "expected_code": "style_policy_conflict"},
+    {"id": "base_budget_exceeded", "expected_code": "style_budget_exceeded"},
+    {"id": "variant_budget_exceeded", "expected_code": "style_budget_exceeded"},
+    {"id": "compiled_budget_exceeded", "expected_code": "style_budget_exceeded"},
+    {"id": "customization_disabled_conflict", "expected_code": "style_policy_conflict"},
+    {"id": "executable_field", "expected_code": "style_profile_incompatible"}
+  ],
+  "product_negative": [
+    {"id": "runtime_digest_mismatch", "expected_code": "style_digest_mismatch"},
+    {"id": "ir_digest_mismatch", "expected_code": "style_digest_mismatch"},
+    {"id": "audience_tamper_rehashed", "expected_code": "style_digest_mismatch"},
+    {"id": "model_call_tamper_rehashed", "expected_code": "style_policy_conflict"},
+    {"id": "preset_semantics_tamper_rehashed", "expected_code": "style_digest_mismatch"}
+  ],
+  "candidate_negative": [
+    {"id": "candidate_unknown_field", "expected_code": "style_profile_incompatible"},
+    {"id": "coverage_path_mismatch", "expected_code": "style_digest_mismatch"},
+    {"id": "coverage_opening_digest_mismatch", "expected_code": "style_digest_mismatch"},
+    {"id": "coverage_opening_missing", "expected_code": "style_profile_incompatible"},
+    {"id": "phase_variant_missing", "expected_code": "style_variant_invalid"},
+    {"id": "profile_preset_missing", "expected_code": "style_profile_incompatible"},
+    {"id": "preset_curve_invalid", "expected_code": "style_policy_conflict"},
+    {"id": "paragraph_contract_drift", "expected_code": "style_profile_incompatible"},
+    {"id": "paragraph_boundaries_missing", "expected_code": "style_profile_incompatible"},
+    {"id": "additional_model_call", "expected_code": "style_policy_conflict"}
+  ]
+}

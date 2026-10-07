@@ -1,0 +1,119 @@
+{
+  "schema": "se-profile-compile-positive-vectors/1.0.0",
+  "registry_schema": "se-profile-registry/1.1.0",
+  "registry_revision": "se1-p0/3",
+  "registry_fingerprint": "sha256:ecf4f307653b826aff0b723c1d665faed70611627d00faa888f1ff28456674bc",
+  "successor_registry": {
+    "revision": "se1-p0-conflict-recovery-union/1",
+    "fingerprint": "sha256:50609320b574bf84489e2c4de2368b6498e9f80006751211267ded1de279475d",
+    "preserves_registry_fingerprint": "sha256:ecf4f307653b826aff0b723c1d665faed70611627d00faa888f1ff28456674bc",
+    "vectors": [
+      {
+        "id": "profile.conflict-event.1-0-0",
+        "profile_id": "conflict_event",
+        "profile_version": "1.0.0",
+        "profile_contract_sha256": "sha256:4a94f7cad67e01682985e7e95575a7148c37120a48d254161b5189d62a71c580",
+        "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+      },
+      {
+        "id": "profile.recovery-event.1-0-0",
+        "profile_id": "recovery_event",
+        "profile_version": "1.0.0",
+        "profile_contract_sha256": "sha256:d823555651f9d092a8bf08dab39fd0f7bc4608eed10beff1ec447a4d34d1ae34",
+        "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+      }
+    ]
+  },
+  "author_contracts": {
+    "se-event-composition/1.0.0": {
+      "event_ir_schema": "se-event-composition-ir/1.0.0",
+      "canonical_ir_schema": "se-canonical-story-pack-ir/1.1.0",
+      "artifact_schema": "se-story-artifact/1.1.0",
+      "target_abi": "se-compiler/1.1.0"
+    },
+    "se-event-composition/1.1.0": {
+      "event_ir_schema": "se-event-composition-ir/1.1.0",
+      "canonical_ir_schema": "se-canonical-story-pack-ir/1.2.0",
+      "artifact_schema": "se-story-artifact/1.2.0",
+      "target_abi": "se-compiler/1.2.0"
+    },
+    "se-event-composition/1.2.0": {
+      "event_ir_schema": "se-event-composition-ir/1.2.0",
+      "canonical_ir_schema": "se-canonical-story-pack-ir/1.3.0",
+      "artifact_schema": "se-story-artifact/1.3.0",
+      "target_abi": "se-compiler/1.3.0"
+    }
+  },
+  "vectors": [
+    {
+      "id": "profile.advancement-event.1-0-0",
+      "profile_id": "advancement_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:199abe33a7d73389e1b816c780fd343ca9e2b918e60261ab6b2804c33f8c2139",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0"]
+    },
+    {
+      "id": "profile.aftermath-event.1-0-0",
+      "profile_id": "aftermath_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:ba1fc2df3f220ad8cf88633afa8fea519f116be6b6e60990e9cee477c1c4d262",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.ambient-event.1-0-0",
+      "profile_id": "ambient_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:8116feaf7ce12b8fd2d3022f248c617eb9c7d58824bd07d49c4947c23d7ecf00",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0"]
+    },
+    {
+      "id": "profile.catastrophic-event.1-0-0",
+      "profile_id": "catastrophic_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:ce3af0dc8ff5f96351d4ddd18b74bcc8e82dc29ac0ba2fc8d99a01b97f752005",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.catastrophic-event.1-1-0",
+      "profile_id": "catastrophic_event",
+      "profile_version": "1.1.0",
+      "profile_contract_sha256": "sha256:1c65937e463c336b86f2dc19bc451bff223d9f1ec0a6825424d1db5b19e3516d",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0"]
+    },
+    {
+      "id": "profile.character-build-event.1-0-0",
+      "profile_id": "character_build_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:c36746b755e4284f5dc4fc09ca9d76ce1e48be8b9c5f054ae987f44487d6e2af",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.crisis-event.1-0-0",
+      "profile_id": "crisis_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:5b644ff0288a5391e9d28bec1e98ac2eab44c5ef0dae1bfff690096adbfd65f2",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.crisis-event.1-1-0",
+      "profile_id": "crisis_event",
+      "profile_version": "1.1.0",
+      "profile_contract_sha256": "sha256:190309912c1f65e6a81f7f4eada4ed444f6d0d965cc972943ae638f1510aec9d",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.interlude-event.1-0-0",
+      "profile_id": "interlude_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:1310c8a9f3c5ab9109f8b58247c47ad6b19606459a3d94c58be8d32962a7accd",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    },
+    {
+      "id": "profile.omen-event.1-0-0",
+      "profile_id": "omen_event",
+      "profile_version": "1.0.0",
+      "profile_contract_sha256": "sha256:9290714bc245cf0eedb40dc156db8af053552590f79dcce250424c03bc9b0d0e",
+      "supported_author_schemas": ["se-event-composition/1.0.0", "se-event-composition/1.1.0", "se-event-composition/1.2.0"]
+    }
+  ]
+}

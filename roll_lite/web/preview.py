@@ -1,0 +1,65 @@
+"""Sample messages for the WebUI message-style preview.
+
+The samples go through the same layouts as the game (roll_lite/messages.py),
+so what the admin sees is what the group receives.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from .. import messages
+from ..delivery import load_prefs
+from ..render import MARKDOWN, MARKDOWN_PLATFORMS, PLAIN, render
+
+WORLD = "第七个不思议 · 钟楼下的旧校舍"
+
+
+def _turn() -> list[tuple[str, str, Any]]:
+    status = messages.action_status(
+        "林晓", "侦探", 3, "我借着手电的光，去翻看值班室抽屉里那本发黄的登记簿。",
+        {"kind": "check", "attribute": "观察", "difficulty": "hard", "dc": 15, "face": 14, "modifier": 2, "total": 16,
+         "outcome": "success"},
+        [("体力", 4, 5, None), ("理智", 3, 5, -1)])
+    story = messages.narration(
+        "登记簿的最后一页停在十二年前的十月七日。字迹到一半忽然变得潦草，墨水在纸上拖出长长的一道。\n\n"
+        "你翻过这一页时，走廊尽头的钟楼传来一声闷响——指针倒退了一格。值班室的灯跟着暗了一下，又亮起来。",
+        "旧校舍 · 值班室", "第二幕 · 倒走的钟")
+    choices = messages.turn_prompt("林晓", "小林", "10001", 3, [
+        {"label": "A", "text": "撕下最后一页，带去钟楼对照", "tag": "观察·标准"},
+        {"label": "B", "text": "沿着墨迹的方向检查地板", "tag": "敏捷·困难·失败受伤"},
+        {"label": "C", "text": "先退回走廊，和同伴汇合", "tag": "休整"},
+    ], "mixed", 5)
+    return [("status", "个人状态", status), ("narration", "故事正文", story), ("choices", "行动选项", choices)]
+
+
+def _others() -> list[tuple[str, str, Any]]:
+    card = messages.character_card({
+        "name": "林晓", "archetype": "侦探", "archetype_text": "习惯先看细节再下结论", "user_name": "小林",
+        "attributes": [("观察", 14, 2), ("敏捷", 10, 0), ("意志", 12, 1), ("学识", 11, 0), ("交际", 9, -1)],
+        "resources": [("体力", 4, 5), ("理智", 3, 5)],
+        "skills": [("细节回溯", "回看一次已发生的场景，找出被忽略的线索", 1)],
+        "items": ["手电", "发黄的登记簿"], "traits": []})
+    vote = messages.vote_card("钟楼的门要不要现在打开", "门缝里透出微弱的光，门后传来翻书声。", [
+        {"key": "A", "label": "现在打开", "description": "趁它还没察觉", "risk": "高"},
+        {"key": "B", "label": "等到午夜", "description": "按登记簿上的时间", "cost": "失去一轮"},
+    ], 2, 4, 3)
+    receipt = messages.play_receipt("林晓", "提出假设「值班员没有离开过钟楼」",
+                                    records=[messages.record_line(7, "假设", "值班员没有离开过钟楼", "有支持")])
+    status = messages.status_card(WORLD, "进行中", (2, 4, "倒走的钟"), 3, "第 1 日 · 深夜", "旧校舍 · 值班室",
+                                  "在午夜前找到钟楼钥匙",
+                                  {"name": "林晓", "archetype": "侦探", "resources": [("体力", 4, 5), ("理智", 3, 5)]},
+                                  ["第 3 轮：林晓（等待行动）"])
+    return [("", "角色卡", card), ("choices", "集体表决", vote), ("", "玩法回执", receipt), ("", "/团 状态", status)]
+
+
+async def message_preview(app: Any, payload: dict[str, Any], username: str) -> dict[str, Any]:
+    prefs = load_prefs(app)
+
+    def entry(segment: str, label: str, item: Any) -> dict[str, Any]:
+        return {"segment": segment, "label": label, "image": prefs.image(segment),
+                "markdown": render(item, MARKDOWN), "plain": render(item, PLAIN),
+                "mentions": [name for _, name in getattr(item, "mentions", [])]}
+
+    return {"prefs": prefs.public(), "markdown_platforms": sorted(MARKDOWN_PLATFORMS),
+            "turn": [entry(*sample) for sample in _turn()], "others": [entry(*sample) for sample in _others()]}
+

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-catastrophic-profile/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "capability_mode", "category", "omens", "public_risk",
+    "known_consequences", "deadline", "response_routes", "consequence_classes",
+    "human_dm_checkpoint_ref", "aftermath_checkpoint_ref", "recovery_windows",
+    "fate_checkpoint_ref", "terminal_checkpoint_ref", "required_capability_refs",
+    "safety_invariants", "contract_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "se-catastrophic-profile/1.0.0"},
+    "capability_mode": {"enum": ["maximum", "subset_without_fate_terminal"]},
+    "category": {"enum": ["regional", "campaign", "existential"]},
+    "omens": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "public_warning"], "properties": {"id": {"$ref": "#/$defs/ref"}, "public_warning": {"$ref": "#/$defs/text"}}}},
+    "public_risk": {"$ref": "#/$defs/text"},
+    "known_consequences": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+    "deadline": {"type": "object", "additionalProperties": false, "required": ["kind", "ref", "maximum_rounds"], "properties": {"kind": {"enum": ["clock", "checkpoints"]}, "ref": {"$ref": "#/$defs/ref"}, "maximum_rounds": {"type": "integer", "minimum": 1}}},
+    "response_routes": {"type": "array", "minItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["route_ref", "kind"], "properties": {"route_ref": {"$ref": "#/$defs/ref"}, "kind": {"enum": ["challenge", "tactical", "procedure", "safe_exit", "resource_tradeoff"]}}}},
+    "consequence_classes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["reversible", "costly_reversible", "persistent", "consent_required", "host_confirmation_required", "terminal_candidate"]}},
+    "human_dm_checkpoint_ref": {"$ref": "#/$defs/ref"},
+    "aftermath_checkpoint_ref": {"$ref": "#/$defs/ref"},
+    "recovery_windows": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/ref"}},
+    "fate_checkpoint_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+    "terminal_checkpoint_ref": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+    "required_capability_refs": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}/[0-9]+\\.[0-9]+\\.[0-9]+$"}},
+    "safety_invariants": {"const": ["ordinary_failure_never_terminal", "fate_requires_actor_consent", "terminal_requires_host_authority", "aftermath_and_safe_exit_required"]},
+    "contract_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 600}
+  }
+}

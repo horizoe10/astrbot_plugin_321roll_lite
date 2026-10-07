@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se-static-visual-proposal/1.0.0",
+  "description": "ENG02-120静态视觉提案：关联字段全部原样取自冻结快照，svg与alt来自单次模型调用；提交、资源保存和严格SVG校验仍由平台执行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation_ref",
+    "task_ref",
+    "subject_ref",
+    "visual_version",
+    "source_sha256",
+    "audience_kind",
+    "audience_ref",
+    "snapshot_sha256",
+    "svg",
+    "alt",
+    "proposal_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "se-static-visual-proposal/1.0.0"
+    },
+    "operation_ref": {
+      "$ref": "#/$defs/port_ref"
+    },
+    "task_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "visual_version": {
+      "$ref": "#/$defs/ref"
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "audience_kind": {
+      "enum": [
+        "room",
+        "owner",
+        "actor",
+        "participants"
+      ]
+    },
+    "audience_ref": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "maxLength": 160
+        }
+      ]
+    },
+    "snapshot_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "svg": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "alt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "proposal_sha256": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "audience_kind": {
+            "enum": [
+              "owner",
+              "actor",
+              "participants"
+            ]
+          }
+        },
+        "required": [
+          "audience_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "audience_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "audience_ref": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "$ref": "#/$defs/ref"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$"
+    },
+    "port_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

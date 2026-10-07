@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "actor.vitality/1.0.0",
+  "title": "actor.vitality 1.0.0 author semantics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "capability", "requires", "vitality_resources", "damage_tags", "healing_rules", "temporary_vitality", "depletion_policy", "allowed_followups", "forbidden_outcomes", "intent_mappings"],
+  "properties": {
+    "schema": {"const": "se-actor-vitality-authoring/1.0.0"},
+    "capability": {"const": "actor.vitality/1.0.0"},
+    "requires": {"const": ["actor.resource_pool/1.0.0", "character.state.effects/1"]},
+    "vitality_resources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "damage_tags": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "healing_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_clamp", "temporary_replenishment"],
+      "properties": {
+        "base_clamp": {"const": "effective_maximum"},
+        "temporary_replenishment": {"const": "explicit_temporary_intent_only"}
+      }
+    },
+    "temporary_vitality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["damage_absorb_order", "healing_target"],
+      "properties": {
+        "damage_absorb_order": {"const": "temporary_before_base"},
+        "healing_target": {"const": "base_only"}
+      }
+    },
+    "depletion_policy": {"const": "signal_only"},
+    "allowed_followups": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["rescue", "actor_fate_candidate", "human_dm"]}
+    },
+    "forbidden_outcomes": {"const": ["archive", "death", "permanent_departure", "permanent_injury", "terminal"]},
+    "intent_mappings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["damage", "heal", "temporary_add", "temporary_remove", "depleted"],
+      "properties": {
+        "damage": {"const": "actor.resource.delta"},
+        "heal": {"const": "actor.resource.delta"},
+        "temporary_add": {"const": "actor.resource.delta"},
+        "temporary_remove": {"const": "actor.resource.delta"},
+        "depleted": {"const": "actor.status.upsert"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$"}
+  }
+}
+
