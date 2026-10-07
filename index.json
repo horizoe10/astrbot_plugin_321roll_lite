@@ -1,0 +1,95 @@
+{
+  "format": "321roll-lite.world-index/1",
+  "worlds": [
+    {
+      "id": "final-curtain",
+      "revision": 1,
+      "title": "封箱戏 · 第七夜，台下多出一排看客",
+      "summary": "后台的红布不知被谁揭开了，镜子里映出一张上好妆的脸，可镜子前没有人。",
+      "cover": {
+        "mark": "戏",
+        "tone": "wine"
+      },
+      "images": 11,
+      "min_plugin": "0.1.0",
+      "file": "packs/final-curtain-r1.zip",
+      "size": 1633516,
+      "sha256": "4d7d66125994cfccdfe4c477c1b23787c4d34a03eea9a8c68dbbc6f28b44740d"
+    },
+    {
+      "id": "greycrown-prequel",
+      "revision": 1,
+      "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
+      "summary": "春汛退去的第三天，石环山门前的空地上挤满了人：石环的工匠、流民坡的男男女女、山下来看热闹的商贩。",
+      "cover": {
+        "mark": "冠",
+        "tone": "slate"
+      },
+      "images": 11,
+      "min_plugin": "0.1.0",
+      "file": "packs/greycrown-prequel-r1.zip",
+      "size": 1991621,
+      "sha256": "8e79858f0d9796c7057e1838d06191428a2d59bef9b3def9546424aca84d066f"
+    },
+    {
+      "id": "nameless-sword-tomb",
+      "revision": 1,
+      "title": "无名剑冢 · 第一道潮痕，是用剑刻的",
+      "summary": "霜降前夜，霜降客栈灯笼通明。台阶上的剑痕结了一层白霜，在灯下反着光。",
+      "cover": {
+        "mark": "剑",
+        "tone": "jade"
+      },
+      "images": 11,
+      "min_plugin": "0.1.0",
+      "file": "packs/nameless-sword-tomb-r1.zip",
+      "size": 1813334,
+      "sha256": "7dd68e090caee914811cde74321d220cd12a99221db72601b29b46c306d49bf7"
+    },
+    {
+      "id": "neon-pawnshop",
+      "revision": 1,
+      "title": "霓虹典当行 · 今夜有人当掉了整座城的昨天",
+      "summary": "卷帘门拉开一半，雨水灌进来。柜台上的老式收银机自己弹开了抽屉，里面躺着一张当票和一枚滚烫的芯片。",
+      "cover": {
+        "mark": "当",
+        "tone": "neon"
+      },
+      "images": 10,
+      "min_plugin": "0.1.0",
+      "file": "packs/neon-pawnshop-r1.zip",
+      "size": 1920784,
+      "sha256": "b4a1b23d8d4070382bd03810496eb395acc9135a5098825a41d3556eafb66bcc"
+    },
+    {
+      "id": "seventh-mystery",
+      "revision": 1,
+      "title": "第七个不思议 · 钟楼在放学后多敲了一下",
+      "summary": "放学铃响过二十分钟，新教学楼的人已经走空。",
+      "cover": {
+        "mark": "七",
+        "tone": "ink"
+      },
+      "images": 12,
+      "min_plugin": "0.1.0",
+      "file": "packs/seventh-mystery-r1.zip",
+      "size": 1312113,
+      "sha256": "0a1ef985552f38e909f53bf10634161fb345133ed8d9211e2fdbdc4d057b2748"
+    },
+    {
+      "id": "wildfire-hunt",
+      "revision": 1,
+      "title": "狩火 · 群兽迁徙之年",
+      "summary": "营地的警钟响了三声：长、短、长，意思是\"大型兽，向镇\"。你们冲出帐篷时，西边的天已经染成橘红，风里有焦草和硫磺的味道。",
+      "cover": {
+        "mark": "狩",
+        "tone": "ember"
+      },
+      "images": 12,
+      "min_plugin": "0.1.0",
+      "file": "packs/wildfire-hunt-r1.zip",
+      "size": 2085427,
+      "sha256": "92f49e0b02bed04a173c29fbe6086d0cbb6b2085fa4d927ef5ed04986ed4fdba"
+    }
+  ]
+}
