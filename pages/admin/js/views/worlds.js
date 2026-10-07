@@ -1,4 +1,4 @@
-import { acts, busy, cover, dot, empty, esc, figure, hero, icon, paintArt, radar, roundIcon, section, shortTitle, subTitle, when } from "../ui.js";
+import { acts, busy, cover, dot, empty, esc, figure, hero, icon, paintArt, radar, roundIcon, section, shortTitle, subTitle, veiled, when } from "../ui.js";
 import * as editor from "./world_editor.js";
 
 const size = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + " MB";
@@ -25,12 +25,12 @@ export async function render(root, ctx) {
   const group = (title, items, opts) => items.length ? '<section class="sec">' + section(title, { count: items.length, ...opts }) + '<div class="cards">' + items.map(card).join("") + "</div></section>" : "";
   root.innerHTML = hero({
     eyebrow: "世界 · WORLDS", title: "世界",
-    lead: "插件自带灰冠之下：祖约的文本版，其余预设世界和它的图文版都在世界市场里安装，也能安装别人发布的世界。复制一份就能改出自己的版本；停用的世界不会出现在 /团 世界 里。",
+    lead: "插件自带灰冠之下：祖约的文本版，其余预设世界和它的图文版都在世界市场里安装，也能安装别人发布的世界。想写自己的世界，就用“新建世界”从空白开始；停用的世界不会出现在 /团 世界 里。",
     figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(installed.length, "市场安装", "plain") + figure(custom.length, "自定义", "plain") + "</div>",
     actions: '<a class="btn" href="#/worlds/import">' + icon("upload", 15) + '导入世界文件</a><a class="btn primary" href="#/worlds/import?start=1">' + icon("plus", 15) + "新建世界</a>",
   }) + tabs("") +
-    group("我的世界", custom, { meta: "自定义世界可以随时编辑、导出" }) +
-    group("市场世界", installed, { meta: "从世界市场安装 · 只读，复制后可以修改；在世界市场里更新或卸载" }) +
+    group("我的世界", custom, { meta: "自定义世界可以随时编辑、复制、导出" }) +
+    group("市场世界", installed, { meta: "从世界市场安装 · 只读；在世界市场里更新或卸载" }) +
     group("预设世界", presets, { meta: "插件自带的文本版 · 只读", link: ["#/worlds/market", "安装图文版"] });
   root.querySelectorAll("[data-toggle]").forEach((input) => input.addEventListener("change", async () => {
     input.disabled = true;
@@ -68,7 +68,7 @@ function card(w) {
     '<div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)">' + acts(w.acts.map((_, i) => i + 1), 0, true) + "<span>" + w.acts.length + " 幕 · " + w.endings.length + " 个结局</span><span class=\"spacer\"></span>" +
       icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">第 ' + w.revision + " 版</span>" : w.source === "market" ? '<span class="tag gold">' + (w.art ? "图文 · " : "") + "第 " + w.revision + " 版</span>" : "") + "</div>" +
     '<div class="foot"><span class="row" style="gap:18px"><a class="link" href="' + link + '">查看' + icon("arrow", 14) + "</a>" +
-      (w.source === "custom" ? '<a class="link" href="' + link + '/edit">' + icon("pen", 14) + "编辑</a>" : '<a class="link" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + icon("copy", 14) + "复制</a>") + "</span>" +
+      (w.source === "custom" ? '<a class="link" href="' + link + '/edit">' + icon("pen", 14) + "编辑</a>" : "") + "</span>" +
       '<label class="row" style="gap:10px;font-size:12.5px;color:var(--muted)"><span data-state>' + (w.enabled ? "已启用" : "已停用") + "</span>" +
       '<span class="switch"><input type="checkbox" data-toggle="' + esc(w.id) + '" data-name="' + esc(shortTitle(w.title)) + '" ' + (w.enabled ? "checked" : "") +
       ' aria-label="启用 ' + esc(shortTitle(w.title)) + '" /><span></span></span></label></div></div></article>';
@@ -83,21 +83,34 @@ export function download(w, pack, presentation, notify) {
   notify?.("已导出 " + a.download);
 }
 
+// Scene images, act titles and endings give the story away, so the detail page folds them until asked.
+// The folded content sits in a <template>, so its images are not even requested before that.
+const SPOILERS = {
+  scenes: "场景图会提前展示后面的幕、地点和结局。确定要看吗？",
+  acts: "幕的标题和引言会透露故事走向。确定要看吗？",
+  endings: "结局的名字和达成条件会透露故事走向。确定要看吗？",
+};
+const spoiler = (kind, summary, body) => '<div class="spoiler" data-spoiler="' + kind + '"><div class="spoiler-veil">' + icon("eyeOff", 18) +
+  "<p>" + esc(summary) + '</p><button class="btn small" data-reveal="' + kind + '">' + icon("eye", 14) + "查看剧透内容</button></div><template>" + body + "</template></div>";
+
 async function detail(root, ctx, id) {
   const w = await ctx.api.get("world", { id });
   const p = w.pack, pres = w.presentation || {};
+  const actList = pres.acts || [], endings = pres.endings || [];
+  const later = w.scenes.filter((s) => s.key !== "cover").length;
   const custom = w.source === "custom";
   const fromMarket = w.source === "market";
   const m = w.market;
   const attrs = p.attributes;
   const lo = Math.min(...attrs.map((a) => a.min)), hi = Math.max(...attrs.map((a) => a.max));
-  const exports = '<button class="btn" data-package title="zip 安装包，可在另一台 AstrBot 的世界市场里上传安装">' + icon("download", 15) + '导出安装包</button>' +
-    '<button class="btn text" data-export title="可在编辑器或“导入世界文件”里打开的 JSON">JSON</button>';
+  // Only custom worlds can be edited, copied or exported as JSON; preset and market worlds stay read-only
+  // and leave only as their install package, which installs read-only again elsewhere.
+  const exportPackage = (cls) => '<button class="btn' + cls + '" data-package title="zip 安装包，可在另一台 AstrBot 的世界市场里上传安装">' + icon("download", 15) + "导出安装包</button>";
   const actions = custom
     ? '<a class="btn primary" href="#/worlds/' + encodeURIComponent(id) + '/edit">' + icon("pen", 15) + '编辑</a><a class="btn" href="#/worlds/new?from=' + encodeURIComponent(id) + '">' + icon("copy", 15) +
-      "复制</a>" + exports + '<button class="btn text danger" data-delete>' + icon("trash", 15) + "删除</button>"
-    : '<a class="btn primary" href="#/worlds/new?from=' + encodeURIComponent(id) + '">' + icon("copy", 15) + "复制为自定义世界</a>" + exports +
-      (fromMarket ? '<button class="btn text danger" data-uninstall>' + icon("trash", 15) + "卸载</button>" : "");
+      "复制</a>" + exportPackage("") + '<button class="btn text" data-export title="可在编辑器或“导入世界文件”里打开的 JSON">JSON</button>' +
+      '<button class="btn text danger" data-delete>' + icon("trash", 15) + "删除</button>"
+    : exportPackage(" primary") + (fromMarket ? '<button class="btn text danger" data-uninstall>' + icon("trash", 15) + "卸载</button>" : "");
   const origin = !m ? "" : m.source === "upload" ? "上传的安装包" : m.source === "url" ? "网址安装 · " + host(m.file) : host(m.source) + " 索引";
   root.innerHTML = '<a class="crumb" href="#/worlds">' + icon("arrow", 14, "flip") + "世界</a>" +
     '<header class="band tone-' + esc(w.cover.tone) + '" data-mark="' + esc(w.cover.mark) + '"' + (w.art ? ' data-art="' + esc(id) + '" data-rev="' + esc(m.sha256) + '"' : "") + '><div class="band-top"><div style="min-width:0">' +
@@ -105,14 +118,16 @@ async function detail(root, ctx, id) {
       '<div class="band-meta">' + dot(w.enabled ? "ok" : "off", w.enabled ? "已启用" : "已停用") + "<span>" + icon("users", 13) + " " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</span><span>" +
       (pres.acts || []).length + " 幕 · " + (pres.endings || []).length + " 个结局</span><span>" + p.entries.length + " 条设定</span></div></div>" +
       '<div class="btns" style="flex:none">' + actions + "</div></div>" +
-      ((pres.acts || []).length ? '<div class="band-acts">' + acts(pres.acts, 0) + "</div>" : "") + "</header>" +
-    (w.scenes.length ? '<section style="margin:0 0 56px">' + section("场景图", { count: w.scenes.length, meta: "随安装包附带 · 保存在插件数据目录" }) + '<div class="scene-grid">' +
-      w.scenes.map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
-        esc(s.label) + "</figcaption></figure>").join("") + "</div></section>" : "") +
+      (actList.length ? '<div class="band-acts">' + acts(veiled(actList, 0), 0) + "</div>" : "") + "</header>" +
+    (later ? '<section style="margin:0 0 56px">' + section("场景图", { count: w.scenes.length, meta: "随安装包附带 · 保存在插件数据目录" }) +
+      spoiler("scenes", "封面之外另有 " + later + " 张场景图，开团后随剧情出现。", '<div class="scene-grid">' +
+        w.scenes.map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
+          esc(s.label) + "</figcaption></figure>").join("") + "</div>") + "</section>" : "") +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' +
       "<section>" + section("世界观", { meta: esc(p.style || "") }) + '<div class="prose initial">' + esc(p.worldview) + "</div>" + (p.seed ? '<p class="quote">' + esc(p.seed) + "</p>" : "") + "</section>" +
-      ((pres.acts || []).length ? "<section>" + section("幕", { count: pres.acts.length, meta: "故事的大段落，主持人用 /团 主持 换幕 推进" }) + '<div class="rows">' +
-        pres.acts.map((a) => '<div class="ri"><span class="opt-num">' + a.number + '</span><div style="min-width:0"><div class="ri-title">' + esc(a.title) + '</div><div class="ri-meta">' + esc(a.lead || "") + "</div></div><span></span></div>").join("") + "</div></section>" : "") +
+      (actList.length ? "<section>" + section("幕", { count: actList.length, meta: "故事的大段落，主持人用 /团 主持 换幕 推进" }) +
+        spoiler("acts", "共 " + actList.length + " 幕。每一幕的标题和引言会在团桌推进到那一幕时揭晓。", '<div class="rows">' +
+          actList.map((a) => '<div class="ri"><span class="opt-num">' + a.number + '</span><div style="min-width:0"><div class="ri-title">' + esc(a.title) + '</div><div class="ri-meta">' + esc(a.lead || "") + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
       "<section>" + section("职业", { count: p.archetypes.length, meta: "玩家用 /团 选职业 建角" }) + '<div class="rows">' +
         p.archetypes.map((a) => '<div class="ri">' + roundIcon("user") + '<div style="min-width:0"><div class="ri-title">' + esc(a.name) + "　<span class=\"muted\" style=\"font-weight:400\">" + esc(a.text || "") +
           '</span></div><div class="ri-meta">' + attrs.map((at) => esc(at.name) + " " + a.attributes[at.id]).join(" · ") + "</div></div>" +
@@ -130,10 +145,20 @@ async function detail(root, ctx, id) {
         "<dt>难度</dt><dd>简单 " + p.rules.difficulties.join(" · ").replace(/^(\d+) · (\d+) · (\d+) · (\d+)$/, "$1 · 标准 $2 · 困难 $3 · 极难 $4") + "</dd>" +
         "<dt>人数</dt><dd>最少 " + p.rules.minPlayers + " 人，推荐 " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</dd>" +
         "<dt>设定条目</dt><dd>" + p.entries.length + " 条（公开 " + p.entries.filter((e) => e.public).length + "）</dd></dl></section>" +
-      ((pres.endings || []).length ? "<section>" + section("结局", { count: pres.endings.length }) + '<div class="rows">' + pres.endings.map((e, i) => '<div class="ri"><span class="opt-num">' +
-        String.fromCharCode(65 + i) + '</span><div style="min-width:0"><div class="ri-title">' + esc(e.name) + '</div><div class="ri-meta">' + esc(e.rule) + "</div></div><span></span></div>").join("") + "</div></section>" : "") +
+      (endings.length ? "<section>" + section("结局", { count: endings.length }) +
+        spoiler("endings", "共 " + endings.length + " 个结局。结局的名字和达成条件只在故事走到那里时出现。", '<div class="rows">' + endings.map((e, i) => '<div class="ri"><span class="opt-num">' +
+          String.fromCharCode(65 + i) + '</span><div style="min-width:0"><div class="ri-title">' + esc(e.name) + '</div><div class="ri-meta">' + esc(e.rule) + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
     "</div></div>";
-  root.querySelector("[data-export]").addEventListener("click", () => download(w, p, pres, ctx.toast));
+  root.querySelectorAll("[data-reveal]").forEach((button) => button.addEventListener("click", () => {
+    const kind = button.dataset.reveal;
+    if (!window.confirm(SPOILERS[kind])) return;
+    const box = button.closest("[data-spoiler]");
+    box.innerHTML = box.querySelector("template").innerHTML;
+    box.classList.add("open");
+    if (kind === "acts") root.querySelector(".band-acts").innerHTML = acts(actList, 0);
+    paintArt(box, ctx.api);
+  }));
+  root.querySelector("[data-export]")?.addEventListener("click", () => download(w, p, pres, ctx.toast));
   root.querySelector("[data-package]").addEventListener("click", async (e) => {
     try {
       const name = packageName(id, p.revision);
@@ -163,16 +188,16 @@ async function detail(root, ctx, id) {
 
 async function importer(root, ctx) {
   const data = await ctx.api.get("worlds");
-  const presets = data.worlds.filter((w) => w.source !== "custom");
+  const mine = data.worlds.filter((w) => w.source === "custom");
   root.innerHTML = hero({
     eyebrow: "世界 · NEW WORLD", title: "新建世界", crumb: ["#/worlds", "世界"],
-    lead: "在七步可视化编辑器里从空白写起，或复制一个现有世界再改；也可以导入别人分享的 .world.json，或 321Roll 的 pack.json。",
+    lead: "在七步可视化编辑器里从空白写起，或复制一个自己写的世界再改；也可以导入别人分享的 .world.json，或 321Roll 的 pack.json。",
   }) +
-    '<section class="sec" id="start">' + section("用编辑器新建", { meta: "七个步骤逐项提示还缺什么，保存前不会影响任何东西" }) + '<div class="start-grid">' +
+    '<section class="sec" id="start">' + section("用编辑器新建", { meta: "七个步骤逐项提示还缺什么，保存前不会影响任何东西" }) + '<div class="start-grid' + (mine.length ? "" : " solo") + '">' +
       '<a class="start-blank" href="#/worlds/new">' + icon("plus", 22) + "<b>从空白开始</b><span>预置五项通用属性、一种资源和常用难度，按步骤填写标题、世界观、职业、设定、幕与结局。</span><em>打开编辑器" + icon("arrow", 14) + "</em></a>" +
-      '<div><div class="label" style="margin-bottom:10px">或复制一个现有世界再改</div><div class="preset-grid">' +
-      presets.map((w) => '<a class="preset" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + cover(w.cover, "tile") +
-        "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></div></div></section>" +
+      (mine.length ? '<div><div class="label" style="margin-bottom:10px">或复制一个自己写的世界再改</div><div class="preset-grid">' +
+        mine.map((w) => '<a class="preset" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + cover(w.cover, "tile") +
+          "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></div>" : "") + "</div></section>" +
     '<section class="sec grid cols-2"><div>' + section("导入文件", { meta: "导出的 .world.json 可以原样导回" }) +
       '<label class="drop">' + icon("upload", 22) + '<input type="file" accept=".json,application/json" data-file="pack" /><b>选择世界文件</b><span>.world.json（Lite 导出的文件）或 pack.json；zip 安装包请在世界市场上传</span></label>' +
       '<div class="field" style="margin-top:18px"><label for="pack">文件内容</label><textarea class="textarea" id="pack" spellcheck="false" placeholder="也可以直接粘贴 JSON"></textarea></div>' +

@@ -1,0 +1,70 @@
+{
+  "format": "321roll.world-pack-presentation/1",
+  "pack": "fog-harbor-example",
+  "cover": {
+    "mark": "雾",
+    "tone": "slate"
+  },
+  "acts": [
+    {
+      "number": 1,
+      "title": "灯亮了",
+      "lead": "熄了三年的灯，偏偏在今夜亮起来。",
+      "image": "act-1"
+    },
+    {
+      "number": 2,
+      "title": "封灯告示",
+      "lead": "有人花钱买这座灯塔今夜熄灭。",
+      "image": "act-2"
+    },
+    {
+      "number": 3,
+      "title": "雾最浓的夜",
+      "lead": "船要靠岸了，灯得有人守着。",
+      "image": "act-3"
+    }
+  ],
+  "places": [
+    {
+      "entry": "north-cape-lighthouse",
+      "name": "北岬灯塔",
+      "aliases": [
+        "灯塔",
+        "北岬"
+      ],
+      "image": "place-lighthouse"
+    },
+    {
+      "entry": "tide-inn",
+      "name": "回潮馆",
+      "aliases": [
+        "客栈"
+      ],
+      "image": "place-tide-inn"
+    }
+  ],
+  "endings": [
+    {
+      "id": "homecoming",
+      "name": "灯下归人",
+      "rule": "灯塔守到天亮，周伯平安上岸，何主事的勾当被揭穿",
+      "image": "ending-homecoming"
+    },
+    {
+      "id": "dark-cape",
+      "name": "灯灭",
+      "rule": "灯塔被封，周伯没能回来，阿潮离开雾港",
+      "image": "ending-dark-cape"
+    },
+    {
+      "id": "half-light",
+      "name": "半盏灯",
+      "rule": "周伯上了岸，但夜船帮和何主事都还在港里",
+      "image": "ending-half-light"
+    }
+  ],
+  "shared": {
+    "place-tide-inn": "act-2"
+  }
+}

@@ -586,6 +586,7 @@ textarea.input { line-height: 1.75; resize: vertical; }
 .ed-check:hover b { color: var(--gold); }
 .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .start-grid { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 28px; align-items: start; }
+.start-grid.solo { grid-template-columns: minmax(260px, 340px); }
 .start-blank { display: flex; flex-direction: column; gap: 10px; padding: 24px 24px 22px; border-radius: 16px; background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold-line); color: var(--text); transition: box-shadow .18s var(--ease); }
 .start-blank:hover { box-shadow: inset 0 0 0 1.5px var(--gold), var(--shadow-float); }
 .start-blank .ico { color: var(--gold); }
@@ -721,6 +722,11 @@ textarea.input { line-height: 1.75; resize: vertical; }
 .scene-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
 .scene-frame::after { content: ""; position: absolute; inset: 0; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); pointer-events: none; }
 .scene figcaption { margin-top: 9px; font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- folded spoilers on a world page */
+.spoiler-veil { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--faint); }
+.spoiler-veil p { flex: 1; min-width: 0; margin: 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.spoiler-veil .btn { flex: none; }
 @media (max-width: 1100px) { .market-layout { grid-template-columns: 1fr; } .market-side { position: static; } }
 
 

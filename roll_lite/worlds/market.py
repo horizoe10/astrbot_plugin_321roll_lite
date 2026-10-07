@@ -4,7 +4,7 @@ An index (package.INDEX_FORMAT) lists packages by path relative to the index, wi
 and sha256.  Downloads use the admin-chosen route (jsDelivr for GitHub raw URLs, a proxy
 prefix, or GitHub directly) and fall back to the direct URL once.  Installing checks the
 whole archive first (package.read_package), compiles the world with the engine, writes the
-original zip and its images to <data>/market/<world>/r<revision>-<sha8>/, records the world
+original zip and its assets.bin to <data>/market/<world>/r<revision>-<sha8>/, records the world
 (catalog.save_market) and only then removes the previous folder.  Packages carry JSON and
 images only; nothing from a package is ever executed.
 """
@@ -28,8 +28,8 @@ from urllib.parse import urljoin, urlparse
 from ..storage import now
 from ..version import PLUGIN_VERSION
 from .catalog import COVER_TONES, WorldEntry, WorldInvalid
-from .package import (IMAGE_TYPES, INDEX_FORMAT, MAX_PACKAGE, MB, PackageInvalid, build_package, read_package,
-                      scenes, version_tuple)
+from .package import (ASSET_FILE, ASSET_ID, IMAGE_TYPES, INDEX_FORMAT, MAX_PACKAGE, MB, PackageInvalid, build_package,
+                      read_asset, read_package, scenes, version_tuple)
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -46,7 +46,6 @@ _RAW = re.compile(r"https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/(?:refs/
 _GITHUB = re.compile(r"https://github\.com/([^/]+)/([^/]+)/(?:raw|blob)/([^/]+)/(.+)")
 _ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,100}")
 _SHA = re.compile(r"[0-9a-f]{64}")
-_ASSET = re.compile(r"assets/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.(?:webp|png|jpg|jpeg)")
 _cache: "weakref.WeakKeyDictionary[Any, dict[str, tuple[float, dict[str, Any]]]]" = weakref.WeakKeyDictionary()
 
 
@@ -242,13 +241,13 @@ def asset_root(app: "LiteApp", world_id: str) -> Path:
     return Path(app.data_dir) / "market" / f"{safe}-{hashlib.sha256(world_id.encode()).hexdigest()[:8]}"
 
 
-def _write_folder(folder: Path, data: bytes, assets: dict[str, bytes]) -> None:
+def _write_folder(folder: Path, data: bytes, asset_file: bytes) -> None:
     staging = folder.with_name(folder.name + ".part")
     shutil.rmtree(staging, ignore_errors=True)
-    (staging / "assets").mkdir(parents=True)
+    staging.mkdir(parents=True)
     (staging / "package.zip").write_bytes(data)
-    for name, blob in assets.items():          # names are assets/<whitelisted file name>
-        (staging / name).write_bytes(blob)
+    if asset_file:                              # images stay masked on disk; image() unmasks one at a time
+        (staging / ASSET_FILE).write_bytes(asset_file)
     if folder.exists():
         shutil.rmtree(folder)
     staging.rename(folder)
@@ -271,11 +270,12 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
         root = asset_root(app, package.id)
         name = f"r{package.revision}-{package.sha256[:8]}"
         existed = (root / name).exists()
-        await asyncio.to_thread(_write_folder, root / name, package.data, package.assets)
+        await asyncio.to_thread(_write_folder, root / name, package.data, package.asset_file)
         record = {"source": origin["source"], "file": origin["file"], "sha256": package.sha256, "size": len(package.data),
                   "revision": package.revision, "installed_at": now(), "by": username, "folder": name,
                   "summary": str(package.manifest.get("summary") or "")[:200], "images": package.images,
-                  "banner": package.manifest.get("banner"), "scenes": scenes(package.raw_presentation, package.images)}
+                  "banner": package.manifest.get("banner"), "scenes": scenes(package.raw_presentation, package.images),
+                  "assets": package.assets}
         try:
             catalog.save_market(package.pack, package.presentation, record)
         except Exception:
@@ -342,14 +342,17 @@ def image(app: "LiteApp", entry: WorldEntry | None, key: str) -> dict[str, str]:
     origin = entry.origin if entry is not None else None
     if not origin:
         raise MarketError("这个世界没有场景图")
-    path = origin.get("banner") if key == "cover" else (origin.get("scenes") or {}).get(key) or (origin.get("images") or {}).get(key)
-    if not isinstance(path, str) or not _ASSET.fullmatch(path):
+    if "assets" not in origin:
+        raise MarketError("场景图的保存格式已更新，请在世界市场里重新安装这个世界")
+    asset = origin.get("banner") if key == "cover" else (origin.get("scenes") or {}).get(key) or (origin.get("images") or {}).get(key)
+    meta = (origin.get("assets") or {}).get(asset) if isinstance(asset, str) and ASSET_ID.fullmatch(asset) else None
+    if not meta:
         raise MarketError("没有这张场景图")
-    file = asset_root(app, entry.id) / str(origin.get("folder") or "") / path
+    file = asset_root(app, entry.id) / str(origin.get("folder") or "") / ASSET_FILE
     if not file.is_file():
         raise MarketError("场景图文件缺失，可以在市场里重新安装这个世界")
-    mime = IMAGE_TYPES[file.suffix.lower()]
-    return {"key": key, "url": f"data:{mime};base64," + base64.b64encode(file.read_bytes()).decode("ascii")}
+    data = read_asset(file.read_bytes(), meta, entry.id, int(origin["revision"]), asset)
+    return {"key": key, "url": f"data:{IMAGE_TYPES[meta['type']]};base64," + base64.b64encode(data).decode("ascii")}
 
 
 def package_file(app: "LiteApp", entry: WorldEntry, cover: dict[str, str] | None) -> tuple[str, bytes]:

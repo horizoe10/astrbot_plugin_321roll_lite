@@ -217,7 +217,8 @@ class WorldCatalog:
         self._builtin.clear()
         if not BUILTIN_DIR.is_dir():
             return
-        for folder in sorted(p for p in BUILTIN_DIR.iterdir() if (p / "pack.json").is_file()):
+        # Folders starting with "_" (worlds/_template) are examples for authors, not playable worlds.
+        for folder in sorted(p for p in BUILTIN_DIR.iterdir() if (p / "pack.json").is_file() and not p.name.startswith("_")):
             pack = validate_world(json.loads((folder / "pack.json").read_text(encoding="utf-8")))
             raw = (folder / "presentation.json")
             presentation = validate_presentation(json.loads(raw.read_text(encoding="utf-8")) if raw.is_file() else None, pack)

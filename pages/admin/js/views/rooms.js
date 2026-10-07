@@ -1,4 +1,4 @@
-import { acts, avatar, brief, busy, cells, dot, empty, esc, figure, fmt, hero, icon, meter, ring, roomDot, roundIcon, section, seats, shortTitle, stamps, subTitle, tug, until, when } from "../ui.js";
+import { acts, avatar, brief, busy, cells, dot, empty, esc, figure, fmt, hero, icon, meter, ring, roomDot, roundIcon, section, seats, shortTitle, stamps, subTitle, tug, until, veiled, when } from "../ui.js";
 import { tableCard } from "./overview.js";
 
 const FILTERS = [["open", "进行中", ["lobby", "running", "paused", "ended"]], ["running", "正在演", ["running"]], ["lobby", "筹备中", ["lobby"]],
@@ -79,6 +79,7 @@ async function detail(root, ctx, id) {
   const live = ["lobby", "running", "paused"].includes(r.state);
   const story = r.events.find((e) => e.kind === "narration");
   const host = present.find((a) => a.user_id === r.host_user_id);
+  const reached = r.state === "lobby" ? 0 : r.act;
 
   root.innerHTML = '<a class="crumb" href="#/rooms">' + icon("arrow", 14, "flip") + "团桌</a>" +
     '<header class="band tone-' + esc(r.cover.tone) + '" data-mark="' + esc(r.cover.mark) + '"><div class="band-top"><div style="min-width:0">' +
@@ -87,7 +88,7 @@ async function detail(root, ctx, id) {
       (host ? "<span>主持 " + esc(host.user_name) + "</span>" : "") + "<span>" + icon("activity", 13) + " 模型 " + fmt(r.usage.calls) + " 次 · " + fmt(r.usage.tokens) + " tokens</span></div></div>" +
       '<div style="text-align:right;flex:none"><span class="avatars">' + present.map((a) => avatar(a.name || a.user_name, a.presence === "away" ? "away big" : "big")).join("") + "</span>" +
       '<div class="band-meta" style="justify-content:flex-end;margin-top:10px">' + seats(present.length, r.seat_cap, away) + "<span>" + present.length + "/" + r.seat_cap + " 席</span></div></div></div>" +
-      (r.acts.length ? '<div class="band-acts">' + acts(r.acts, r.state === "lobby" ? 0 : r.act) + "</div>" : "") + "</header>" +
+      (r.acts.length ? '<div class="band-acts">' + acts(veiled(r.acts, reached), reached) + "</div>" : "") + "</header>" +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' + nowSection(r, actLine, leadLines) + storySection(story) + recordsSection(r, present.length) + timelineSection(r) + "</div>" +
     '<div class="stack" style="gap:52px">' + (live ? hostSection(r) + adjustSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
     '<div class="sec">' + seatsSection(r, present) + "</div>";

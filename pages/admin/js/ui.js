@@ -208,6 +208,8 @@ export function acts(list, current, mini = false) {
     return '<div class="act-seg ' + state + '"><i></i>' + (mini ? "" : "<span>" + esc(typeof a === "object" ? a.title : "") + "</span>") + "</div>";
   }).join("") + "</div>";
 }
+/** Acts with titles only up to the one reached; later ones read "第 N 幕" so the track does not spoil the story. */
+export const veiled = (list, reached) => list.map((a) => a.number > reached ? { number: a.number, title: "第 " + a.number + " 幕" } : a);
 
 export function seats(filled, total, away = 0) {
   total = Math.max(0, Math.min(Number(total) || 0, 12));

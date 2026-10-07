@@ -1,0 +1,389 @@
+{
+  "format": "321roll.world-template/1",
+  "id": "fog-harbor-example",
+  "revision": 1,
+  "title": "雾港灯塔 · 无人看守的灯，昨夜亮了",
+  "worldview": "雾港是北方海岸上的一座小渔港，一年里有大半时间泡在雾里。港口靠北岬的灯塔引船进出，三年前看守灯塔的周伯在一次出海后再没回来，灯塔从此熄了，进出港的船只能靠岸上点火把引路。\n\n港里的人分成两拨：一拨是世代打鱼的老户，另一拨是跟着货船来来去去的外乡人。港务所管着泊位和税票，镇上唯一的客栈“回潮馆”是消息最多的地方。\n\n这个世界没有魔法，奇怪的事背后总有人的原因。真相要靠查证、打听和一点运气一步步拼出来。",
+  "seed": "立冬前夜，雾比往年都浓。天快黑的时候，港里的人看见北岬那座熄了三年的灯塔，亮了。\n\n港务所的门上贴出一张告示：灯塔归港务所所有，擅入者罚没船只。告示下面，有人用炭笔歪歪扭扭地添了一行字：“灯是给他点的。”",
+  "style": "悬疑与人情并重：阴冷潮湿的海港气氛，对话克制，少用血腥。线索要能被玩家查到，人物各有私心但都讲得通。",
+  "boundaries": "不描写血腥细节和对儿童的伤害；涉及死亡时点到为止。",
+  "guidance": "真相：灯是周伯的女儿阿潮点的。周伯三年前被夜船帮扣在外海的船上替他们引航，阿潮最近收到他托人带回的信，约定在灯亮的夜里接应他逃回来。港务所的何主事收了夜船帮的钱，想趁今夜把灯塔封掉。\n\n节奏建议：第一幕查清灯是谁点的；第二幕发现夜船帮和何主事的勾结；第三幕在雾最浓的夜里决定帮谁。",
+  "attributes": [
+    {
+      "id": "body",
+      "name": "体魄",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "agility",
+      "name": "灵巧",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "perception",
+      "name": "观察",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "knowledge",
+      "name": "学识",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "charisma",
+      "name": "口才",
+      "min": 6,
+      "max": 16
+    }
+  ],
+  "budget": 55,
+  "modifier": {
+    "baseline": 10,
+    "divisor": 2
+  },
+  "resources": [
+    {
+      "id": "vitality",
+      "name": "体力",
+      "min": 0,
+      "max": 10,
+      "initial": 10
+    },
+    {
+      "id": "resolve",
+      "name": "心神",
+      "min": 0,
+      "max": 6,
+      "initial": 6
+    }
+  ],
+  "rules": {
+    "dcMin": 5,
+    "dcMax": 25,
+    "dc": 12,
+    "difficulties": [
+      8,
+      12,
+      15,
+      18
+    ],
+    "seats": 8,
+    "minPlayers": 1,
+    "recommendedMin": 2,
+    "recommendedMax": 4,
+    "mode": "hybrid",
+    "expectedResults": true,
+    "skillSlots": 2,
+    "failureCost": 1,
+    "failureResource": "vitality",
+    "restCost": 0,
+    "restCostResource": "",
+    "restGain": 3,
+    "restGainResource": "vitality"
+  },
+  "skills": [
+    {
+      "id": "brace",
+      "name": "硬撑",
+      "text": "咬牙顶住风浪、重物或推搡，体魄检定 +3，消耗 1 点体力",
+      "attribute": "body",
+      "modifier": 3,
+      "cost": 1,
+      "costResource": "vitality",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 1,
+      "reset": "scene"
+    },
+    {
+      "id": "second-wind",
+      "name": "缓口气",
+      "text": "找个避风处歇一歇，直接恢复 2 点体力，休整后才能再用",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 2,
+      "gainResource": "vitality",
+      "uses": 1,
+      "reset": "rest"
+    },
+    {
+      "id": "ledger-sense",
+      "name": "翻旧账",
+      "text": "从账本、税票和旧档里找出对不上的地方，学识检定 +2",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "sharp-eye",
+      "name": "细看",
+      "text": "留意脚印、油渍和不该出现的东西，观察检定 +2",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "small-talk",
+      "name": "套话",
+      "text": "陪人喝两杯，把话头引到想问的事上，口才检定 +2",
+      "attribute": "charisma",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "light-step",
+      "name": "轻手轻脚",
+      "text": "翻窗、攀爬、不出声地跟人，灵巧检定 +2",
+      "attribute": "agility",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    }
+  ],
+  "items": [
+    {
+      "id": "storm-lantern",
+      "name": "防风灯",
+      "text": "雾里和暗处的观察检定 +1，每幕 3 次",
+      "attribute": "perception",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 3,
+      "reset": "scene",
+      "initial": 1,
+      "consume": 0
+    },
+    {
+      "id": "ginger-soup",
+      "name": "姜汤",
+      "text": "喝一碗定定神，恢复 2 点心神，喝完就没了",
+      "attribute": "",
+      "modifier": 0,
+      "cost": 0,
+      "costResource": "",
+      "gain": 2,
+      "gainResource": "resolve",
+      "uses": 0,
+      "reset": "never",
+      "initial": 2,
+      "consume": 1
+    },
+    {
+      "id": "hemp-rope",
+      "name": "麻绳",
+      "text": "攀爬、拖拽、捆东西时体魄检定 +1，不限次数",
+      "attribute": "body",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 0,
+      "reset": "never",
+      "initial": 1,
+      "consume": 0
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "dock-hand",
+      "name": "码头脚夫",
+      "text": "扛活与硬碰硬（专精型）",
+      "attributes": {
+        "body": 15,
+        "agility": 11,
+        "perception": 11,
+        "knowledge": 8,
+        "charisma": 10
+      },
+      "skills": [
+        "brace",
+        "second-wind"
+      ]
+    },
+    {
+      "id": "harbor-clerk",
+      "name": "港务文书",
+      "text": "查档与推理（偏科型）",
+      "attributes": {
+        "body": 8,
+        "agility": 9,
+        "perception": 13,
+        "knowledge": 15,
+        "charisma": 10
+      },
+      "skills": [
+        "ledger-sense",
+        "sharp-eye"
+      ]
+    },
+    {
+      "id": "peddler",
+      "name": "外乡货郎",
+      "text": "打听与周旋（均衡型）",
+      "attributes": {
+        "body": 9,
+        "agility": 13,
+        "perception": 11,
+        "knowledge": 8,
+        "charisma": 14
+      },
+      "skills": [
+        "small-talk",
+        "light-step"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "fog-harbor",
+      "name": "雾港",
+      "kind": "region",
+      "public": true,
+      "summary": "北方海岸的小渔港，常年起雾，靠北岬灯塔引船",
+      "secret": "",
+      "links": [
+        "north-cape-lighthouse",
+        "harbor-office",
+        "tide-inn"
+      ]
+    },
+    {
+      "id": "north-cape-lighthouse",
+      "name": "北岬灯塔",
+      "kind": "place",
+      "public": true,
+      "summary": "熄了三年的灯塔，昨夜突然亮了",
+      "secret": "下层储油间里有新鲜的灯油和一床薄被，阿潮这几夜都睡在这里",
+      "links": [
+        "fog-harbor"
+      ]
+    },
+    {
+      "id": "harbor-office",
+      "name": "港务所",
+      "kind": "place",
+      "public": true,
+      "summary": "管泊位和税票的衙门，门口贴着封灯塔的告示",
+      "secret": "何主事抽屉里压着夜船帮付的银票",
+      "links": [
+        "he-clerk"
+      ]
+    },
+    {
+      "id": "tide-inn",
+      "name": "回潮馆",
+      "kind": "place",
+      "public": true,
+      "summary": "镇上唯一的客栈，渔民和外乡人都在这里喝酒",
+      "secret": "",
+      "links": [
+        "a-chao"
+      ]
+    },
+    {
+      "id": "a-chao",
+      "name": "阿潮",
+      "kind": "npc",
+      "public": true,
+      "summary": "回潮馆帮工的姑娘，周伯的女儿，话不多",
+      "secret": "灯是她点的；她手里有父亲托人带回的信",
+      "links": [
+        "old-zhou"
+      ]
+    },
+    {
+      "id": "old-zhou",
+      "name": "周伯",
+      "kind": "npc",
+      "public": true,
+      "summary": "原先的灯塔看守，三年前出海后再没回来",
+      "secret": "被夜船帮扣在外海的船上替他们引航，约好灯亮之夜逃回",
+      "links": [
+        "night-boats"
+      ]
+    },
+    {
+      "id": "he-clerk",
+      "name": "何主事",
+      "kind": "npc",
+      "public": true,
+      "summary": "港务所主事，告示是他贴的",
+      "secret": "收了夜船帮的钱，想在今夜封死灯塔",
+      "links": [
+        "night-boats",
+        "harbor-office"
+      ]
+    },
+    {
+      "id": "night-boats",
+      "name": "夜船帮",
+      "kind": "faction",
+      "public": false,
+      "summary": "只在大雾夜里进出港的走私船",
+      "secret": "灯塔亮着，他们的船就没法悄悄靠岸",
+      "links": []
+    },
+    {
+      "id": "goal-light",
+      "name": "弄清是谁点的灯",
+      "kind": "goal",
+      "public": true,
+      "summary": "在何主事封掉灯塔之前，查出点灯的人和原因",
+      "secret": "",
+      "links": [
+        "north-cape-lighthouse"
+      ]
+    },
+    {
+      "id": "clue-oil",
+      "name": "新鲜的灯油",
+      "kind": "clue",
+      "public": false,
+      "summary": "灯塔储油间里有刚开封的油桶，油是回潮馆进的货",
+      "secret": "",
+      "links": [
+        "tide-inn"
+      ]
+    }
+  ],
+  "initial": {
+    "place": "港务所门前",
+    "time": "立冬前夜 · 傍晚",
+    "state": "北岬灯塔亮着；港务所贴出封灯告示；告示上多了一行炭笔字",
+    "links": [
+      "fog-harbor",
+      "north-cape-lighthouse",
+      "harbor-office",
+      "goal-light"
+    ]
+  }
+}

@@ -46,21 +46,21 @@ export async function render(root, ctx, { id, from }) {
   const blank = !id && !from;
   const source = blank ? clone(BLANK) : await ctx.api.get("world", { id: id || from });
   const isNew = !id;
-  if (!isNew && source.source !== "custom") throw new Error("预设世界不能直接修改，请在详情页先“复制为自定义世界”。");
+  if (!blank && source.source !== "custom") throw new Error("预设世界和市场世界是只读的，不能修改或复制。想写自己的世界，请在“新建世界”里从空白开始。");
 
   let draft = { pack: clone(source.pack), presentation: clone(source.presentation || {}) };
   draft.presentation.acts = draft.presentation.acts || [];
   draft.presentation.endings = draft.presentation.endings || [];
   draft.presentation.places = draft.presentation.places || [];
   if (isNew) {
-    const stem = blank ? "my-world" : (from + "-custom").slice(0, 90);
+    const stem = blank ? "my-world" : (from + "-copy").slice(0, 90);
     let next = stem;
     for (let n = 2; taken.has(next); n++) next = stem + "-" + n;
     draft.pack.id = next;
     draft.pack.revision = 1;
     if (!blank) {
       const [main, ...rest] = draft.pack.title.split(" · ");
-      draft.pack.title = [main + "（自定义）", ...rest].join(" · ");
+      draft.pack.title = [main + "（副本）", ...rest].join(" · ");
     }
   }
   draft.presentation.cover = draft.presentation.cover || { ...source.cover };
