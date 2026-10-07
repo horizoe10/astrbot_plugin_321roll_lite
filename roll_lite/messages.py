@@ -52,7 +52,7 @@ def world_list(entries: list[dict[str, Any]]) -> Msg:
     m = Msg().title("可开的世界").gap()
     m.items([f"**{i}. {safe(short_title(e['title']))}**　{safe(subtitle(e['title']))}　{BT}{e['players']} 人{BT}"
              for i, e in enumerate(entries, 1)])
-    return m.gap().hint(f"管理员发送 {cmd('/团 开启 序号')} 开一桌")
+    return m.gap().hint(f"管理员发送 {cmd('/团 开启 序号')} 开一桌；更多世界可以在后台“世界 → 世界市场”安装")
 
 
 def open_card(title: str, hook: str, seat_cap: int, min_players: int, host: str) -> Msg:

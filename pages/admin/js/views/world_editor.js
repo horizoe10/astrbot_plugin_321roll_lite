@@ -21,11 +21,30 @@ const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,100}$/;
 const LIMITS = { title: 100, worldview: 6000, seed: 3000, style: 300, boundaries: 1000, guidance: 2000 };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const isInt = (v) => Number.isInteger(v);
+// Starting point for a world made from scratch: common rules and one placeholder archetype; the steps flag what is still empty.
+const ATTRS = [["strength", "力量"], ["dexterity", "灵巧"], ["perception", "感知"], ["knowledge", "学识"], ["charisma", "魅力"]];
+const BLANK = {
+  pack: {
+    format: "321roll.world-template/1", id: "my-world", revision: 1, title: "", worldview: "", seed: "", style: "", boundaries: "", guidance: "",
+    attributes: ATTRS.map(([id, name]) => ({ id, name, min: 6, max: 16 })), budget: 55, modifier: { baseline: 10, divisor: 2 },
+    resources: [{ id: "vitality", name: "体力", min: 0, max: 10, initial: 10 }],
+    rules: { dcMin: 5, dcMax: 25, dc: 12, difficulties: [8, 12, 15, 18], seats: 16, minPlayers: 1, recommendedMin: 2, recommendedMax: 4, mode: "hybrid",
+      expectedResults: true, skillSlots: 2, failureCost: 1, failureResource: "vitality", restCost: 0, restCostResource: "", restGain: 3, restGainResource: "vitality" },
+    skills: [], items: [],
+    archetypes: [{ id: "adventurer", name: "冒险者", text: "", attributes: Object.fromEntries(ATTRS.map(([id]) => [id, 11])), skills: [] }],
+    entries: [], initial: { place: "", time: "", state: "", links: [] },
+  },
+  presentation: { acts: [], places: [], endings: [] },
+  cover: { mark: "新", tone: "ink" },
+  bundle_format: "321roll-lite.world-bundle/1",
+};
 
 export async function render(root, ctx, { id, from }) {
   const list = await ctx.api.get("worlds");
   const taken = new Set(list.worlds.map((w) => w.id));
-  const source = await ctx.api.get("world", { id: id || from });
+  // No id and no from: a blank world.
+  const blank = !id && !from;
+  const source = blank ? clone(BLANK) : await ctx.api.get("world", { id: id || from });
   const isNew = !id;
   if (!isNew && source.source !== "custom") throw new Error("预设世界不能直接修改，请在详情页先“复制为自定义世界”。");
 
@@ -34,17 +53,19 @@ export async function render(root, ctx, { id, from }) {
   draft.presentation.endings = draft.presentation.endings || [];
   draft.presentation.places = draft.presentation.places || [];
   if (isNew) {
-    const stem = (from + "-custom").slice(0, 90);
+    const stem = blank ? "my-world" : (from + "-custom").slice(0, 90);
     let next = stem;
     for (let n = 2; taken.has(next); n++) next = stem + "-" + n;
     draft.pack.id = next;
     draft.pack.revision = 1;
-    const [main, ...rest] = draft.pack.title.split(" · ");
-    draft.pack.title = [main + "（自定义）", ...rest].join(" · ");
+    if (!blank) {
+      const [main, ...rest] = draft.pack.title.split(" · ");
+      draft.pack.title = [main + "（自定义）", ...rest].join(" · ");
+    }
   }
   draft.presentation.cover = draft.presentation.cover || { ...source.cover };
 
-  const key = "roll-lite-world-draft:" + (isNew ? "new:" + from : id);
+  const key = "roll-lite-world-draft:" + (isNew ? "new:" + (from || "blank") : id);
   let saved = JSON.stringify(draft);
   let step = Math.max(0, STEPS.findIndex(([k]) => k === ctx.route.params.step));
   let serverCheck = null;
@@ -58,8 +79,8 @@ export async function render(root, ctx, { id, from }) {
   const dirty = () => JSON.stringify(draft) !== saved;
   ctx.guard((silent) => !dirty() || (!silent && window.confirm("世界包还有未保存的修改，离开后只保留在本机草稿里。确定离开吗？")));
 
-  root.innerHTML = '<div class="ed-root"><a class="crumb" href="#/worlds' + (isNew ? "/" + encodeURIComponent(from) : "/" + encodeURIComponent(id)) + '">← ' + (isNew ? "返回预设世界" : "返回世界详情") + "</a>" +
-    '<header class="ed-head"><div data-live="cover-mini"></div><div class="ed-title"><div class="eyebrow">' + (isNew ? "新建世界 · 复制自 " + esc(shortTitle(source.pack.title)) : "编辑世界 · 第 " + source.pack.revision + " 版") +
+  root.innerHTML = '<div class="ed-root"><a class="crumb" href="#/worlds' + (blank ? "/import" : "/" + encodeURIComponent(isNew ? from : id)) + '">← ' + (blank ? "返回新建世界" : isNew ? "返回原世界" : "返回世界详情") + "</a>" +
+    '<header class="ed-head"><div data-live="cover-mini"></div><div class="ed-title"><div class="eyebrow">' + (blank ? "新建世界 · 从空白开始" : isNew ? "新建世界 · 复制自 " + esc(shortTitle(source.pack.title)) : "编辑世界 · 第 " + source.pack.revision + " 版") +
     '</div><h1 class="page-title" data-live="title"></h1><div class="ed-meta" data-live="meta"></div></div>' +
     '<div class="btns"><button class="btn" data-act="export">导出 JSON</button><button class="btn primary" data-act="save">' + (isNew ? "保存为新世界" : "保存修改") + "</button></div></header>" +
     '<div data-live="draft-notice"></div>' +
@@ -428,7 +449,7 @@ export async function render(root, ctx, { id, from }) {
       '<div data-live="issues"></div>' + STEP_VIEWS[STEPS[step][0]]() + "</div>";
     stepEl.querySelectorAll('input[type="range"]').forEach(fillRange);
     updateLive();
-    const url = "#/worlds/" + (isNew ? "new?from=" + encodeURIComponent(from) + "&" : encodeURIComponent(id) + "/edit?") + "step=" + STEPS[step][0];
+    const url = "#/worlds/" + (isNew ? "new?" + (from ? "from=" + encodeURIComponent(from) + "&" : "") : encodeURIComponent(id) + "/edit?") + "step=" + STEPS[step][0];
     history.replaceState(null, "", url);
   }
 

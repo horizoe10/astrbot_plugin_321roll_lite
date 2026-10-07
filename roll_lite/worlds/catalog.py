@@ -1,4 +1,4 @@
-"""World packs: the six built-in 321roll.world-template/1 packs, custom worlds and market installs.
+"""World packs: the built-in 321roll.world-template/1 packs in worlds/, custom worlds and market installs.
 
 Validation is ported from 321Roll application/world_template.py; the engine's
 own world_rules.compile_world turns a valid world into hosted D20 rules.

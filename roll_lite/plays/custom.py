@@ -3,7 +3,7 @@
 The engine (story_engine.custom_plays) validates an action against the room's
 records and proposes record operations per outcome branch; Lite rolls the
 dice, picks the branch and commits it under revision checks.  Only the actions
-listed in ALLOWED are accepted (see docs/PLAY_SCOPE.md).
+listed in ALLOWED are accepted.
 """
 from __future__ import annotations
 

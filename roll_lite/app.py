@@ -1,7 +1,7 @@
 """Wiring: one LiteApp per plugin instance holds config, storage, engine, router and hooks.
 
 Feature modules expose install(app) and talk to each other only through
-app.hooks (see docs/ARCHITECTURE.md for the hook list and payloads).
+app.hooks (the hook names are listed in HOOKS below).
 """
 from __future__ import annotations
 

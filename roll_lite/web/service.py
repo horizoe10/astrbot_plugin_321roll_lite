@@ -1,7 +1,6 @@
 """WebUI backend as plain async functions: (app, payload, username) -> JSON-ready dict.
 
-web/api.py registers them with AstrBot; tools/preview_webui.py serves them
-locally.  Room operations run the same '/团' commands as an administrator so
+web/api.py registers them with AstrBot.  Room operations run the same '/团' commands as an administrator so
 the group sees the same receipts and the same rules apply.
 FILE_ROUTES return (filename, content type, bytes) for downloads; UPLOAD_ROUTES
 take the uploaded bytes and file name.
@@ -357,9 +356,6 @@ async def worlds(app: "LiteApp", payload: dict[str, Any], username: str) -> dict
                        "archetypes": [a["name"] for a in pack["archetypes"]], "entries": len(pack["entries"]),
                        "acts": [a["title"] for a in entry.presentation.get("acts", [])],
                        "endings": [e["name"] for e in entry.presentation.get("endings", [])],
-                       "shape": {"labels": [a["name"] for a in pack["attributes"]],
-                                 "min": min(a["min"] for a in pack["attributes"]), "max": max(a["max"] for a in pack["attributes"]),
-                                 "archetypes": [[ar["attributes"].get(a["id"], a["min"]) for a in pack["attributes"]] for ar in pack["archetypes"]]},
                        "skills": len(pack["skills"]), "items": len(pack["items"]),
                        "public_entries": sum(1 for e in pack["entries"] if e.get("public")),
                        "players": f"{pack['rules']['recommendedMin']}–{pack['rules']['recommendedMax']}"})

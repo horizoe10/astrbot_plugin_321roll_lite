@@ -25,7 +25,7 @@ export async function render(root, ctx) {
   const group = (title, items, opts) => items.length ? '<section class="sec">' + section(title, { count: items.length, ...opts }) + '<div class="cards">' + items.map(card).join("") + "</div></section>" : "";
   root.innerHTML = hero({
     eyebrow: "世界 · WORLDS", title: "世界",
-    lead: "插件附带六个预设世界的文本版，在世界市场里可以换成带场景图的版本，也能安装别人发布的世界。复制一份就能改出自己的版本；停用的世界不会出现在 /团 世界 里。",
+    lead: "插件自带灰冠之下：祖约的文本版，其余预设世界和它的图文版都在世界市场里安装，也能安装别人发布的世界。复制一份就能改出自己的版本；停用的世界不会出现在 /团 世界 里。",
     figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(installed.length, "市场安装", "plain") + figure(custom.length, "自定义", "plain") + "</div>",
     actions: '<a class="btn" href="#/worlds/import">' + icon("upload", 15) + '导入世界文件</a><a class="btn primary" href="#/worlds/import?start=1">' + icon("plus", 15) + "新建世界</a>",
   }) + tabs("") +
@@ -49,13 +49,21 @@ export async function render(root, ctx) {
   paintArt(root, ctx.api);
 }
 
+// Archetypes by attributes; the cell shade is the value's place in that attribute's range.
+function matrix(archetypes, attrs) {
+  return '<div class="matrix" style="grid-template-columns:minmax(72px,auto) repeat(' + attrs.length + ',1fr)"><span></span>' + attrs.map((a) => "<b>" + esc(a.name) + "</b>").join("") +
+    archetypes.map((a) => '<span class="m-name" title="' + esc(a.name) + '">' + esc(a.name) + "</span>" + attrs.map((at) => {
+      const v = a.attributes[at.id] ?? at.min, share = at.max > at.min ? (v - at.min) / (at.max - at.min) : 0;
+      return '<span class="m-cell" style="--s:' + share.toFixed(2) + '">' + v + "</span>";
+    }).join("")).join("") + "</div>";
+}
+
 function card(w) {
   const link = "#/worlds/" + encodeURIComponent(w.id);
-  const s = w.shape;
   return '<article class="world-card' + (w.enabled ? "" : " off") + '"><a href="' + link + '">' +
     cover(w.cover, "poster", w.title, w.art ? 'data-art="' + esc(w.id) + '" data-rev="' + esc(w.market?.sha256 || "") + '"' : "") + "</a>" +
     '<div class="body"><div class="style">' + esc(w.style) + "</div>" +
-    '<div class="stat-row">' + radar(s.labels, s.archetypes.map((v) => ({ values: v })), s.min, s.max, 96, false) +
+    '<div class="stat-row">' +
       '<div class="figures">' + figure(w.attributes.length, "项属性", "small plain") + figure(w.archetypes.length, "个职业", "small plain") + figure(w.skills + w.items, "技能物品", "small plain") + figure(w.entries, "条设定", "small plain") + "</div></div>" +
     '<div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)">' + acts(w.acts.map((_, i) => i + 1), 0, true) + "<span>" + w.acts.length + " 幕 · " + w.endings.length + " 个结局</span><span class=\"spacer\"></span>" +
       icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">第 ' + w.revision + " 版</span>" : w.source === "market" ? '<span class="tag gold">' + (w.art ? "图文 · " : "") + "第 " + w.revision + " 版</span>" : "") + "</div>" +
@@ -110,8 +118,7 @@ async function detail(root, ctx, id) {
           '</span></div><div class="ri-meta">' + attrs.map((at) => esc(at.name) + " " + a.attributes[at.id]).join(" · ") + "</div></div>" +
           radar(attrs.map((at) => at.name), [{ values: attrs.map((at) => a.attributes[at.id]), strong: true }], lo, hi, 56, false) + "</div>").join("") + "</div></section>" +
     '</div><div class="stack" style="gap:52px">' +
-      "<section>" + section("职业属性", { meta: "所有职业叠在一起看侧重" }) + '<div style="display:grid;place-items:center">' +
-        radar(attrs.map((a) => a.name), p.archetypes.map((a) => ({ values: attrs.map((at) => a.attributes[at.id]) })), lo, hi, 240) + "</div>" +
+      "<section>" + section("职业属性", { meta: "每列一项属性，颜色越深数值越高" }) + matrix(p.archetypes, attrs) +
         '<div class="figures" style="justify-content:space-between;margin-top:18px">' + figure(attrs.length, "项属性", "small") + figure(p.resources.length, "种资源", "small") + figure(p.skills.length, "项技能", "small") + figure(p.items.length, "件物品", "small") + "</div></section>" +
       (m ? "<section>" + section("安装信息", { meta: "在世界市场里更新或卸载" }) + '<dl class="kv"><dt>来源</dt><dd>' + esc(origin) + "</dd>" +
         "<dt>安装包</dt><dd>第 " + m.revision + " 版 · " + size(m.size) + " · " + m.images + " 张场景图</dd>" +
@@ -158,12 +165,14 @@ async function importer(root, ctx) {
   const data = await ctx.api.get("worlds");
   const presets = data.worlds.filter((w) => w.source !== "custom");
   root.innerHTML = hero({
-    eyebrow: "世界 · NEW WORLD", title: "新建或导入世界", crumb: ["#/worlds", "世界"],
-    lead: "从预设世界复制一份再改是最快的方式；也可以导入别人分享的 .world.json，或 321Roll 的 pack.json。",
+    eyebrow: "世界 · NEW WORLD", title: "新建世界", crumb: ["#/worlds", "世界"],
+    lead: "在七步可视化编辑器里从空白写起，或复制一个现有世界再改；也可以导入别人分享的 .world.json，或 321Roll 的 pack.json。",
   }) +
-    '<section class="sec" id="start">' + section("从预设世界开始", { meta: "复制后进入编辑器，保存前不会影响任何东西" }) + '<div class="preset-grid">' +
+    '<section class="sec" id="start">' + section("用编辑器新建", { meta: "七个步骤逐项提示还缺什么，保存前不会影响任何东西" }) + '<div class="start-grid">' +
+      '<a class="start-blank" href="#/worlds/new">' + icon("plus", 22) + "<b>从空白开始</b><span>预置五项通用属性、一种资源和常用难度，按步骤填写标题、世界观、职业、设定、幕与结局。</span><em>打开编辑器" + icon("arrow", 14) + "</em></a>" +
+      '<div><div class="label" style="margin-bottom:10px">或复制一个现有世界再改</div><div class="preset-grid">' +
       presets.map((w) => '<a class="preset" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + cover(w.cover, "tile") +
-        "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></section>" +
+        "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></div></div></section>" +
     '<section class="sec grid cols-2"><div>' + section("导入文件", { meta: "导出的 .world.json 可以原样导回" }) +
       '<label class="drop">' + icon("upload", 22) + '<input type="file" accept=".json,application/json" data-file="pack" /><b>选择世界文件</b><span>.world.json（Lite 导出的文件）或 pack.json；zip 安装包请在世界市场上传</span></label>' +
       '<div class="field" style="margin-top:18px"><label for="pack">文件内容</label><textarea class="textarea" id="pack" spellcheck="false" placeholder="也可以直接粘贴 JSON"></textarea></div>' +

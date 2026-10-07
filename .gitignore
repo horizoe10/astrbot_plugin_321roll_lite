@@ -3,3 +3,8 @@ __pycache__/
 .pytest_cache/
 /dist/
 /.tmp/
+# Working documents for each release line (devdocs/v0.1/ …); kept locally, never pushed.
+/devdocs/
+# Tests and build tools stay local; the public repository holds only the plugin.
+/tests/
+/tools/
