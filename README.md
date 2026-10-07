@@ -27,6 +27,10 @@
 
 在 AstrBot 插件后台打开“世界 → 世界市场”，默认索引就是这个分支的 `index.json`，点“安装图文版”即可。服务器访问不了 GitHub 时，可以下载 zip 后在市场页“离线安装”里上传。
 
-## 重新生成
+## 制作自己的世界包
 
-在插件仓库运行 `python -X utf8 tools/pack_worlds.py`，产物在 `dist/worlds/`。同样的内容会得到字节完全一致的安装包。
+官方世界和第三方世界用同一个打包命令生成：`python -X utf8 -m roll_lite.worlds.make <世界文件夹> --out <输出目录>`。完整步骤见 [世界包制作教程](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_GUIDE.md)。
+
+## 许可
+
+本分支的世界包与预览图以 [CC BY-NC-ND 4.0](LICENSE) 发布：可以署名转载和分享，不可商用，不可改编后发布。
