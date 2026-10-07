@@ -20,3 +20,5 @@
    ```
 
 完整步骤见 [世界包制作教程](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_GUIDE.md)，字段说明见 [世界包规范](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_SPEC.md)。
+
+这个模板以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/deed.zh-hans) 放弃版权：可以随意修改、发布和商用，不需要署名。用它改出来的世界，授权方式由你自己决定。

@@ -8,3 +8,5 @@ __pycache__/
 # Tests and build tools stay local; the public repository holds only the plugin.
 /tests/
 /tools/
+# Worlds still being written; they reach the market through the worlds branch when finished.
+/world-packs/
