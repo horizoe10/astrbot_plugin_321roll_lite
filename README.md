@@ -17,9 +17,9 @@
 
 | 文件 | 内容 |
 |---|---|
-| `manifest.json` | `321roll-lite.world-package/1`：世界 id、版本、标题、简介、配色封面、图片对照表、每个文件的大小和 sha256 |
+| `manifest.json` | `321roll-lite.world-package/2`：世界 id、版本、标题、简介、配色封面、图片对照表与图片清单、每个文件的大小和 sha256 |
 | `world.json` | `321roll-lite.world-bundle/1`：与后台“导出世界”相同的世界文件 |
-| `assets/*.webp` | 封面与各幕、地点、结局的场景图，1280 像素宽 |
+| `assets.bin` | 封面与各幕、地点、结局的场景图（1280 像素宽）合成的一个文件。每张图都做了混淆，解压后无法直接预览，免得翻文件时被剧透；插件安装时逐张还原并核对 sha256 |
 
 `index.json`（`321roll-lite.world-index/1`）列出全部安装包的相对路径、大小、sha256 和 `previews/` 下的 640 宽预览图。插件读取索引时可以把仓库地址换成 jsDelivr 或代理前缀，相对路径保持不变。
 
