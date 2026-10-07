@@ -1,5 +1,6 @@
 {
   "format": "321roll-lite.world-index/1",
+  "name": "321Roll 官方世界包",
   "worlds": [
     {
       "id": "final-curtain",
@@ -14,7 +15,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/final-curtain-r1.zip",
       "size": 1633516,
-      "sha256": "4d7d66125994cfccdfe4c477c1b23787c4d34a03eea9a8c68dbbc6f28b44740d"
+      "sha256": "4d7d66125994cfccdfe4c477c1b23787c4d34a03eea9a8c68dbbc6f28b44740d",
+      "preview": "previews/final-curtain-r1.webp"
     },
     {
       "id": "greycrown-prequel",
@@ -29,7 +31,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/greycrown-prequel-r1.zip",
       "size": 1991621,
-      "sha256": "8e79858f0d9796c7057e1838d06191428a2d59bef9b3def9546424aca84d066f"
+      "sha256": "8e79858f0d9796c7057e1838d06191428a2d59bef9b3def9546424aca84d066f",
+      "preview": "previews/greycrown-prequel-r1.webp"
     },
     {
       "id": "nameless-sword-tomb",
@@ -44,7 +47,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/nameless-sword-tomb-r1.zip",
       "size": 1813334,
-      "sha256": "7dd68e090caee914811cde74321d220cd12a99221db72601b29b46c306d49bf7"
+      "sha256": "7dd68e090caee914811cde74321d220cd12a99221db72601b29b46c306d49bf7",
+      "preview": "previews/nameless-sword-tomb-r1.webp"
     },
     {
       "id": "neon-pawnshop",
@@ -59,7 +63,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/neon-pawnshop-r1.zip",
       "size": 1920784,
-      "sha256": "b4a1b23d8d4070382bd03810496eb395acc9135a5098825a41d3556eafb66bcc"
+      "sha256": "b4a1b23d8d4070382bd03810496eb395acc9135a5098825a41d3556eafb66bcc",
+      "preview": "previews/neon-pawnshop-r1.webp"
     },
     {
       "id": "seventh-mystery",
@@ -74,7 +79,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/seventh-mystery-r1.zip",
       "size": 1312113,
-      "sha256": "0a1ef985552f38e909f53bf10634161fb345133ed8d9211e2fdbdc4d057b2748"
+      "sha256": "0a1ef985552f38e909f53bf10634161fb345133ed8d9211e2fdbdc4d057b2748",
+      "preview": "previews/seventh-mystery-r1.webp"
     },
     {
       "id": "wildfire-hunt",
@@ -89,7 +95,8 @@
       "min_plugin": "0.1.0",
       "file": "packs/wildfire-hunt-r1.zip",
       "size": 2085427,
-      "sha256": "92f49e0b02bed04a173c29fbe6086d0cbb6b2085fa4d927ef5ed04986ed4fdba"
+      "sha256": "92f49e0b02bed04a173c29fbe6086d0cbb6b2085fa4d927ef5ed04986ed4fdba",
+      "preview": "previews/wildfire-hunt-r1.webp"
     }
   ]
 }
