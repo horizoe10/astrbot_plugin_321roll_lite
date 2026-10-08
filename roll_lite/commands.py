@@ -7,16 +7,15 @@ and raise UserError for anything the player should read.
 """
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
+from astrbot.api import logger
+
 if TYPE_CHECKING:
     from .app import LiteApp
-
-logger = logging.getLogger("astrbot_plugin_321roll_lite")
 
 COMMAND_WORD = "团"
 _PREFIX = re.compile(r"^\s*[/／]?\s*团(?:\s+|$)")
@@ -29,6 +28,21 @@ class UserError(Exception):
         super().__init__(message)
         self.message = message
         self.code = code
+
+
+def conversation_origin(event: Any) -> str:
+    """The session a room lives in: the whole group in a group chat, the chat itself otherwise.
+
+    AstrBot's unique_session setting rewrites a group message's session id per member, which would
+    give every member a private table. The platform's original group session id is kept on
+    message_obj, so the group key is rebuilt from it in AstrBot's platform:type:session format.
+    """
+    origin = str(event.unified_msg_origin)
+    raw = str(getattr(getattr(event, "message_obj", None), "session_id", "") or "")
+    if not str(event.get_group_id() or "") or not raw:
+        return origin
+    platform_id, message_type, _ = origin.split(":", 2)
+    return f"{platform_id}:{message_type}:{raw}"
 
 
 @dataclass

@@ -12,9 +12,10 @@ template is tried, and after that the segment goes out as text.
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+from astrbot.api import logger
 
 from . import cards
 from .render import MARKDOWN, PLAIN, Msg, mentions_of, render, target_format
@@ -23,7 +24,6 @@ from .storage import now
 if TYPE_CHECKING:
     from .app import LiteApp
 
-logger = logging.getLogger("astrbot_plugin_321roll_lite")
 MAX_MESSAGE = 1800
 MENTION_PLATFORMS = frozenset({"aiocqhttp"})
 SEGMENTS = ("status", "narration", "choices")

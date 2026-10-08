@@ -6,10 +6,11 @@ app.hooks (the hook names are listed in HOOKS below).
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable, Coroutine
 from pathlib import Path
 from typing import Any
+
+from astrbot.api import logger
 
 from .commands import Reply, Router, register_core
 from .config import LiteConfig
@@ -18,7 +19,6 @@ from .engine.gateway import EngineGateway
 from .features import Features
 from .storage import Store
 
-logger = logging.getLogger("astrbot_plugin_321roll_lite")
 TICK_SECONDS = 5
 
 HookFn = Callable[..., Awaitable[Reply | None]]
@@ -68,6 +68,28 @@ class LiteApp:
         self._locks: dict[str, asyncio.Lock] = {}
         self._tasks: set[asyncio.Task] = set()
         self._ticker: asyncio.Task | None = None
+        self._adopted: set[str] = set()
+
+    def adopt_group_room(self, umo: str, platform_id: str, group_id: str) -> None:
+        """Move a room 0.1.1 opened under a member-isolated session id onto the group's shared one.
+
+        With AstrBot's unique_session on, 0.1.1 keyed the room by the host's own session, so nobody
+        else in the group could find it. Runs once per group per process.
+        """
+        if umo in self._adopted:
+            return
+        self._adopted.add(umo)
+        with self.store.tx() as c:
+            if c.execute("SELECT 1 FROM rooms WHERE umo=? AND state<>'closed'", (umo,)).fetchone():
+                return
+            old = c.execute("SELECT id,umo FROM rooms WHERE platform=? AND group_id=? AND state<>'closed' "
+                            "ORDER BY updated_at DESC LIMIT 1", (platform_id, group_id)).fetchone()
+            if old is None:
+                return
+            c.execute("UPDATE rooms SET umo=? WHERE id=?", (umo, old["id"]))
+            c.execute("UPDATE OR IGNORE settings SET scope=? WHERE scope=?", (f"group:{umo}", f"group:{old['umo']}"))
+            c.execute("UPDATE outbox SET umo=? WHERE umo=? AND state='pending'", (umo, old["umo"]))
+        logger.info("321Roll Lite moved room %s to the shared group session %s", old["id"], umo)
 
     # ------------------------------------------------------------ assembly
     def install(self) -> None:

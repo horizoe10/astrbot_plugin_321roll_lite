@@ -8,7 +8,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools
 
 from .roll_lite.app import LiteApp
-from .roll_lite.commands import Caller, strip_command
+from .roll_lite.commands import Caller, conversation_origin, strip_command
 from .roll_lite.delivery import deliver
 from .roll_lite.version import PLUGIN_NAME, PLUGIN_VERSION
 
@@ -31,15 +31,19 @@ class RollLitePlugin(Star):
         user_id = str(event.get_sender_id() or "")
         platform_name = str(event.get_platform_name() or "")
         platform_id = str(event.get_platform_id() or "")
+        umo = conversation_origin(event)
+        group_id = str(event.get_group_id() or "") or None
+        if group_id:
+            self.app.adopt_group_room(umo, platform_id, group_id)
 
         async def send(item) -> None:
-            async with self.app.notifier.lock(str(event.unified_msg_origin)):
+            async with self.app.notifier.lock(umo):
                 await deliver(self.app, event.send, [item], platform_name=platform_name, platform_id=platform_id)
 
         return Caller(
-            umo=str(event.unified_msg_origin),
+            umo=umo,
             platform_id=platform_id,
-            group_id=str(event.get_group_id() or "") or None,
+            group_id=group_id,
             user_id=user_id,
             user_name=str(event.get_sender_name() or user_id),
             is_admin=bool(event.is_admin()) or self.app.is_admin_id(user_id),

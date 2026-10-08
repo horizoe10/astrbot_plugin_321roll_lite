@@ -1,11 +1,12 @@
 """Register the WebUI routes with AstrBot (see web/service.py for the handlers)."""
 from __future__ import annotations
 
-import logging
 import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from astrbot.api import logger
 
 from ..version import PLUGIN_NAME
 from ..worlds.package import MAX_PACKAGE
@@ -13,9 +14,6 @@ from . import service
 
 if TYPE_CHECKING:
     from ..app import LiteApp
-
-logger = logging.getLogger("astrbot_plugin_321roll_lite")
-
 
 def _handler(app: "LiteApp", fn: Any, method: str):
     async def view(**_: Any):
