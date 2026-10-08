@@ -3,100 +3,118 @@
   "name": "321Roll 官方世界包",
   "worlds": [
     {
-      "id": "final-curtain",
+      "id": "final-curtain-lite",
       "revision": 1,
-      "title": "封箱戏 · 第七夜，台下多出一排看客",
+      "edition": "lite",
+      "title": "封箱戏（轻量版） · 第七夜，台下多出一排看客",
       "summary": "后台的红布不知被谁揭开了，镜子里映出一张上好妆的脸，可镜子前没有人。",
       "cover": {
         "mark": "戏",
         "tone": "wine"
       },
-      "images": 11,
+      "images": 5,
       "min_plugin": "0.1.0",
-      "file": "packs/final-curtain-r1.zip",
-      "size": 1632416,
-      "sha256": "8df76986c94b3bc35173b0174960b72954375202d2d06c1f1d598f9c3a10e87c",
-      "preview": "previews/final-curtain-r1.webp"
+      "file": "packs/final-curtain-lite-L1.zip",
+      "size": 797630,
+      "sha256": "b5257a1b3e340307470b2da0741ace9559dbd3eb386564dd7a2fa6539f59c8f2",
+      "content_digest": "45e4bf59421840f1b6ededb2d8409daa39b53e73f20eee863236b65049048a32",
+      "immersive": true,
+      "preview": "previews/final-curtain-lite-L1.webp"
     },
     {
-      "id": "greycrown-prequel",
+      "id": "greycrown-prequel-lite",
       "revision": 1,
-      "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
+      "edition": "lite",
+      "title": "灰冠之下：祖约（轻量版） · 冠落纪 236 年，赤髓煤脉现世",
       "summary": "春汛退去的第三天，石环山门前的空地上挤满了人：石环的工匠、流民坡的男男女女、山下来看热闹的商贩。",
       "cover": {
         "mark": "冠",
         "tone": "slate"
       },
-      "images": 11,
+      "images": 5,
       "min_plugin": "0.1.0",
-      "file": "packs/greycrown-prequel-r1.zip",
-      "size": 1990489,
-      "sha256": "1e106018db8fb538e133d5a78a68cbe4a6e217d6501726cb405b576af5e4c06b",
-      "preview": "previews/greycrown-prequel-r1.webp"
+      "file": "packs/greycrown-prequel-lite-L1.zip",
+      "size": 1046561,
+      "sha256": "ac5204e2ce18e079c4ab082099f8dafe80ab8f8b4fcb335016bacc8d7f77ed5e",
+      "content_digest": "f354d6e3e0adaa5690b8c50925c6009a7b9094e514aa9955659eb44e9fb5bebd",
+      "immersive": true,
+      "preview": "previews/greycrown-prequel-lite-L1.webp"
     },
     {
-      "id": "nameless-sword-tomb",
+      "id": "nameless-sword-tomb-lite",
       "revision": 1,
-      "title": "无名剑冢 · 第一道潮痕，是用剑刻的",
+      "edition": "lite",
+      "title": "无名剑冢（轻量版） · 第一道潮痕，是用剑刻的",
       "summary": "霜降前夜，霜降客栈灯笼通明。台阶上的剑痕结了一层白霜，在灯下反着光。",
       "cover": {
         "mark": "剑",
         "tone": "jade"
       },
-      "images": 11,
+      "images": 4,
       "min_plugin": "0.1.0",
-      "file": "packs/nameless-sword-tomb-r1.zip",
-      "size": 1812229,
-      "sha256": "2cb002605e8b6802421019da137a36481addda89fffd8d94aee2f4bbb0adbdce",
-      "preview": "previews/nameless-sword-tomb-r1.webp"
+      "file": "packs/nameless-sword-tomb-lite-L1.zip",
+      "size": 707770,
+      "sha256": "e56e0324e6a01d571d4e62943a05140edff368b2dc4d3fec9a7ec6162ac4eb21",
+      "content_digest": "f6e32cc6f283abbf4c406cf298f754d623a70395f799594c27c6b0ee5a01ead5",
+      "immersive": true,
+      "preview": "previews/nameless-sword-tomb-lite-L1.webp"
     },
     {
-      "id": "neon-pawnshop",
+      "id": "neon-pawnshop-lite",
       "revision": 1,
-      "title": "霓虹典当行 · 今夜有人当掉了整座城的昨天",
+      "edition": "lite",
+      "title": "霓虹典当行（轻量版） · 今夜有人当掉了整座城的昨天",
       "summary": "卷帘门拉开一半，雨水灌进来。柜台上的老式收银机自己弹开了抽屉，里面躺着一张当票和一枚滚烫的芯片。",
       "cover": {
         "mark": "当",
         "tone": "neon"
       },
-      "images": 10,
+      "images": 2,
       "min_plugin": "0.1.0",
-      "file": "packs/neon-pawnshop-r1.zip",
-      "size": 1919802,
-      "sha256": "8b4ff3ccdd3e119454deaeb725952d45ed37520ff23c7e237c77f3c1b7c219ca",
-      "preview": "previews/neon-pawnshop-r1.webp"
+      "file": "packs/neon-pawnshop-lite-L1.zip",
+      "size": 380101,
+      "sha256": "fd8c8e685203b77de4b7957eda6e55285aba37a239ebe2d99ba22b9d47669021",
+      "content_digest": "42776c84a6603c131a53174f922bcdde2ec670600fa9a2cd09989586f2475759",
+      "immersive": true,
+      "preview": "previews/neon-pawnshop-lite-L1.webp"
     },
     {
-      "id": "seventh-mystery",
+      "id": "seventh-mystery-lite",
       "revision": 1,
-      "title": "第七个不思议 · 钟楼在放学后多敲了一下",
+      "edition": "lite",
+      "title": "第七个不思议（轻量版） · 钟楼在放学后多敲了一下",
       "summary": "放学铃响过二十分钟，新教学楼的人已经走空。",
       "cover": {
         "mark": "七",
         "tone": "ink"
       },
-      "images": 12,
+      "images": 2,
       "min_plugin": "0.1.0",
-      "file": "packs/seventh-mystery-r1.zip",
-      "size": 1310860,
-      "sha256": "1aa2cc7ccdc7925365898f5b4c4531598aad990640aaafbe5f314139106e7434",
-      "preview": "previews/seventh-mystery-r1.webp"
+      "file": "packs/seventh-mystery-lite-L1.zip",
+      "size": 210234,
+      "sha256": "2da2037b097ff1802d193fdaadfc58ba21a05da46e92c460086c883c4de86568",
+      "content_digest": "87eb40f41fbd2ab3033d13d1cb4979d3ba33684e5b67116ca4c6395ef92b9e3c",
+      "immersive": true,
+      "preview": "previews/seventh-mystery-lite-L1.webp"
     },
     {
-      "id": "wildfire-hunt",
+      "id": "wildfire-hunt-lite",
       "revision": 1,
-      "title": "狩火 · 群兽迁徙之年",
+      "edition": "lite",
+      "title": "狩火（轻量版） · 群兽迁徙之年",
       "summary": "营地的警钟响了三声：长、短、长，意思是\"大型兽，向镇\"。你们冲出帐篷时，西边的天已经染成橘红，风里有焦草和硫磺的味道。",
       "cover": {
         "mark": "狩",
         "tone": "ember"
       },
-      "images": 12,
+      "images": 4,
       "min_plugin": "0.1.0",
-      "file": "packs/wildfire-hunt-r1.zip",
-      "size": 2084195,
-      "sha256": "5b98303734e43ae39504f71f478e07d63e6b4061e19ecc0c16752f14bbc36303",
-      "preview": "previews/wildfire-hunt-r1.webp"
+      "file": "packs/wildfire-hunt-lite-L1.zip",
+      "size": 701457,
+      "sha256": "80ddf11b44dab8bc236f5341fcbb082f9dd4c80d8d9f77e11b3c522c02491d0c",
+      "content_digest": "957b3edb34a0c441978e45754cbe77dfbe65d7accea9c54830b217a1f500a4b6",
+      "immersive": true,
+      "preview": "previews/wildfire-hunt-lite-L1.webp"
     }
   ]
 }
