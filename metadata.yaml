@@ -4,6 +4,6 @@ desc: "基于 321Roll 世界引擎的纯文字群聊跑团：托管叙事、原�
 short_desc: "321Roll 世界引擎驱动的群聊文字跑团。"
 help: "在群里发送 /团 帮助 查看指令；管理员发送 /团 开启 开一桌。"
 author: "horizoe10"
-version: 0.1.0
+version: 0.1.1
 repo: "https://github.com/horizoe10/astrbot_plugin_321roll_lite"
 astrbot_version: ">=4.26,<5"

@@ -583,11 +583,11 @@ async def market_uninstall(app: "LiteApp", payload: dict[str, Any], username: st
 
 
 async def market_settings(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    """Save only; the page then reloads the indexes so the switch itself never waits on the network."""
     try:
-        market.save_settings(app, payload, username)
+        return {"settings": market.save_settings(app, payload, username)}
     except market.MarketError as exc:
         raise WebError(str(exc)) from exc
-    return await market_view(app, {}, username)
 
 
 async def world_package(app: "LiteApp", payload: dict[str, Any], username: str) -> tuple[str, str, bytes]:

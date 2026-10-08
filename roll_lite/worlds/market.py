@@ -40,8 +40,13 @@ DEFAULT_ROUTE = "jsdelivr"
 MAX_INDEX = MB
 MAX_SOURCES = 10
 INDEX_TTL = 600
-INDEX_TIMEOUT = 15       # an unreachable index should fail fast; the market page waits for it
-PACKAGE_TIMEOUT = 90
+# urllib's timeout covers one connect or one read, so a host that trickles bytes never times out;
+# each download also has a deadline for the whole transfer.  The market page waits for indexes.
+INDEX_TIMEOUT = 10
+INDEX_DEADLINE = 20
+PACKAGE_TIMEOUT = 60
+PACKAGE_DEADLINE = 300
+CHUNK = 64 * 1024
 _RAW = re.compile(r"https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/(?:refs/heads/)?([^/]+)/(.+)")
 _GITHUB = re.compile(r"https://github\.com/([^/]+)/([^/]+)/(?:raw|blob)/([^/]+)/(.+)")
 _ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,100}")
@@ -120,12 +125,23 @@ def _download(url: str, limit: int) -> bytes:
     _http_url(url, "下载地址")
     request = urllib.request.Request(url, headers={"User-Agent": f"321RollLite/{PLUGIN_VERSION}", "Accept": "*/*"})
     too_big = f"文件超过 {max(1, limit // MB)}MB 上限" if limit >= MB else "文件比索引记录的大"
+    small = limit <= MAX_INDEX
+    allowed = INDEX_DEADLINE if small else PACKAGE_DEADLINE
+    deadline = time.monotonic() + allowed
     try:
-        with urllib.request.urlopen(request, timeout=INDEX_TIMEOUT if limit <= MAX_INDEX else PACKAGE_TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=INDEX_TIMEOUT if small else PACKAGE_TIMEOUT) as response:
             declared = str(response.headers.get("Content-Length") or "")
             if declared.isdigit() and int(declared) > limit:
                 raise MarketError(too_big)
-            data = response.read(limit + 1)
+            chunks, size = [], 0
+            while block := response.read(min(CHUNK, limit + 1 - size)):
+                chunks.append(block)
+                size += len(block)
+                if size > limit:
+                    raise MarketError(too_big)
+                if time.monotonic() > deadline:
+                    raise MarketError(f"下载太慢，{allowed} 秒内没有完成")
+            data = b"".join(chunks)
     except urllib.error.HTTPError as exc:
         raise MarketError(f"HTTP {exc.code}" + ("，地址不存在或仓库未公开" if exc.code == 404 else "")) from exc
     except urllib.error.URLError as exc:
@@ -142,12 +158,17 @@ def _download(url: str, limit: int) -> bytes:
 async def fetch(app: "LiteApp", url: str, limit: int, cfg: dict[str, Any] | None = None) -> bytes:
     cfg = cfg or settings(app)
     errors = []
+    # Name resolution is not covered by the socket timeout, so the wait itself is bounded too.
+    wait = (INDEX_DEADLINE if limit <= MAX_INDEX else PACKAGE_DEADLINE) + INDEX_TIMEOUT
     for candidate in routes_for(url, cfg):
         try:
-            return await asyncio.to_thread(_download, candidate, limit)
+            return await asyncio.wait_for(asyncio.to_thread(_download, candidate, limit), wait)
+        except TimeoutError:
+            errors.append(f"{urlparse(candidate).netloc or candidate[:40]}：连接超时")
         except MarketError as exc:
             errors.append(f"{urlparse(candidate).netloc or candidate[:40]}：{exc}")
-    raise MarketError("；".join(errors))
+    hint = "。连不上 GitHub 时，可以把下载线路换成 jsDelivr 或代理前缀" if cfg["route"] == "direct" and (_RAW.fullmatch(url) or _GITHUB.fullmatch(url)) else ""
+    raise MarketError("；".join(errors) + hint)
 
 
 # ---------------------------------------------------------------- index

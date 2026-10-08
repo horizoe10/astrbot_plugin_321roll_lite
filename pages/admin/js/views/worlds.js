@@ -91,7 +91,9 @@ const SPOILERS = {
   endings: "结局的名字和达成条件会透露故事走向。确定要看吗？",
 };
 const spoiler = (kind, summary, body) => '<div class="spoiler" data-spoiler="' + kind + '"><div class="spoiler-veil">' + icon("eyeOff", 18) +
-  "<p>" + esc(summary) + '</p><button class="btn small" data-reveal="' + kind + '">' + icon("eye", 14) + "查看剧透内容</button></div><template>" + body + "</template></div>";
+  "<p>" + esc(summary) + '</p><button class="btn small" data-reveal="' + kind + '">' + icon("eye", 14) + "查看剧透内容</button></div>" +
+  '<div class="spoiler-bar"><span>' + icon("eye", 14) + '剧透内容已展开</span><button class="btn text small" data-fold>' + icon("eyeOff", 14) + "收起</button></div>" +
+  '<div class="spoiler-body"></div><template>' + body + "</template></div>";
 
 async function detail(root, ctx, id) {
   const w = await ctx.api.get("world", { id });
@@ -149,15 +151,21 @@ async function detail(root, ctx, id) {
         spoiler("endings", "共 " + endings.length + " 个结局。结局的名字和达成条件只在故事走到那里时出现。", '<div class="rows">' + endings.map((e, i) => '<div class="ri"><span class="opt-num">' +
           String.fromCharCode(65 + i) + '</span><div style="min-width:0"><div class="ri-title">' + esc(e.name) + '</div><div class="ri-meta">' + esc(e.rule) + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
     "</div></div>";
-  root.querySelectorAll("[data-reveal]").forEach((button) => button.addEventListener("click", () => {
-    const kind = button.dataset.reveal;
-    if (!window.confirm(SPOILERS[kind])) return;
-    const box = button.closest("[data-spoiler]");
-    box.innerHTML = box.querySelector("template").innerHTML;
-    box.classList.add("open");
-    if (kind === "acts") root.querySelector(".band-acts").innerHTML = acts(actList, 0);
-    paintArt(box, ctx.api);
-  }));
+  // Revealing copies the folded content out of its <template>; folding drops the copy again.
+  root.querySelectorAll("[data-spoiler]").forEach((box) => {
+    const kind = box.dataset.spoiler, body = box.querySelector(".spoiler-body");
+    const show = (open) => {
+      body.innerHTML = open ? box.querySelector("template").innerHTML : "";
+      box.classList.toggle("open", open);
+      if (kind === "acts") root.querySelector(".band-acts").innerHTML = acts(open ? actList : veiled(actList, 0), 0);
+      if (open) paintArt(body, ctx.api);
+    };
+    box.querySelector("[data-reveal]").addEventListener("click", () => { if (window.confirm(SPOILERS[kind])) show(true); });
+    box.querySelector("[data-fold]").addEventListener("click", () => {
+      show(false);
+      if (box.getBoundingClientRect().top < 0) box.scrollIntoView({ block: "center" });
+    });
+  });
   root.querySelector("[data-export]")?.addEventListener("click", () => download(w, p, pres, ctx.toast));
   root.querySelector("[data-package]").addEventListener("click", async (e) => {
     try {
@@ -259,8 +267,12 @@ const ROUTE_NOTES = {
   prefix: "在地址前加上代理前缀（例如 https://ghfast.top/），失败再直连。",
 };
 
+// Indexes can take a while to load; only the newest request may redraw the page.
+let marketSeq = 0;
 async function market(root, ctx, refresh = false) {
-  draw(root, ctx, await ctx.api.get("market", refresh ? { refresh: "1" } : {}));
+  const mine = ++marketSeq;
+  const data = await ctx.api.get("market", refresh ? { refresh: "1" } : {});
+  if (mine === marketSeq) draw(root, ctx, data);
 }
 
 function marketCard(w, source) {
@@ -332,12 +344,28 @@ function draw(root, ctx, data) {
         : '<div class="source-empty">' + icon("alert", 20) + "<div><b>还没有索引地址</b><p>在右侧填入 index.json 的地址，或点“恢复官方索引”。</p></div></div>") +
     "</div>" + side(data) + "</div>";
   const cfg = data.settings;
-  const again = async (body) => draw(root, ctx, body || await ctx.api.get("market"));
-  const saveSettings = (patch) => ctx.api.post("market/settings", { sources: cfg.sources, route: cfg.route, prefix: cfg.prefix, ...patch });
+  // Saving is instant; the index list then shows a loading state while it is read again over the new settings.
+  const again = async (refresh = false) => {
+    const list = root.querySelector(".market-layout > .stack");
+    if (list) list.innerHTML = '<div aria-busy="true"><div class="source-loading">' + icon("refresh", 16) + "<span>正在通过" + esc(cfg.routes[cfg.route]) +
+      "读取索引，网络慢时最多等半分钟…</span></div>" + [72, 90, 64].map((w) => '<div class="skeleton" style="width:' + w + '%"></div>').join("") + "</div>";
+    await market(root, ctx, refresh);
+  };
+  const showRoute = (route) => {
+    root.querySelectorAll("[data-route]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.route === route)));
+    root.querySelector("[data-route-note]").textContent = ROUTE_NOTES[route];
+    root.querySelector(".market-side .panel-sub").textContent = cfg.routes[route];
+    root.querySelector("[data-prefix]").style.display = route === "prefix" ? "" : "none";
+  };
+  const saveSettings = async (patch) => {
+    const { settings: next } = await ctx.api.post("market/settings", { sources: cfg.sources, route: cfg.route, prefix: cfg.prefix, ...patch });
+    Object.assign(cfg, next);
+    showRoute(cfg.route);
+  };
   const act = (selector, handler) => root.querySelectorAll(selector).forEach((el) => el.addEventListener("click", async (e) => {
     try { await handler(e.currentTarget); } catch (error) { ctx.toast(error.message, "error"); }
   }));
-  act("[data-refresh]", async (btn) => { await busy(btn, () => market(root, ctx, true)); });
+  act("[data-refresh]", async (btn) => { await busy(btn, () => again(true)); });
   act("[data-install]", async (btn) => {
     const r = await busy(btn, () => ctx.api.post("market/install", { source: btn.dataset.source, id: btn.dataset.install }));
     ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版" + (r.previous ? "（原第 " + r.previous + " 版）" : ""));
@@ -352,27 +380,35 @@ function draw(root, ctx, data) {
   });
   act("[data-route]", async (btn) => {
     const route = btn.dataset.route;
+    showRoute(route);
+    if (route === cfg.route) return;
     if (route === "prefix" && !cfg.prefix) {          // ask for the prefix first; saving it switches the route
-      root.querySelectorAll("[data-route]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
-      root.querySelector("[data-route-note]").textContent = ROUTE_NOTES.prefix;
-      root.querySelector("[data-prefix]").style.display = "";
       root.querySelector("#mk-prefix").focus();
       return;
     }
-    await again(await saveSettings({ route }));
+    try {
+      await saveSettings({ route });
+    } catch (error) {
+      showRoute(cfg.route);
+      throw error;
+    }
     ctx.toast("下载线路：" + cfg.routes[route]);
+    await again();
   });
   act("[data-save-prefix]", async (btn) => {
-    await again(await busy(btn, () => saveSettings({ route: "prefix", prefix: root.querySelector("#mk-prefix").value })));
+    await busy(btn, () => saveSettings({ route: "prefix", prefix: root.querySelector("#mk-prefix").value }));
     ctx.toast("已保存代理前缀");
+    await again();
   });
   act("[data-save-sources]", async (btn) => {
-    await again(await busy(btn, () => saveSettings({ sources: root.querySelector("#mk-sources").value })));
+    await busy(btn, () => saveSettings({ sources: root.querySelector("#mk-sources").value }));
     ctx.toast("已保存索引地址");
+    await again();
   });
   act("[data-official]", async (btn) => {
-    await again(await busy(btn, () => saveSettings({ sources: [cfg.official] })));
+    await busy(btn, () => saveSettings({ sources: [cfg.official] }));
     ctx.toast("已恢复官方索引");
+    await again();
   });
   act("[data-install-url]", async (btn) => {
     const r = await busy(btn, () => ctx.api.post("market/install-url", { url: root.querySelector("#mk-url").value, sha256: root.querySelector("#mk-sha").value }));

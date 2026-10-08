@@ -1,7 +1,7 @@
 💬 AI 跑团项目交流群：`696202708`\
 🍵 闲聊与约团小窝：`1094220887` &#x20;
 
-<p align="center"><img src="pages/admin/assets/logo-main.png" width="128" alt="321Roll Lite" /></p>
+<p align="center"><img src="https://cdn.jsdelivr.net/gh/horizoe10/astrbot_plugin_321roll_lite@main/pages/admin/assets/logo-main.png" width="128" alt="321Roll Lite" /></p>
 
 <h1 align="center">321Roll Lite</h1>
 
@@ -72,13 +72,13 @@
 
 为了方便深入查阅，各类专项规则已拆分为独立专题手册：
 
-- **[核心规则与行动指南](docs/CORE_RULES.md)**：涵盖回合轮换、A–D 选肢与自由行动、d20 投骰算式与四档难度（简单 8 / 标准 12 / 困难 15 / 极难 18）、技能与物品消耗核算规则、装备栏位机制，以及群聊与私聊双轨协同。
-- **[调查推理与证词对质指南](docs/INVESTIGATION.md)**：深入剖析搜查检定、亲见/听说线索归档、假说构建与支持反驳闭环、公开世界条目引用，以及证词记录、深度追问、出示物证破防与矛盾交叉比对。
-- **[社交交涉与对抗冲突指南](docs/INTERACTION_AND_CONFLICT.md)**：详解利益谈判与协议签署、NPC 七档态度流转（敌对至盟友）、独立对抗胜负轨道、孤注一掷战术姿态、追逐距离拉锯战以及多回合辩论系统。
-- **[计划时间与叙事走向指南](docs/PLANS_AND_STORY.md)**：介绍多步骤复合行动计划与认领执行、清晨/白天/傍晚/夜晚四时日历、倒计时日程期限、长线时钟项目、据点休整恢复、d20 机运问卜、神谕是非建议，以及全员多结局分支推演与个人尾声撰写。
-- **[主持人控场与裁判手册](docs/HOST_GUIDE.md)**：专为主持人（与管理员）定制的高级控场秘籍，包括跑团生命周期管理、行动顺序强制调度、最多 5 步时光回退悔棋、篇幅文风即时校准、私聊暗中调配属性/好感、导演审稿把关模式、席位秩序管理与存档读档。
-- **[世界包制作教程](docs/WORLD_PACK_GUIDE.md)**：从模板出发写一个自己的世界，配场景图、打包，并发布到 GitHub 让别人在世界市场里安装。
-- **[世界包规范](docs/WORLD_PACK_SPEC.md)**：世界包的命名与版本、内容要求，以及 pack.json、presentation.json、安装包和索引的完整字段说明。
+- **[核心规则与行动指南](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/CORE_RULES.md)**：涵盖回合轮换、A–D 选肢与自由行动、d20 投骰算式与四档难度（简单 8 / 标准 12 / 困难 15 / 极难 18）、技能与物品消耗核算规则、装备栏位机制，以及群聊与私聊双轨协同。
+- **[调查推理与证词对质指南](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/INVESTIGATION.md)**：深入剖析搜查检定、亲见/听说线索归档、假说构建与支持反驳闭环、公开世界条目引用，以及证词记录、深度追问、出示物证破防与矛盾交叉比对。
+- **[社交交涉与对抗冲突指南](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/INTERACTION_AND_CONFLICT.md)**：详解利益谈判与协议签署、NPC 七档态度流转（敌对至盟友）、独立对抗胜负轨道、孤注一掷战术姿态、追逐距离拉锯战以及多回合辩论系统。
+- **[计划时间与叙事走向指南](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/PLANS_AND_STORY.md)**：介绍多步骤复合行动计划与认领执行、清晨/白天/傍晚/夜晚四时日历、倒计时日程期限、长线时钟项目、据点休整恢复、d20 机运问卜、神谕是非建议，以及全员多结局分支推演与个人尾声撰写。
+- **[主持人控场与裁判手册](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/HOST_GUIDE.md)**：专为主持人（与管理员）定制的高级控场秘籍，包括跑团生命周期管理、行动顺序强制调度、最多 5 步时光回退悔棋、篇幅文风即时校准、私聊暗中调配属性/好感、导演审稿把关模式、席位秩序管理与存档读档。
+- **[世界包制作教程](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_GUIDE.md)**：从模板出发写一个自己的世界，配场景图、打包，并发布到 GitHub 让别人在世界市场里安装。
+- **[世界包规范](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_SPEC.md)**：世界包的命名与版本、内容要求，以及 pack.json、presentation.json、安装包和索引的完整字段说明。
 
 ## 管理后台与世界编辑器
 
@@ -106,7 +106,7 @@
 python -X utf8 -m roll_lite.worlds.make <世界文件夹> --out <输出目录>
 ```
 
-完整步骤见[世界包制作教程](docs/WORLD_PACK_GUIDE.md)。
+完整步骤见[世界包制作教程](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/docs/WORLD_PACK_GUIDE.md)。
 
 ## 跨平台消息排版与卡片渲染
 
@@ -137,6 +137,6 @@ python -X utf8 -m roll_lite.worlds.make <世界文件夹> --out <输出目录>
 
 ## 许可
 
-- 插件代码（含 `vendor/` 中的故事引擎）以 [GNU AGPL-3.0](LICENSE) 发布。
+- 插件代码（含 `vendor/` 中的故事引擎）以 [GNU AGPL-3.0](https://github.com/horizoe10/astrbot_plugin_321roll_lite/blob/main/LICENSE) 发布。
 - 官方世界的文字与场景图，包括随插件附带的 `worlds/greycrown-prequel/` 和世界市场官方渠道中的全部世界包，以 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh-hans) 发布：可以署名转载和分享，不可商用，不可改编后发布。
 - 示例世界 `worlds/_template/` 以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/deed.zh-hans) 放弃版权，可以随意修改、发布和商用。
