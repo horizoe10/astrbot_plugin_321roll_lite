@@ -37,6 +37,17 @@
     },
     {
       "number": 4,
+      "title": "山心",
+      "lead": "石壁上刻着的，比族谱更早。",
+      "weather": "none",
+      "ambience": [
+        "drip",
+        "wind"
+      ],
+      "image": "act-4"
+    },
+    {
+      "number": 5,
       "title": "录约之日",
       "lead": "一旦打孔，冠机会照章执行，直到永远。",
       "weather": "none",
@@ -44,7 +55,7 @@
         "clock",
         "hum"
       ],
-      "image": "act-4"
+      "image": "act-5"
     }
   ],
   "places": [
@@ -80,19 +91,50 @@
       "aliases": [
         "祖墓"
       ]
+    },
+    {
+      "entry": "merchant-lodge",
+      "name": "〔商行驿馆〕",
+      "image": "place-merchant-lodge",
+      "aliases": [
+        "商行驿馆",
+        "驿馆",
+        "商行"
+      ]
+    },
+    {
+      "entry": "deep-chamber",
+      "name": "〔山心石室〕",
+      "image": "place-deep-chamber",
+      "aliases": [
+        "山心石室",
+        "石室"
+      ]
     }
   ],
   "endings": [
     {
+      "id": "shared-wall",
+      "name": "同一面石壁",
+      "rule": "录入“止于本身”；有【揭示·利息未录卡】且卡隆接受重议；有【承诺·负担去处】；流民与工匠的名字并列刻入。打孔卡锁进柜里，无人当场核对",
+      "image": "ending-shared-wall"
+    },
+    {
       "id": "names-carved",
       "name": "名字刻进石壁",
-      "rule": "祖约录入，迁葬完成，流民的名字刻进山心",
+      "rule": "祖约录入、迁葬完成、流民的名字刻进山心；但条文含“及于子嗣”，或负担没有【承诺·负担去处】就被挪走",
       "image": "ending-names-carved"
+    },
+    {
+      "id": "merchant-line",
+      "name": "山下的账",
+      "rule": "已有【证据·两封托书】，仍为冬粮或平息冲突让“工役可转让抵债”录入",
+      "image": "ending-merchant-line"
     },
     {
       "id": "sealed-card",
       "name": "锁进柜里",
-      "rule": "祖约录入，但打孔卡未经核对就被锁进柜里，条文成为日后的争议",
+      "rule": "录约日没有【证据·两封托书】或【立场·维瑟】，维瑟按送来的卡打孔，条文成为日后的争议",
       "image": "ending-sealed-card"
     },
     {

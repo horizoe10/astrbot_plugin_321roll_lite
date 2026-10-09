@@ -16,6 +16,7 @@ from ..commands import Caller, Reply, UserError, parse_check, parse_refs, split_
 from ..dice import d20, roll_check
 from ..engine.gateway import CustomPlayError
 from ..features import BY_KEY
+from ..fun import luck
 from ..render import BT, Msg, dots
 from ..storage import dumps, loads, new_id, now
 from . import hosted
@@ -100,8 +101,14 @@ def record_title(document: dict[str, Any]) -> str:
     return ""
 
 
-def record_line(row: sqlite3.Row | dict[str, Any]) -> str:
-    """One record as template text (bold sequence number, inline progress)."""
+def record_seqs(app: "LiteApp", room_id: str) -> dict[str, int]:
+    """Record id → sequence number, so lines can name the records they point at."""
+    with app.store.read() as c:
+        return {r["id"]: r["seq"] for r in c.execute("SELECT id, seq FROM records WHERE room_id=?", (room_id,))}
+
+
+def record_line(row: sqlite3.Row | dict[str, Any], seqs: dict[str, int] | None = None) -> str:
+    """One record as template text (bold sequence number, inline progress). seqs lets a hypothesis name its clues."""
     document = loads(row["document_json"]) if "document_json" in row.keys() else row["document"]  # type: ignore[union-attr]
     kind = row["kind"]
     visual = ""
@@ -121,6 +128,10 @@ def record_line(row: sqlite3.Row | dict[str, Any]) -> str:
         visual = f"{BT}{dots(joined, size)}{BT} {joined}/{size} 人"
     elif kind == "branch":
         visual = f"{len(document.get('votes', []))} 人支持"
+    elif kind == "hypothesis" and seqs:
+        links = [label + " " + " ".join(f"**#{seqs[i['clue_ref']]}**" for i in items if i.get("clue_ref") in seqs)
+                 for label, items in (("支持", document.get("support") or []), ("反驳", document.get("refute") or []))]
+        visual = " · ".join(link for link in links if "#" in link)
     return messages.record_line(row["seq"], KIND_LABELS.get(kind, kind), record_title(document),
                                 STATE_LABELS.get(row["state"], row["state"]), visual)
 
@@ -290,14 +301,19 @@ async def perform(app: "LiteApp", caller: Caller, play: str, action: str, value:
             draw_block = (face, band["label"])
         chosen = proposal["outcomes"][branch]
         written, completes, extra_lines = commit(app, room, actor, play, action, proposal, chosen, current, dice_line, value)
+        rolled = check_block["face"] if check_block else draw_block[0] if draw_block else None
+        if rolled:
+            with app.store.tx() as c:
+                luck.record(c, room["umo"], actor["user_id"], actor["user_name"], "check", [rolled])
     if check_block and branch == "failure" and not written:
         extra_lines.append("这次没有收获。")
     steps = [s for row in written[:2] for s in record_steps(row)]
     with app.store.read() as c:
         steps += [line for row in written[:2] if (line := waiting_on(c, row, members))]
+    seqs = record_seqs(app, room["id"])
     reply = Reply().say(messages.play_receipt(shared.actor_label(actor), lite_summary(action, value, current, proposal),
                                               check=check_block, draw=draw_block, changes=extra_lines,
-                                              records=[record_line(row) for row in written], steps=steps))
+                                              records=[record_line(row, seqs) for row in written], steps=steps))
     if completes:
         from ..rooms import lifecycle
         ending = next((loads(r["document_json"]) for r in written if r["kind"] == "ending"), None)
@@ -778,8 +794,12 @@ async def cmd_ending(app, caller, args):
         reply = await list_records(app, caller, "结局")
         endings = shared.world(room).get("presentation", {}).get("endings") or []
         if endings:
-            reply.say(Msg().title("本世界预设的结局").gap().items([f"**{e['name']}**　{e['rule']}" for e in endings])
-                      .gap().hint(f"用 {messages.cmd('/团 结局 提出 标题：走向')} 提出分支"))
+            # Ending conditions name hidden truths; like 321Roll, only the host sees them.
+            host = shared.is_host(app, caller, room)
+            items = [f"**{e['name']}**　{e['rule']}" if host else f"**{e['name']}**" for e in endings]
+            reply.say(Msg().title("本世界预设的结局").gap().items(items)
+                      .gap().hint(f"用 {messages.cmd('/团 结局 提出 结局名：走向')} 提出分支"
+                                  + ("" if host else "，结局名请用上面的名称；达成条件只有主持人能看到")))
         reply.private_only = True
         return reply
     record = by_seq(app, room, refs[0], "branch", "ending")
@@ -819,7 +839,8 @@ async def list_records(app, caller, args):
     if not rows:
         return Reply().say("还没有" + (word or "进行中的") + "记录。")
     label = word if kinds is not None else ("全部" if show_all else "进行中")
-    return Reply().say(messages.records_list([record_line(r) for r in rows[-30:]], label))
+    seqs = record_seqs(app, room["id"])
+    return Reply().say(messages.records_list([record_line(r, seqs) for r in rows[-30:]], label))
 
 
 async def show_record(app, caller, args):
@@ -838,7 +859,21 @@ async def show_record(app, caller, args):
             rows.append(f"**{label}{item.get('term_id', index)}**　{messages.safe(item.get('text', ''))}　{BT}{state}{BT}")
     if document.get("answer_label"):
         rows.append(f"神谕 **{document['answer_label']}**（仅为建议，不直接成为事实）")
-    return Reply().say(messages.record_detail(record_line(row), texts, rows, record_steps(row)))
+    return Reply().say(messages.record_detail(record_line(row, record_seqs(app, room["id"])), texts, rows, record_steps(row),
+                                              record_meter(row["kind"], document)))
+
+
+def record_meter(kind: str, document: dict[str, Any]) -> dict[str, Any] | None:
+    if kind == "contest" and document.get("length"):
+        return {"kind": "contest", "ours": int(document.get("ours") or 0), "theirs": int(document.get("theirs") or 0),
+                "length": int(document["length"]), "opponent": str(document.get("opponent") or "")}
+    if kind == "project" and document.get("segments"):
+        return {"kind": "progress", "done": int(document.get("progress") or 0), "total": int(document["segments"])}
+    if kind == "joint" and document.get("size"):
+        return {"kind": "progress", "done": len(document.get("roster") or []), "total": int(document["size"]), "unit": "人"}
+    if kind == "plan" and document.get("steps"):
+        return {"kind": "steps", "steps": [str(s.get("status") or "open") for s in document["steps"]]}
+    return None
 
 
 def install(app: "LiteApp") -> None:

@@ -93,7 +93,8 @@ class LiteApp:
 
     # ------------------------------------------------------------ assembly
     def install(self) -> None:
-        from .plays import collaboration, custom, hosted, kit
+        from . import daily, fun, personas
+        from .plays import collaboration, custom, hosted, kit, story_recap
         from .rooms import governance, lifecycle
         from .web import api
 
@@ -101,9 +102,13 @@ class LiteApp:
         lifecycle.install(self)
         governance.install(self)
         hosted.install(self)
+        story_recap.install(self)
         collaboration.install(self)
         custom.install(self)
         kit.install(self)
+        personas.install(self)
+        daily.install(self)
+        fun.install(self)
         api.install(self)
 
     def reload_config(self) -> None:

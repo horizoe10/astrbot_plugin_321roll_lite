@@ -1,8 +1,9 @@
-import { busy, dot, empty, esc, figure, fmt, hero, icon, roundIcon, section, when } from "../ui.js";
+import { busy, columns, dot, empty, esc, figure, fmt, hero, icon, roundIcon, section, shares, when } from "../ui.js";
 
 const TABS = [["usage", "模型用量", "activity"], ["outbox", "待重发", "send"], ["audit", "操作记录", "list"], ["backup", "备份", "save"]];
 const CONTRACTS = [["brief-start", "开场"], ["intent", "理解行动"], ["narrative", "叙事正文"], ["risk", "风险排序"], ["collective-event", "集体事件"]];
 const contractName = (id) => (CONTRACTS.find(([key]) => String(id).includes(key)) || [null, id])[1];
+const CONTRACT_TONES = ["c1", "c2", "c3", "c4", "c5", "c6"];
 const TABLES = { rooms: "团桌", actors: "角色", records: "玩法记录", turns: "回合", events: "时间线", facts: "事实", npcs: "人物", votes: "表决",
   saves: "存档", worlds: "自定义世界", settings: "设置", outbox: "待发消息", audit: "操作记录" };
 const ACTIONS = { "web.room_command": ["后台主持", "wand"], "web.world_toggle": ["启停世界", "globe"], "web.world_save": ["保存世界", "save"], "web.world_delete": ["删除世界", "trash"],
@@ -24,23 +25,51 @@ async function usage(root, ctx) {
     const day = new Date(Date.now() - (13 - i) * 86400000).toISOString().slice(0, 10);
     return byDay[day] || { day, calls: 0, failures: 0, input_tokens: 0, output_tokens: 0 };
   });
-  const peak = Math.max(1, ...days.map((x) => x.calls));
   const total = days.reduce((s, x) => s + x.calls, 0);
   const tokens = days.reduce((s, x) => s + (x.input_tokens || 0) + (x.output_tokens || 0), 0);
   const failed = days.reduce((s, x) => s + (x.failures || 0), 0);
-  root.innerHTML = '<div class="figures" style="margin-bottom:40px;gap:56px">' + figure(fmt(total), "近 14 天调用") + figure(fmt(tokens), "tokens", "plain") +
-    figure(failed, "失败" + (total ? " · " + ((failed / total) * 100).toFixed(1) + "%" : ""), failed ? "err" : "plain") + figure(d.config.provider || "跟随会话", "叙事模型", "small plain") + "</div>" +
-    '<div class="grid cols-2"><section>' + section("每日调用", { meta: "金色为成功，红色为失败" }) +
-      '<div class="bars" style="height:180px">' + days.map((x) => '<div class="col" title="' + esc(x.day) + "：" + x.calls + " 次，失败 " + (x.failures || 0) + '"><div class="stack-bar">' +
-        (x.failures ? '<i class="fail" style="height:' + ((x.failures / peak) * 100).toFixed(0) + '%"></i>' : "") + '<i style="height:' + (((x.calls - (x.failures || 0)) / peak) * 100).toFixed(0) + '%"></i></div><span>' + esc(x.day.slice(5)) + "</span></div>").join("") + "</div></section>" +
-    "<section>" + section("按用途") + (d.contracts.length ? '<table class="table"><thead><tr><th>用途</th><th class="num">调用</th><th class="num">失败</th></tr></thead><tbody>' + d.contracts.map((c) => '<tr><td title="' +
-      esc(c.contract) + '">' + esc(contractName(c.contract)) + '</td><td class="num">' + fmt(c.calls) + '</td><td class="num">' + fmt(c.failures) + "</td></tr>").join("") + "</tbody></table>" : empty("暂无")) +
+  const lat = d.latency;
+  // Two or fewer busy days read better by the hour.
+  let mode = days.filter((x) => x.calls).length <= 2 ? "hours" : "days";
+  const today = new Date().toISOString().slice(0, 10);
+  const chart = () => columns(mode === "hours"
+    ? d.hours.map((x, i) => { const h = new Date(x.hour + ":00:00Z").getHours(); return { label: h % 3 === 0 ? String(h).padStart(2, "0") : "", ok: x.calls - x.failures, fail: x.failures,
+        now: i === d.hours.length - 1, title: h + ":00 · " + x.calls + " 次" + (x.failures ? "，失败 " + x.failures : "") }; })
+    : days.map((x) => ({ label: x.day.slice(5).replace("-", "/"), ok: x.calls - (x.failures || 0), fail: x.failures || 0, now: x.day === today,
+        title: x.day + " · " + x.calls + " 次" + (x.failures ? "，失败 " + x.failures : "") })), 240);
+  const callsAll = d.contracts.reduce((s, c) => s + c.calls, 0);
+  const busiest = days.reduce((a, b) => (b.calls > a.calls ? b : a), days[0]);
+  const active = days.filter((x) => x.calls).length;
+  const chartNote = () => '<div class="chart-note"><span>有调用的日子 <b>' + active + "</b> / 14 天</span><span>日均 <b>" + (active ? (total / active).toFixed(1) : 0) + "</b> 次</span>" +
+    (busiest.calls ? "<span>最忙 <b>" + busiest.day.slice(5).replace("-", "/") + "</b> · " + busiest.calls + " 次</span>" : "") + "<span>失败 <b" + (failed ? ' class="err-text"' : "") + ">" + failed + "</b> 次</span></div>";
+  const contracts = d.contracts.map((c, i) => ({ ...c, tone: CONTRACT_TONES[i % CONTRACT_TONES.length] }));
+  const slowest = Math.max(1, ...contracts.map((c) => c.latency?.p50 || 0));
+  root.innerHTML = '<div class="figures" style="margin-bottom:40px;gap:56px">' + figure(fmt(total), "近 14 天调用") +
+    figure(failed ? ((failed / total) * 100).toFixed(1) + "%" : "0%", "失败率 · " + failed + " 次", failed ? "err" : "plain") +
+    figure(lat ? lat.p50 + "″" : "—", "中位耗时", "plain") + figure(lat ? lat.p95 + "″" : "—", "95% 在此之内", "plain") +
+    (tokens ? figure(fmt(tokens), "tokens", "plain") : "") + figure(d.config.provider || "跟随会话", "叙事模型", "small plain") +
+    (d.config.fallback ? figure(d.config.fallback, "备用模型", "small plain") : "") + "</div>" +
+    '<div class="grid cols-2"><section>' + section("调用量", { meta: "金色为成功，红色为失败；今天以深色标出",
+      extra: '<div class="seg mini" role="group" aria-label="时间范围">' + [["hours", "24 小时"], ["days", "14 天"]].map(([k, l]) => '<button data-mode="' + k + '" aria-pressed="' + (mode === k) + '">' + l + "</button>").join("") + "</div>" }) +
+      '<div data-chart>' + chart() + "</div>" + chartNote() + "</section>" +
+    "<section>" + section("按用途", { meta: "共 " + fmt(callsAll) + " 次" }) + (contracts.length ? shares(contracts.map((c) => ({ label: contractName(c.contract), value: c.calls, tone: c.tone })), { legend: false }) +
+      '<div class="use-rows"><div class="use-row head"><span>用途</span><span>调用</span><span>失败</span><span>中位耗时</span></div>' +
+      contracts.map((c) => '<div class="use-row" title="' + esc(c.contract) + '"><span class="use-name"><i class="cat-dot ' + c.tone + '"></i>' + esc(contractName(c.contract)) + "</span>" +
+        '<span class="num">' + fmt(c.calls) + '<small> 次</small></span><span class="num' + (c.failures ? " err-text" : " faint") + '">' + (c.failures ? "失败 " + c.failures : "无失败") + "</span>" +
+        '<span class="use-lat"><i><span style="width:' + (((c.latency?.p50 || 0) / slowest) * 100).toFixed(0) + '%"></span></i><b class="num">' + (c.latency ? c.latency.p50 + "″" : "—") + "</b></span></div>").join("") +
+      "</div>" : empty("暂无")) +
       '<dl class="kv" style="margin-top:22px"><dt>超时</dt><dd>' + d.config.timeout + " 秒</dd><dt>重试</dt><dd>最多 " + d.config.attempts + " 次</dd>" +
+      (lat ? "<dt>最慢一次</dt><dd>" + lat.max + " 秒</dd>" : "") +
       "<dt>格式修正</dt><dd>" + fmt(d.repaired || 0) + ' 次<span class="muted">（模型漏写 null 或多写字段时自动修正）</span></dd></dl></section></div>' +
     '<section class="sec">' + section("最近失败", { count: d.failures.length }) + (d.failures.length ? '<div class="rows">' + d.failures.map((f) => '<div class="ri">' + roundIcon("alert", "err") +
       '<div style="min-width:0"><div class="ri-title">' + esc(contractName(f.contract)) + " · " + esc((f.title || "—").split(" · ")[0]) + '</div><div class="ri-meta">' + esc(f.error || f.status) +
       (f.note ? "　已自动修正：" + esc(f.note) : "") + "</div></div>" +
       '<span class="ri-side"><time>' + esc(when(f.started_at)) + "</time></span></div>").join("") + "</div>" : '<div class="rows"><div class="ri">' + roundIcon("check", "ok") + '<div class="ri-title">没有失败记录</div><span></span></div></div>') + "</section>";
+  root.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => {
+    mode = b.dataset.mode;
+    root.querySelectorAll("[data-mode]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    root.querySelector("[data-chart]").innerHTML = chart();
+  }));
 }
 
 async function outbox(root, ctx) {

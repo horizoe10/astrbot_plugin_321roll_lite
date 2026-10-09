@@ -18,6 +18,7 @@ class Play:
     label: str
     status: str            # 'active' | 'deferred' | 'removed'
     depends: tuple[str, ...] = ()
+    kind: str = "story"    # 'story': a play at the table; 'fun': a group pastime outside the story
 
 
 PLAYS: tuple[Play, ...] = (
@@ -37,10 +38,19 @@ PLAYS: tuple[Play, ...] = (
     Play("playTransformation", "转变与传承", "active"),
     Play("playFortune", "机运与命运", "active"),
     Play("playBranchEndings", "分支与多结局", "active"),
+    Play("playPersonas", "人设卡", "active"),
     Play("playPrivatePhases", "私人并行阶段", "deferred"),
     Play("playRegroup", "合法汇合", "deferred", ("playPrivatePhases",)),
     Play("playFlashback", "闪回准备", "deferred", ("playPlans",)),
     Play("playOutfitting", "整备", "removed"),
+    Play("funDaily", "今日一掷", "active", kind="fun"),
+    Play("funDice", "掷骰与对决", "active", kind="fun"),
+    Play("funReport", "战报与喝彩", "active", kind="fun"),
+    Play("funSchedule", "约团", "active", kind="fun"),
+    Play("funRelay", "故事接龙", "active", kind="fun"),
+    Play("funLuck", "骰运", "active", kind="fun"),
+    Play("funQuotes", "金句", "active", kind="fun"),
+    Play("funSoup", "海龟汤", "active", kind="fun"),
 )
 BY_KEY = {play.key: play for play in PLAYS}
 
@@ -85,7 +95,7 @@ class Features:
             with self.store.read() as c:
                 override = None if umo is None else self.store.get_setting(c, group_scope(umo), f"play.{play.key}")
                 default = bool(self.store.get_setting(c, "global", f"play.{play.key}", True))
-            rows.append({"key": play.key, "label": play.label, "status": play.status, "depends": list(play.depends),
+            rows.append({"key": play.key, "label": play.label, "status": play.status, "depends": list(play.depends), "kind": play.kind,
                          "global": default if play.status == "active" else False, "override": override,
                          "effective": self.enabled(umo, play.key)})
         return rows

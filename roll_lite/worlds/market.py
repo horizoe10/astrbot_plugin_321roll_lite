@@ -7,6 +7,13 @@ whole archive first (package.read_package), compiles the world with the engine, 
 original zip and its assets.bin to <data>/market/<world>/r<revision>-<sha8>/, records the world
 (catalog.save_market) and only then removes the previous folder.  Packages carry JSON and
 images only; nothing from a package is ever executed.
+
+Edition tiers (owner, 2026-10-09): Lite installs Core (core) and Pro (pro); what it cannot use
+there (weather, ambience, the extensions of the full version) is ignored.  Max rows are listed as
+"full" (needs the full 321Roll) and tiers this plugin does not know as "tier"; neither can be
+installed.  Versions are shown as the tier's letter and the revision (C1, P2).  An installed
+world whose index row has the same revision but another sha256 is listed as "changed" and can
+be replaced.
 """
 from __future__ import annotations
 
@@ -25,11 +32,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
+from .. import narration
 from ..storage import now
 from ..version import PLUGIN_VERSION
 from .catalog import COVER_TONES, WorldEntry, WorldInvalid
-from .package import (ASSET_FILE, ASSET_ID, IMAGE_TYPES, INDEX_FORMAT, MAX_PACKAGE, MB, PackageInvalid, build_package,
-                      read_asset, read_package, scenes, version_tuple)
+from .package import (ASSET_FILE, ASSET_ID, DEFAULT_EDITION, EDITION, IMAGE_TYPES, INDEX_FORMAT, MAX_PACKAGE, MB, PackageInvalid,
+                      build_package, edition_of, label, read_asset, read_package, refusal, scenes, version_tuple)
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -178,13 +186,19 @@ def _index_row(base: str, row: Any) -> dict[str, Any]:
             raise ValueError
     need(isinstance(row, dict) and _ID.fullmatch(str(row["id"])) and type(row["revision"]) is int and row["revision"] >= 1)
     need(isinstance(row["title"], str) and 0 < len(row["title"]) <= 100)
+    written = row.get("edition", DEFAULT_EDITION)
+    need(isinstance(written, str) and EDITION.fullmatch(written))
+    edition = edition_of(written)
     need(type(row["size"]) is int and 0 < row["size"] <= MAX_PACKAGE and isinstance(row["sha256"], str) and _SHA.fullmatch(row["sha256"]))
     file_url = urljoin(base, str(row["file"]))
     preview = urljoin(base, str(row["preview"])) if row.get("preview") else None
     need(urlparse(file_url).scheme in ("http", "https") and (preview is None or urlparse(preview).scheme in ("http", "https")))
     cover = row.get("cover")
     mark = str(cover.get("mark") or "").strip()[:2] if isinstance(cover, dict) else ""
-    return {"id": row["id"], "revision": row["revision"], "title": row["title"], "summary": str(row.get("summary") or "")[:200],
+    # A row written out as Pro may carry effects (weather, ambience) that Lite does not show.
+    full = "edition" in row and edition == "pro"
+    return {"id": row["id"], "revision": row["revision"], "edition": edition, "label": label(edition, row["revision"]),
+            "full_effects": full, "title": row["title"], "summary": str(row.get("summary") or "")[:200],
             "size": row["size"], "sha256": row["sha256"], "file_url": file_url, "preview": preview,
             "cover": {"mark": mark, "tone": cover["tone"]} if mark and cover.get("tone") in COVER_TONES else None,
             "images": row["images"] if type(row.get("images")) is int else 0, "min_plugin": str(row.get("min_plugin") or "")[:20]}
@@ -219,13 +233,15 @@ async def load_index(app: "LiteApp", url: str, refresh: bool = False, cfg: dict[
 
 
 def _status(app: "LiteApp", row: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """available | upgrade (text-only preset) | installed | update | changed | older | conflict | plugin"""
+    """available | upgrade (text-only preset) | installed | update | changed | older | conflict | plugin | full (Max) | tier"""
     catalog = _catalog(app)
     stored = catalog.stored(row["id"])
     builtin = catalog.builtin_revision(row["id"])
     installed = stored.pack["revision"] if stored is not None and stored.origin else None
     if stored is not None and not stored.origin:
         status = "conflict"
+    elif refusal(row["edition"]):
+        status = "full" if row["edition"] == "max" else "tier"
     elif builtin is not None and row["revision"] < builtin:
         status = "older"
     elif row["min_plugin"] and version_tuple(row["min_plugin"]) > version_tuple(PLUGIN_VERSION):
@@ -239,7 +255,9 @@ def _status(app: "LiteApp", row: dict[str, Any], cfg: dict[str, Any]) -> dict[st
     else:
         status = "installed"
     return {**{k: v for k, v in row.items() if k != "preview"}, "status": status, "installed_revision": installed,
-            "builtin_revision": builtin, "previews": routes_for(row["preview"], cfg) if row["preview"] else []}
+            "installed_label": label(stored.origin.get("edition"), installed) if installed is not None else None,
+            "builtin_revision": builtin, "builtin_label": label(None, builtin) if builtin is not None else None,
+            "previews": routes_for(row["preview"], cfg) if row["preview"] else []}
 
 
 async def listing(app: "LiteApp", refresh: bool = False) -> dict[str, Any]:
@@ -283,7 +301,7 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
     catalog = _catalog(app)
     async with app.lock(f"market:{package.id}"):
         try:
-            catalog.check_install(package.id, package.revision)
+            catalog.check_install(package.id, package.revision, package.edition)
             await app.engine.compile_world(package.pack)
         except (WorldInvalid, ValueError) as exc:
             raise MarketError(f"不能安装：{exc}") from exc
@@ -293,10 +311,11 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
         existed = (root / name).exists()
         await asyncio.to_thread(_write_folder, root / name, package.data, package.asset_file)
         record = {"source": origin["source"], "file": origin["file"], "sha256": package.sha256, "size": len(package.data),
-                  "revision": package.revision, "installed_at": now(), "by": username, "folder": name,
+                  "revision": package.revision, "edition": package.edition, "installed_at": now(), "by": username, "folder": name,
                   "summary": str(package.manifest.get("summary") or "")[:200], "images": package.images,
                   "banner": package.manifest.get("banner"), "scenes": scenes(package.raw_presentation, package.images),
-                  "assets": package.assets}
+                  "assets": package.assets, "randomness": package.randomness,
+                  "narration": narration.from_extensions(package.extensions)}
         try:
             catalog.save_market(package.pack, package.presentation, record)
         except Exception:
@@ -307,9 +326,12 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
             if child.name != name:
                 shutil.rmtree(child, ignore_errors=True)
     _audit(app, username, "web.market_install", package.id,
-           {"revision": package.revision, "sha256": package.sha256, "source": origin["source"]})
-    return {"id": package.id, "title": package.pack["title"], "revision": package.revision, "images": len(package.assets),
-            "previous": previous.pack["revision"] if previous is not None and previous.origin else None}
+           {"revision": package.revision, "edition": package.edition, "sha256": package.sha256, "source": origin["source"]})
+    before = previous if previous is not None and previous.origin else None
+    return {"id": package.id, "title": package.pack["title"], "revision": package.revision, "edition": package.edition,
+            "label": package.label, "images": len(package.assets),
+            "previous": before.pack["revision"] if before else None,
+            "previous_label": label(before.origin.get("edition"), before.pack["revision"]) if before else None}
 
 
 async def install_from_index(app: "LiteApp", source: str, world_id: str, username: str) -> dict[str, Any]:
@@ -324,6 +346,8 @@ async def install_from_index(app: "LiteApp", source: str, world_id: str, usernam
             break
     if row is None:
         raise MarketError("索引里没有这个世界")
+    if refusal(row["edition"]):
+        raise MarketError(refusal(row["edition"]))
     data = await fetch(app, row["file_url"], row["size"], cfg)
     if len(data) != row["size"]:
         raise MarketError("下载的文件大小与索引不一致，可能下载不完整")
@@ -378,9 +402,14 @@ def image(app: "LiteApp", entry: WorldEntry | None, key: str) -> dict[str, str]:
 
 def package_file(app: "LiteApp", entry: WorldEntry, cover: dict[str, str] | None) -> tuple[str, bytes]:
     """The installed zip for a market world (unchanged, same sha256); a text-only package otherwise."""
-    name = f"{entry.id}-r{entry.pack['revision']}.zip".replace(":", "_")
+    edition = entry.edition
+    name = f"{entry.id}-{label(edition, entry.pack['revision'])}.zip".replace(":", "_")
     if entry.origin:
         stored = asset_root(app, entry.id) / str(entry.origin.get("folder") or "") / "package.zip"
         if stored.is_file():
             return name, stored.read_bytes()
-    return name, build_package(entry.pack, entry.presentation, cover=cover)
+    extensions = None
+    if entry.source == "custom":                  # a custom world's narration defaults travel with it
+        with app.store.read() as c:
+            extensions = narration.to_extensions(narration.stored(c, app, entry.id))
+    return name, build_package(entry.pack, entry.presentation, cover=cover, extensions=extensions, edition=edition)

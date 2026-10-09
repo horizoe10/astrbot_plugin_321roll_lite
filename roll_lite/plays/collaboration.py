@@ -18,7 +18,9 @@ from .. import shared
 from .. import messages
 from ..commands import Caller, Reply, UserError
 from ..engine.gateway import EngineCallFailed
+from ..rooms import lifecycle
 from ..storage import dumps, loads, new_id, now
+from ..worlds.catalog import host_context
 from . import hosted
 
 if TYPE_CHECKING:
@@ -85,7 +87,9 @@ async def close_vote(app: "LiteApp", vote_id: str) -> Reply:
         if vote is None or vote["state"] != "open":
             return Reply()
         room = c.execute("SELECT * FROM rooms WHERE id=?", (vote["room_id"],)).fetchone()
-        voters = {a["id"]: a["user_id"] for a in hosted.eligible_actors(c, room["id"])}
+        actors = hosted.eligible_actors(c, room["id"])
+        voters = {a["id"]: a["user_id"] for a in actors}
+        names = {a["id"]: shared.actor_label(a) for a in actors}
         winner = tally(vote, room["host_user_id"], voters)
         ballots = loads(vote["ballots_json"], {})
         option = next(o for o in loads(vote["options_json"], []) if o["key"] == winner)
@@ -94,8 +98,10 @@ async def close_vote(app: "LiteApp", vote_id: str) -> Reply:
         app.store.add_event(c, room["id"], "vote", f"表决「{vote['title']}」结果：{option['label']}")
     data = loads(vote["data_json"], {})
     passed = vote["kind"] != "proposal" or winner == "A"
-    counts = [(o["label"], sum(1 for choice in ballots.values() if choice == o["key"])) for o in loads(vote["options_json"], [])]
-    reply = Reply().say(messages.vote_result(vote["title"], option["label"], counts, "" if passed else "全队提议未通过"))
+    options = loads(vote["options_json"], [])
+    counts = [(o["label"], sum(1 for choice in ballots.values() if choice == o["key"])) for o in options]
+    who = {o["label"]: [names.get(actor, "?") for actor, choice in ballots.items() if choice == o["key"]] for o in options}
+    reply = Reply().say(messages.vote_result(vote["title"], option["label"], counts, "" if passed else "全队提议未通过", voters=who))
     if room["state"] != "running":
         return reply
     if vote["kind"] == "proposal":
@@ -160,7 +166,11 @@ async def start_event(app: "LiteApp", room_id: str) -> Reply:
         leader = next((a for a in party if turn is not None and a["id"] == turn["actor_id"]), party[0])
         generation = c.execute("SELECT COUNT(*) FROM votes WHERE room_id=? AND kind='event'", (room_id,)).fetchone()[0] + 1
         context = _snapshot(c, room, leader, party, generation)
-    proposal = await app.engine.call("propose_collective_event", {"context": context}, room_id=room_id, umo=room["umo"])
+    fields: dict[str, Any] = {"context": context}
+    host = host_context(shared.world(room), lifecycle.current_act(room))
+    if host:
+        fields["host_context"] = host
+    proposal = await app.engine.call("propose_collective_event", fields, room_id=room_id, umo=room["umo"])
     options = [{"key": "ABC"[i], "label": d["label"], "description": d["description"], "risk": d["risk"], "cost": d["cost"]}
                for i, d in enumerate(proposal["directions"])]
     with app.store.tx() as c:

@@ -160,6 +160,12 @@ def validate_presentation(value: Any, world: dict[str, Any]) -> dict[str, Any]:
         if not (1 <= len(mark) <= 2) or cover.get("tone") not in COVER_TONES:
             raise WorldInvalid("封面需要 1–2 个字和一种配色")
         clean["cover"] = {"mark": mark, "tone": cover["tone"]}
+    # Lite's own worlds say their edition here (a world card imported from SillyTavern is Core); market
+    # installs carry it in the package manifest instead.
+    if value.get("edition") is not None:
+        if value["edition"] not in ("core", "pro"):
+            raise WorldInvalid("presentation.edition 只能是 core 或 pro")
+        clean["edition"] = value["edition"]
     return clean
 
 
@@ -167,33 +173,75 @@ def digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(dumps(value).encode("utf-8")).hexdigest()
 
 
-def brief(snapshot: dict[str, Any]) -> dict[str, str]:
-    """The engine brief (validate_brief fields) built from a frozen world snapshot.
+HOST_CONTEXT_LIMIT = 6000
+HIDDEN = "隐藏设定，不可直接透露"
 
-    Hidden entry text (secret) goes to the model through the worldview so the story
-    stays consistent; it is never posted to the group by Lite itself.
+
+def _host_entry(entry: dict[str, Any]) -> str:
+    head = f"- {entry['name']}（{KIND_LABELS.get(entry['kind'], entry['kind'])}）"
+    if not entry.get("public", True):
+        head += f"［{HIDDEN}］"
+    summary = (entry.get("summary") or "").strip()
+    line = head + ("：" + summary if summary else "")
+    secret = (entry.get("secret") or "").strip()
+    if secret:
+        line += "\n  秘密（不可直接透露）：" + secret
+    return line
+
+
+def host_context(snapshot: dict[str, Any], act: dict[str, Any] | None = None) -> str | None:
+    """What only the hosting model may read, composed like 321Roll's host_context (engine rc28).
+
+    In order: the current act, the ending conditions, the host guidance, then every entry with
+    its secret.  Over the engine's limit whole entries are dropped from the end; the first three
+    parts are kept.  The engine puts the text into the system prompt alone, so it never comes
+    back in an echo, a fact or a message.
     """
     pack = snapshot["pack"]
-    entries = []
-    for e in pack["entries"]:
-        line = f"- {KIND_LABELS.get(e['kind'], e['kind'])}「{e['name']}」：{e['summary']}"
-        if e.get("secret"):
-            line += f"（隐藏设定，不可直接透露：{e['secret']}）"
-        entries.append(line)
-    worldview = pack["worldview"]
-    if pack.get("guidance"):
-        worldview += "\n\n主持要点：" + pack["guidance"]
-    if entries:
-        worldview += "\n\n世界条目：\n" + "\n".join(entries)
+    head = []
+    if act is not None:
+        lead = (act.get("lead") or "").strip()
+        title = (act.get("title") or "").strip()
+        head.append(f"【当前幕】\n第 {act['number']} 幕" + (f" · {title}" if title else "") + ("——" + lead if lead else ""))
     endings = snapshot.get("presentation", {}).get("endings") or []
     if endings:
-        worldview += "\n\n可能的结局：\n" + "\n".join(f"- {e['name']}：{e['rule']}" for e in endings)
+        head.append("\n".join(["【结局条件】（只供主持判断走向，不向玩家宣布）",
+                               *(f"- {e['name']}：{e.get('rule') or '（未写条件）'}" for e in endings)]))
+    guidance = (pack.get("guidance") or "").strip()
+    if guidance:
+        head.append("【主持指引】\n" + guidance)
+    entries = [_host_entry(e) for e in pack.get("entries") or []]
+
+    def join(kept: list[str]) -> str:
+        return "\n\n".join([*head, *(["\n".join(["【世界条目】", *kept])] if kept else [])])
+
+    if not head and not entries:
+        return None
+    text = join(entries)
+    while len(text) > HOST_CONTEXT_LIMIT and entries:
+        entries.pop()
+        text = join(entries)
+    return text[:HOST_CONTEXT_LIMIT]
+
+
+def brief(snapshot: dict[str, Any], act: dict[str, Any] | None = None) -> dict[str, str]:
+    """The engine brief (validate_brief fields) built from a frozen world snapshot.
+
+    The worldview carries the public setting only; secrets, endings and guidance travel as
+    host_context (see host_context), which Lite itself never posts to the group.
+    """
+    pack = snapshot["pack"]
+    worldview = pack["worldview"]
     initial = pack["initial"]
     opening = pack["seed"] + f"\n\n起点：{initial['place']}" + (f"，{initial['time']}" if initial.get("time") else "")
     if initial.get("state"):
         opening += f"\n{initial['state']}"
-    return {"worldview": worldview[:6000], "opening": opening[:3000], "tone": (pack.get("style") or "")[:300],
-            "boundaries": (pack.get("boundaries") or "")[:1000]}
+    result = {"worldview": worldview[:6000], "opening": opening[:3000], "tone": (pack.get("style") or "")[:300],
+              "boundaries": (pack.get("boundaries") or "")[:1000]}
+    host = host_context(snapshot, act)
+    if host and host.strip():
+        result["host_context"] = host
+    return result
 
 
 @dataclass(frozen=True)
@@ -205,6 +253,13 @@ class WorldEntry:
     pack: dict[str, Any]
     presentation: dict[str, Any]
     origin: dict[str, Any] | None = None   # market install record (see worlds/market.py)
+
+    @property
+    def edition(self) -> str | None:
+        """core or pro as written by the market package or, for a custom world, its presentation; None when unsaid."""
+        if self.origin:
+            return self.origin.get("edition")
+        return self.presentation.get("edition")
 
 
 class WorldCatalog:
@@ -322,18 +377,21 @@ class WorldCatalog:
         with self.app.store.tx() as c:
             c.execute("DELETE FROM worlds WHERE id=?", (world_id,))
             c.execute("DELETE FROM settings WHERE scope='global' AND key=?", (f"world.{world_id}.enabled",))
+            c.execute("DELETE FROM settings WHERE scope='global' AND key=?", (f"world.{world_id}.narration",))
 
     # ------------------------------------------------------------ market installs
-    def check_install(self, world_id: str, revision: int) -> None:
-        """Refuse an install that would overwrite a custom world or go back in revision."""
+    def check_install(self, world_id: str, revision: int, edition: str | None = None) -> None:
+        """Refuse an install that would overwrite a custom world or go back in revision (versions read as C1 / P2)."""
+        from .package import label
         found = self.stored(world_id)
         if found is not None and not found.origin:
             raise WorldInvalid("已经有同 id 的自定义世界，请先删除它或把它改成别的 id")
         builtin = self.builtin_revision(world_id)
         if builtin is not None and revision < builtin:
-            raise WorldInvalid(f"插件自带的版本（第 {builtin} 版）比这个安装包（第 {revision} 版）新")
+            raise WorldInvalid(f"插件自带的版本（{label(None, builtin)}）比这个安装包（{label(edition, revision)}）新")
         if found is not None and revision < found.pack["revision"]:
-            raise WorldInvalid(f"已安装第 {found.pack['revision']} 版，不能降级到第 {revision} 版；需要的话先卸载")
+            raise WorldInvalid(f"已安装 {label(found.origin.get('edition'), found.pack['revision'])}，"
+                               f"不能降级到 {label(edition, revision)}；需要的话先卸载")
 
     def save_market(self, pack: dict[str, Any], presentation: dict[str, Any], origin: dict[str, Any]) -> None:
         """Record a checked and compiled market world (worlds/market.py does both)."""

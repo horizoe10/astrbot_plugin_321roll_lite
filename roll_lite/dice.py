@@ -34,3 +34,8 @@ def roll_check(mod: int, dc: int, face: int | None = None) -> CheckRoll:
     total = face + mod
     success = face == 20 or (face != 1 and total >= dc)
     return CheckRoll(face, mod, total, dc, success, face == 20, face == 1)
+
+
+def success_chance(mod: int, dc: int) -> int:
+    """Percent chance that roll_check succeeds: 5 for each winning face, so always between 5 and 95."""
+    return 5 * sum(1 for face in range(1, 21) if roll_check(mod, dc, face).success)

@@ -80,7 +80,7 @@
     "party": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 5,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,

@@ -1,9 +1,12 @@
-import { acts, busy, cover, dot, empty, esc, figure, hero, icon, paintArt, radar, roundIcon, section, shortTitle, subTitle, veiled, when } from "../ui.js";
+import { NARRATION, acts, busy, cover, dcScale, dot, empty, esc, figure, hero, icon, meter, narrationExtensions, narrationHint, notch, paintArt, radar, roundIcon, section, shortTitle, subTitle, tier, veiled,
+  when } from "../ui.js";
 import * as editor from "./world_editor.js";
+import * as tavern from "./tavern.js";
 
 const size = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + " MB";
 const host = (url) => { try { return new URL(url).host; } catch { return String(url || ""); } };
-const packageName = (id, revision) => String(id).replace(/:/g, "_") + "-r" + revision + ".zip";
+// Same name as the plugin's export (market.package_file): <id>-<C1|P2>.zip.
+const packageName = (id, label) => String(id).replace(/:/g, "_") + "-" + label + ".zip";
 
 function tabs(current) {
   return '<nav class="tabs" aria-label="世界分区">' + [["", "世界库", "book"], ["market", "世界市场", "globe"]].map(([key, label, ic]) =>
@@ -14,7 +17,8 @@ export async function render(root, ctx) {
   const [first, second] = ctx.route.rest;
   if (first === "market" && !second) return market(root, ctx);
   if (first === "import") return importer(root, ctx);
-  if (first === "new") return editor.render(root, ctx, { from: ctx.route.params.from });
+  if (first === "tavern") return tavern.render(root, ctx);
+  if (first === "new") return editor.render(root, ctx, { from: ctx.route.params.from, tavern: ctx.route.params.tavern === "1" });
   if (first && second === "edit") return editor.render(root, ctx, { id: first });
   if (first) return detail(root, ctx, first);
   const data = await ctx.api.get("worlds");
@@ -58,6 +62,23 @@ function matrix(archetypes, attrs) {
     }).join("")).join("") + "</div>";
 }
 
+/** The world's rules drawn: difficulty ruler, resources at the start, each attribute's range, and party size. */
+function rulesBlock(p, attrs) {
+  const r = p.rules, lo = Math.min(...attrs.map((a) => a.min)), hi = Math.max(...attrs.map((a) => a.max)), span = Math.max(1, hi - lo);
+  const seatsRow = Array.from({ length: 8 }, (_, i) => {
+    const n = i + 1, cls = n < r.minPlayers ? "" : n >= r.recommendedMin && n <= r.recommendedMax ? "rec" : "ok";
+    return '<span class="' + cls + '"><i></i>' + n + "</span>";
+  }).join("");
+  return '<div class="rule-block"><div class="label">难度 <span class="faint">· 刻度下的百分比是属性加值为 0 时的成功率</span></div>' + dcScale(r) + "</div>" +
+    '<div class="rule-block"><div class="label">资源 <span class="faint">· 开局 / 上限</span></div><div class="meters">' + p.resources.map((x, i) => meter(x.name, x.initial, x.max, i)).join("") + "</div></div>" +
+    '<div class="rule-block"><div class="label">属性范围</div>' + (attrs.every((a) => a.min === lo && a.max === hi)
+      ? '<p class="hint" style="margin:0">' + attrs.map((a) => esc(a.name)).join("、") + " 都在 <b class=\"num\">" + lo + "–" + hi + "</b> 之间</p>"
+      : '<div class="ranges">' + attrs.map((a) => '<div class="range-row"><span>' + esc(a.name) + '</span><div class="range-track"><i style="left:' +
+        (((a.min - lo) / span) * 100).toFixed(1) + "%;right:" + (((hi - a.max) / span) * 100).toFixed(1) + '%"></i></div><b class="num">' + a.min + "–" + a.max + "</b></div>").join("") + "</div>") + "</div>" +
+    '<div class="rule-block"><div class="label">人数 <span class="faint">· 实心为推荐，空心可开但不推荐</span></div><div class="seat-scale">' + seatsRow + "</div></div>" +
+    '<dl class="kv"><dt>设定条目</dt><dd>' + p.entries.length + " 条（公开 " + p.entries.filter((e) => e.public).length + "）</dd></dl>";
+}
+
 function card(w) {
   const link = "#/worlds/" + encodeURIComponent(w.id);
   return '<article class="world-card' + (w.enabled ? "" : " off") + '"><a href="' + link + '">' +
@@ -65,8 +86,11 @@ function card(w) {
     '<div class="body"><div class="style">' + esc(w.style) + "</div>" +
     '<div class="stat-row">' +
       '<div class="figures">' + figure(w.attributes.length, "项属性", "small plain") + figure(w.archetypes.length, "个职业", "small plain") + figure(w.skills + w.items, "技能物品", "small plain") + figure(w.entries, "条设定", "small plain") + "</div></div>" +
-    '<div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)">' + acts(w.acts.map((_, i) => i + 1), 0, true) + "<span>" + w.acts.length + " 幕 · " + w.endings.length + " 个结局</span><span class=\"spacer\"></span>" +
-      icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">第 ' + w.revision + " 版</span>" : w.source === "market" ? '<span class="tag gold">' + (w.art ? "图文 · " : "") + "第 " + w.revision + " 版</span>" : "") + "</div>" +
+    '<div class="wc-tags"><span class="wc-tag">' + icon("book", 12) + (w.edition === "core" ? "核心版 · 第一幕后即兴" : w.acts.length + " 幕 · " + w.endings.length + " 个结局") + "</span>" +
+      ["improv", "dialogue"].map((f) => w.narration?.[f] ? '<span class="wc-tag" title="' + esc(NARRATION[f].title) + '">' + esc(NARRATION[f].title.slice(0, 2)) + " <b>" + esc(w.narration[f].label) + "</b></span>" : "").join("") + "</div>" +
+    '<div class="row" style="gap:14px;font-size:12.5px;color:var(--muted)"><span class="wc-played' + (w.played.rooms ? "" : " none") + '">' + icon("dice", 13) +
+      (w.played.rooms ? "近 30 天 <b>" + w.played.month + "</b> 桌 · 最近开桌 " + esc(when(w.played.last_at)) : "还没开过桌") + '</span><span class="spacer"></span>' +
+      icon("users", 14) + "<span>" + esc(w.players) + " 人</span>" + (w.source === "custom" ? '<span class="tag gold">' + esc(w.label) + "</span>" : w.source === "market" ? '<span class="tag gold">' + (w.art ? "图文 · " : "") + esc(w.label) + "</span>" : "") + "</div>" +
     '<div class="foot"><span class="row" style="gap:18px"><a class="link" href="' + link + '">查看' + icon("arrow", 14) + "</a>" +
       (w.source === "custom" ? '<a class="link" href="' + link + '/edit">' + icon("pen", 14) + "编辑</a>" : "") + "</span>" +
       '<label class="row" style="gap:10px;font-size:12.5px;color:var(--muted)"><span data-state>' + (w.enabled ? "已启用" : "已停用") + "</span>" +
@@ -75,12 +99,31 @@ function card(w) {
 }
 
 export function download(w, pack, presentation, notify) {
-  const blob = new Blob([JSON.stringify({ format: w.bundle_format, pack, presentation }, null, 2)], { type: "application/json" });
+  // Chosen narration defaults travel in the file's extensions, as in the plugin's own export.
+  const chosen = Object.fromEntries(Object.entries(w.narration || {}).filter(([, d]) => d.source !== "fallback").map(([f, d]) => [f, d.value]));
+  const extensions = narrationExtensions(chosen);
+  const blob = new Blob([JSON.stringify({ format: w.bundle_format, pack, presentation, ...(Object.keys(extensions).length ? { extensions } : {}) }, null, 2)],
+    { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = pack.id + ".world.json";
   a.click();
   notify?.("已导出 " + a.download);
+}
+
+// A world's narration defaults: what new tables start with.  Preset and market worlds keep their package as is;
+// a change here is this machine's adjustment and can be undone back to the package's value.
+function narrationSection(w) {
+  const custom = w.source === "custom";
+  const row = (field) => {
+    const d = w.narration[field];
+    const reset = d.source === "local" ? '<button class="btn text small" data-narr-reset="' + field + '">恢复为' + esc(d.packaged_label) + "</button>" : "";
+    return '<div class="narr-row"><div class="narr-head"><b>' + NARRATION[field].title + '</b><span class="now">' + esc(d.label) + '</span><span class="spacer"></span>' +
+      '<span class="narr-src">' + esc(d.source_label) + "</span>" + reset + "</div>" + notch(field, d.value) + '<p class="narr-hint">' + esc(narrationHint(field, d.value)) + "</p></div>";
+  };
+  return "<section>" + section("叙事默认", { meta: "新开的团桌沿用这些设置，已开的桌不受影响" }) + '<div class="narr">' + ["improv", "dialogue", "length"].map(row).join("") +
+    '<div class="narr-row"><div class="narr-head"><b>文笔与基调</b><span class="spacer"></span><span class="narr-src">' + (custom ? "在编辑器的“基本信息”里修改" : "世界包") + "</span></div>" +
+    '<div class="narr-text">' + esc(w.pack.style || "未填写，模型会贴合这个世界的基调与氛围。") + "</div></div></div></section>";
 }
 
 // Scene images, act titles and endings give the story away, so the detail page folds them until asked.
@@ -103,6 +146,8 @@ async function detail(root, ctx, id) {
   const custom = w.source === "custom";
   const fromMarket = w.source === "market";
   const m = w.market;
+  // Core editions (world cards, C1, C2…) preset the first act only and no endings; the table improvises the rest.
+  const core = w.edition === "core";
   const attrs = p.attributes;
   const lo = Math.min(...attrs.map((a) => a.min)), hi = Math.max(...attrs.map((a) => a.max));
   // Only custom worlds can be edited, copied or exported as JSON; preset and market worlds stay read-only
@@ -116,17 +161,19 @@ async function detail(root, ctx, id) {
   const origin = !m ? "" : m.source === "upload" ? "上传的安装包" : m.source === "url" ? "网址安装 · " + host(m.file) : host(m.source) + " 索引";
   root.innerHTML = '<a class="crumb" href="#/worlds">' + icon("arrow", 14, "flip") + "世界</a>" +
     '<header class="band tone-' + esc(w.cover.tone) + '" data-mark="' + esc(w.cover.mark) + '"' + (w.art ? ' data-art="' + esc(id) + '" data-rev="' + esc(m.sha256) + '"' : "") + '><div class="band-top"><div style="min-width:0">' +
-      '<div class="eyebrow">' + (custom ? "自定义世界 · 第 " + p.revision + " 版" : fromMarket ? "市场世界 · 第 " + p.revision + " 版" + (w.art ? " · 图文" : "") : "预设世界 · 文本版") + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
+      '<div class="eyebrow">' + (custom ? "自定义世界 · " + esc(w.label) : fromMarket ? "市场世界 · " + esc(w.label) + (w.art ? " · 图文" : "") : "预设世界 · 文本版 " + esc(w.label)) + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
       '<div class="band-meta">' + dot(w.enabled ? "ok" : "off", w.enabled ? "已启用" : "已停用") + "<span>" + icon("users", 13) + " " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</span><span>" +
-      (pres.acts || []).length + " 幕 · " + (pres.endings || []).length + " 个结局</span><span>" + p.entries.length + " 条设定</span></div></div>" +
+      (core ? "核心版 · 预设 1 幕 · 结局即兴" : (pres.acts || []).length + " 幕 · " + (pres.endings || []).length + " 个结局") + "</span><span>" + p.entries.length + " 条设定</span></div></div>" +
       '<div class="btns" style="flex:none">' + actions + "</div></div>" +
       (actList.length ? '<div class="band-acts">' + acts(veiled(actList, 0), 0) + "</div>" : "") + "</header>" +
+    (core ? '<div class="note-box" style="margin:0 0 48px">' + icon("sparkle", 16) + "<div><b>核心版（世界卡）</b><span>预设剧情只写到第一幕，没有预设结局。开团后由 AI 即兴续写，即兴程度默认“奔放”，主持人可以用 " +
+      '<span class="kbd">/团 主持 即兴</span> 调整；想开新的一幕时发送 <span class="kbd">/团 主持 换幕 标题：引子</span>，收尾时发送 <span class="kbd">/团 完结 结局名</span>。</span></div></div>' : "") +
     (later ? '<section style="margin:0 0 56px">' + section("场景图", { count: w.scenes.length, meta: "随安装包附带 · 保存在插件数据目录" }) +
       spoiler("scenes", "封面之外另有 " + later + " 张场景图，开团后随剧情出现。", '<div class="scene-grid">' +
         w.scenes.map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
           esc(s.label) + "</figcaption></figure>").join("") + "</div>") + "</section>" : "") +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' +
-      "<section>" + section("世界观", { meta: esc(p.style || "") }) + '<div class="prose initial">' + esc(p.worldview) + "</div>" + (p.seed ? '<p class="quote">' + esc(p.seed) + "</p>" : "") + "</section>" +
+      "<section>" + section("世界观") + '<div class="prose initial">' + esc(p.worldview) + "</div>" + (p.seed ? '<p class="quote">' + esc(p.seed) + "</p>" : "") + "</section>" +
       (actList.length ? "<section>" + section("幕", { count: actList.length, meta: "故事的大段落，主持人用 /团 主持 换幕 推进" }) +
         spoiler("acts", "共 " + actList.length + " 幕。每一幕的标题和引言会在团桌推进到那一幕时揭晓。", '<div class="rows">' +
           actList.map((a) => '<div class="ri"><span class="opt-num">' + a.number + '</span><div style="min-width:0"><div class="ri-title">' + esc(a.title) + '</div><div class="ri-meta">' + esc(a.lead || "") + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
@@ -135,18 +182,15 @@ async function detail(root, ctx, id) {
           '</span></div><div class="ri-meta">' + attrs.map((at) => esc(at.name) + " " + a.attributes[at.id]).join(" · ") + "</div></div>" +
           radar(attrs.map((at) => at.name), [{ values: attrs.map((at) => a.attributes[at.id]), strong: true }], lo, hi, 56, false) + "</div>").join("") + "</div></section>" +
     '</div><div class="stack" style="gap:52px">' +
+      narrationSection(w) +
       "<section>" + section("职业属性", { meta: "每列一项属性，颜色越深数值越高" }) + matrix(p.archetypes, attrs) +
         '<div class="figures" style="justify-content:space-between;margin-top:18px">' + figure(attrs.length, "项属性", "small") + figure(p.resources.length, "种资源", "small") + figure(p.skills.length, "项技能", "small") + figure(p.items.length, "件物品", "small") + "</div></section>" +
       (m ? "<section>" + section("安装信息", { meta: "在世界市场里更新或卸载" }) + '<dl class="kv"><dt>来源</dt><dd>' + esc(origin) + "</dd>" +
-        "<dt>安装包</dt><dd>第 " + m.revision + " 版 · " + size(m.size) + " · " + m.images + " 张场景图</dd>" +
+        "<dt>安装包</dt><dd>" + esc(m.label) + " · " + size(m.size) + " · " + m.images + " 张场景图</dd>" +
         '<dt>sha256</dt><dd class="mono" title="' + esc(m.sha256) + '">' + esc(String(m.sha256).slice(0, 16)) + "…</dd>" +
         "<dt>安装时间</dt><dd>" + esc(when(m.installed_at)) + "</dd>" +
-        (w.builtin_revision ? "<dt>文本版</dt><dd>插件自带第 " + w.builtin_revision + " 版，卸载后恢复</dd>" : "") + "</dl></section>" : "") +
-      "<section>" + section("规则") + '<dl class="kv"><dt>属性</dt><dd>' + attrs.map((a) => esc(a.name) + " " + a.min + "–" + a.max).join("、") + "</dd>" +
-        "<dt>资源</dt><dd>" + p.resources.map((r) => esc(r.name) + " " + r.initial + "/" + r.max).join("、") + "</dd>" +
-        "<dt>难度</dt><dd>简单 " + p.rules.difficulties.join(" · ").replace(/^(\d+) · (\d+) · (\d+) · (\d+)$/, "$1 · 标准 $2 · 困难 $3 · 极难 $4") + "</dd>" +
-        "<dt>人数</dt><dd>最少 " + p.rules.minPlayers + " 人，推荐 " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</dd>" +
-        "<dt>设定条目</dt><dd>" + p.entries.length + " 条（公开 " + p.entries.filter((e) => e.public).length + "）</dd></dl></section>" +
+        (w.builtin_revision ? "<dt>文本版</dt><dd>插件自带 " + esc(w.builtin_label) + "，卸载后恢复</dd>" : "") + "</dl></section>" : "") +
+      "<section>" + section("规则") + rulesBlock(p, attrs) + "</section>" +
       (endings.length ? "<section>" + section("结局", { count: endings.length }) +
         spoiler("endings", "共 " + endings.length + " 个结局。结局的名字和达成条件只在故事走到那里时出现。", '<div class="rows">' + endings.map((e, i) => '<div class="ri"><span class="opt-num">' +
           String.fromCharCode(65 + i) + '</span><div style="min-width:0"><div class="ri-title">' + esc(e.name) + '</div><div class="ri-meta">' + esc(e.rule) + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
@@ -167,9 +211,20 @@ async function detail(root, ctx, id) {
     });
   });
   root.querySelector("[data-export]")?.addEventListener("click", () => download(w, p, pres, ctx.toast));
+  const setNarration = async (button, field, value) => {
+    try {
+      await busy(button, () => ctx.api.post("worlds/narration", { id, changes: { [field]: value } }));
+      ctx.toast(value === null ? "已恢复" + NARRATION[field].title : NARRATION[field].title + "已设为“" + button.title + "”，之后新开的团桌使用");
+      ctx.refresh();
+    } catch (error) { ctx.toast(error.message, "error"); }
+  };
+  root.querySelectorAll(".narr [data-field]").forEach((b) => b.addEventListener("click", () => {
+    if (!b.classList.contains("on")) setNarration(b, b.dataset.field, b.dataset.value);
+  }));
+  root.querySelectorAll("[data-narr-reset]").forEach((b) => b.addEventListener("click", () => setNarration(b, b.dataset.narrReset, null)));
   root.querySelector("[data-package]").addEventListener("click", async (e) => {
     try {
-      const name = packageName(id, p.revision);
+      const name = packageName(id, w.label);
       await busy(e.currentTarget, () => ctx.api.download("worlds/package", { id }, name));
       ctx.toast("已导出 " + name);
     } catch (error) { ctx.toast(error.message, "error"); }
@@ -199,10 +254,11 @@ async function importer(root, ctx) {
   const mine = data.worlds.filter((w) => w.source === "custom");
   root.innerHTML = hero({
     eyebrow: "世界 · NEW WORLD", title: "新建世界", crumb: ["#/worlds", "世界"],
-    lead: "在七步可视化编辑器里从空白写起，或复制一个自己写的世界再改；也可以导入别人分享的 .world.json，或 321Roll 的 pack.json。",
+    lead: "在七步可视化编辑器里从空白写起，或复制一个自己写的世界再改；也可以把 SillyTavern 的世界书整理成世界卡，或导入别人分享的 .world.json、321Roll 的 pack.json。",
   }) +
     '<section class="sec" id="start">' + section("用编辑器新建", { meta: "七个步骤逐项提示还缺什么，保存前不会影响任何东西" }) + '<div class="start-grid' + (mine.length ? "" : " solo") + '">' +
-      '<a class="start-blank" href="#/worlds/new">' + icon("plus", 22) + "<b>从空白开始</b><span>预置五项通用属性、一种资源和常用难度，按步骤填写标题、世界观、职业、设定、幕与结局。</span><em>打开编辑器" + icon("arrow", 14) + "</em></a>" +
+      '<div class="start-pair"><a class="start-blank" href="#/worlds/new">' + icon("plus", 22) + "<b>从空白开始</b><span>预置五项通用属性、一种资源和常用难度，按步骤填写标题、世界观、职业、设定、幕与结局。</span><em>打开编辑器" + icon("arrow", 14) + "</em></a>" +
+      '<a class="start-blank alt" href="#/worlds/tavern">' + icon("book", 22) + "<b>从酒馆导入</b><span>把 SillyTavern 的世界书或带世界书的角色卡整理成核心版世界卡：分类条目、选规则模板，可让 AI 补全职业和开场。</span><em>打开导入向导" + icon("arrow", 14) + "</em></a></div>" +
       (mine.length ? '<div><div class="label" style="margin-bottom:10px">或复制一个自己写的世界再改</div><div class="preset-grid">' +
         mine.map((w) => '<a class="preset" href="#/worlds/new?from=' + encodeURIComponent(w.id) + '">' + cover(w.cover, "tile") +
           "<span><b>" + esc(shortTitle(w.title)) + "</b><small>" + esc(w.players) + " 人 · " + w.archetypes.length + " 职业 · " + w.acts.length + " 幕</small></span></a>").join("") + "</div></div>" : "") + "</div></section>" +
@@ -244,7 +300,7 @@ async function importer(root, ctx) {
     if (checked.existing === "custom" && !window.confirm("确定用这个文件覆盖已有的「" + shortTitle(checked.summary.title) + "」吗？")) return;
     try {
       const r = await busy(e.currentTarget, () => ctx.api.post("worlds/save", body()));
-      ctx.toast("已导入，第 " + r.revision + " 版");
+      ctx.toast("已导入，" + (r.label || tier(null, r.revision)));
       ctx.go("worlds/" + encodeURIComponent(r.id));
     } catch (error) { ctx.toast(error.message, "error"); }
   });
@@ -255,11 +311,15 @@ const STATES = {
   available: { action: "安装" },
   upgrade: { label: "已附带文本版", action: "安装图文版" },
   installed: { label: "已安装", gold: true, note: () => "已是最新版本" },
-  update: { label: "可更新", gold: true, action: (w) => "更新到第 " + w.revision + " 版", note: (w) => "已安装第 " + w.installed_revision + " 版" },
-  changed: { label: "内容有变", action: "重新安装", note: () => "索引里同版本的文件与已安装的不同" },
-  older: { label: "版本较旧", note: (w) => "插件自带的第 " + w.builtin_revision + " 版更新", warn: true },
+  update: { label: "可更新", gold: true, action: (w) => "更新到 " + w.label, note: (w) => "已安装 " + w.installed_label },
+  // Same revision, other file (e.g. an old r1 install against the index's P1): offer to replace it.
+  changed: { label: "内容不同", gold: true, action: "替换安装", note: (w) => "已安装的 " + w.installed_label + " 与索引里的 " + w.label + " 内容不同" },
+  older: { label: "版本较旧", note: (w) => "插件自带的 " + w.builtin_label + " 更新", warn: true },
   conflict: { label: "编号冲突", note: () => "已有同 id 的自定义世界", warn: true },
   plugin: { label: "需更新插件", note: (w) => "需要插件 " + w.min_plugin + " 或更新", warn: true },
+  // Lite installs Core and Pro only: Max (the world module) needs the full 321Roll, an unknown tier a newer plugin.
+  full: { label: "需要全量版", note: () => "旗舰版（世界模组），需要 321Roll 全量版", warn: true },
+  tier: { label: "需更新插件", note: () => "这个版本档需要更新插件", warn: true },
 };
 const ROUTE_NOTES = {
   jsdelivr: "GitHub 上的文件改走 jsDelivr 镜像，失败再直连。国内网络建议用这个。",
@@ -281,11 +341,17 @@ function marketCard(w, source) {
   const action = pick(st.action);
   const installed = Boolean(w.installed_revision);
   const art = w.previews.length ? "data-srcs='" + esc(JSON.stringify(w.previews)) + "'" : "";
+  // A Core edition's title ends in （核心版）; the poster keeps the world's name and the facts row says which edition it is.
+  const core = w.edition === "core";
+  const title = core ? String(w.title).replace("（核心版）", "") : w.title;
   return '<article class="world-card market-card"><div class="poster-wrap">' +
-    cover(w.cover || { mark: shortTitle(w.title).slice(0, 1), tone: "ink" }, "poster", w.title, art) +
-    (st.label ? '<span class="tag state' + (st.gold ? " gold" : "") + '">' + esc(st.label) + "</span>" : "") + "</div>" +
+    cover(w.cover || { mark: shortTitle(title).slice(0, 1), tone: "ink" }, "poster", title, art) +
+    (st.label ? '<span class="tag state' + (st.gold ? " gold" : "") + '">' + esc(st.label) + "</span>" : "") +
+    // Pro packs may carry weather, ambience and other effects of the full version that Lite skips.
+    (w.full_effects ? '<span class="tag extra" title="天气、氛围音等效果只在 321Roll 全量版显示">含专业版效果（Lite 中不显示）</span>' : "") + "</div>" +
     '<div class="body"><div class="style">' + esc(w.summary || "") + "</div>" +
-    '<div class="facts"><span>第 <span class="num">' + w.revision + "</span> 版</span><span>" +
+    '<div class="facts"><span class="num" title="版本档与修订号：C 为核心版（世界卡），P 为专业版（世界包），M 为旗舰版（世界模组）">' + esc(w.label) + "</span>" +
+      (core ? '<span class="tag gold" title="预设剧情只写到第一幕，之后由 AI 即兴续写">核心版 · 第一幕后即兴</span>' : "") + "<span>" +
       (w.images ? '<span class="num">' + w.images + "</span> 张场景图" : "纯文本") + '</span><span class="num">' + size(w.size) + "</span></div>" +
     '<div class="foot"><span class="note' + (st.warn ? " warn" : "") + '">' + esc(pick(st.note)) + '</span><span class="row" style="gap:14px">' +
       (installed ? '<a class="link" href="#/worlds/' + encodeURIComponent(w.id) + '">查看' + icon("arrow", 14) + "</a>" +
@@ -368,7 +434,7 @@ function draw(root, ctx, data) {
   act("[data-refresh]", async (btn) => { await busy(btn, () => again(true)); });
   act("[data-install]", async (btn) => {
     const r = await busy(btn, () => ctx.api.post("market/install", { source: btn.dataset.source, id: btn.dataset.install }));
-    ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版" + (r.previous ? "（原第 " + r.previous + " 版）" : ""));
+    ctx.toast("已安装「" + shortTitle(r.title) + "」" + r.label + (r.previous ? "（原 " + r.previous_label + "）" : ""));
     await again();
   });
   act("[data-uninstall]", async (btn) => {
@@ -412,7 +478,7 @@ function draw(root, ctx, data) {
   });
   act("[data-install-url]", async (btn) => {
     const r = await busy(btn, () => ctx.api.post("market/install-url", { url: root.querySelector("#mk-url").value, sha256: root.querySelector("#mk-sha").value }));
-    ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版");
+    ctx.toast("已安装「" + shortTitle(r.title) + "」" + r.label);
     await again();
   });
   root.querySelector("[data-upload]").addEventListener("change", async (e) => {
@@ -422,7 +488,7 @@ function draw(root, ctx, data) {
     label.textContent = "正在安装 " + file.name + "…";
     try {
       const r = await ctx.api.upload("market/upload", file);
-      ctx.toast("已安装「" + shortTitle(r.title) + "」第 " + r.revision + " 版");
+      ctx.toast("已安装「" + shortTitle(r.title) + "」" + r.label);
       await again();
     } catch (error) {
       label.textContent = "上传安装包";

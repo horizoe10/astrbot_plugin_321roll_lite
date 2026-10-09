@@ -18,10 +18,18 @@
     "hint": "填写群号（平台群 ID）。"
   },
   "chat_provider_id": {
-    "description": "叙事模型提供方 ID",
+    "description": "叙事模型",
     "type": "string",
+    "_special": "select_provider",
     "default": "",
-    "hint": "留空时使用该会话当前的聊天模型。"
+    "hint": "从 AstrBot 已配置的模型里选择；留空时使用该会话当前的聊天模型。"
+  },
+  "fallback_provider_id": {
+    "description": "备用叙事模型",
+    "type": "string",
+    "_special": "select_provider",
+    "default": "",
+    "hint": "叙事模型连不上、超时或报错时，改用它重试这一次调用；留空表示不用备用模型。"
   },
   "model_timeout_seconds": {
     "description": "单次模型调用超时（秒）",

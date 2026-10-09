@@ -308,11 +308,11 @@ HOSTED_TURN_CONTRACT_SCHEMA_NAMES = (
     'se-luck-candidate-proposal-1.0.0.schema.json',
     'se-luck-preparation-proposal-1.0.0.schema.json',
 )
-if HOSTED_TURN_VERSION in {'1.0.0rc22','1.0.0rc23','1.0.0rc24','1.0.0rc25','1.0.0rc26'}:
+if HOSTED_TURN_VERSION in {'1.0.0rc22','1.0.0rc23','1.0.0rc24','1.0.0rc25','1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
     HOSTED_TURN_CONTRACT_MODULE_NAMES += ('compact_narrative.py',)
     HOSTED_TURN_CONTRACT_SCHEMA_NAMES += ('hosted-narrative-model-output/1.7.0/schema.json',)
 
-if HOSTED_TURN_VERSION in {'1.0.0rc25', '1.0.0rc26'}:
+if HOSTED_TURN_VERSION in {'1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
     HOSTED_TURN_CONTRACT_MODULE_NAMES += ('play_hooks.py',)
     HOSTED_TURN_CONTRACT_SCHEMA_NAMES += ('hosted-narrative-model-output/1.8.0/schema.json',)
 
@@ -351,10 +351,10 @@ LUCK_PREPARATION_FACTORY_ARGUMENTS = deepcopy(HOSTED_TURN_FACTORY_ARGUMENTS)
 LUCK_PREPARATION_COMPILER_INVENTORY = deepcopy(HOSTED_TURN_COMPILER_INVENTORY)
 LUCK_PREPARATION_COMPILER_INVENTORY['modules'] = sorted(
     LUCK_PREPARATION_COMPILER_INVENTORY['modules'] + list(HOSTED_TURN_CONTRACT_MODULE_NAMES))
-if LUCK_PREPARATION_VERSION in {'1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26'}:
+if LUCK_PREPARATION_VERSION in {'1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
     LUCK_PREPARATION_COMPILER_INVENTORY['modules'] = sorted(
         LUCK_PREPARATION_COMPILER_INVENTORY['modules'] + ['world_rules.py'])
-if LUCK_PREPARATION_VERSION in {'1.0.0rc19', '1.0.0rc25', '1.0.0rc26'}:
+if LUCK_PREPARATION_VERSION in {'1.0.0rc19', '1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
     LUCK_PREPARATION_COMPILER_INVENTORY['modules'] = sorted(
         LUCK_PREPARATION_COMPILER_INVENTORY['modules'] + ['chapter_plan.py', 'opening_world.py'])
 LUCK_PREPARATION_COMPILER_INVENTORY['schemas'] = sorted(
@@ -371,14 +371,16 @@ def build_luck_preparation_entrypoint_contract(base: Mapping[str, Any], *, built
     # Luck preparation is a method of the hosted-turn engine, so the extension
     # registry keeps its 1.12.0 identity and only the capability list grows.
     value['optional_engine_capabilities'] = sorted(set(value['optional_engine_capabilities'])|{'luck.preparation/1.0.0'})
-    if LUCK_PREPARATION_VERSION in {'1.0.0rc22','1.0.0rc23','1.0.0rc24','1.0.0rc25','1.0.0rc26'}:
+    if LUCK_PREPARATION_VERSION in {'1.0.0rc22','1.0.0rc23','1.0.0rc24','1.0.0rc25','1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
         value['optional_engine_capabilities'].append('hosting.compact_narrative/1.0.0')
         value['optional_engine_capabilities'].sort()
-    if LUCK_PREPARATION_VERSION in {'1.0.0rc25', '1.0.0rc26'}:
+    if LUCK_PREPARATION_VERSION in {'1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
         value['optional_engine_capabilities'] = sorted(set(value['optional_engine_capabilities']) | {'hosting.play_hooks/1.0.0'})
+    if LUCK_PREPARATION_VERSION == '1.0.0rc28':
+        value['optional_engine_capabilities'] = sorted(set(value['optional_engine_capabilities']) | {'hosting.host_context/1.0.0'})
     value['compiler_extension_inventory'] = deepcopy(LUCK_PREPARATION_COMPILER_INVENTORY)
     value['release_identity'] = deepcopy(LUCK_PREPARATION_RELEASE_IDENTITY)
-    if LUCK_PREPARATION_VERSION in {'1.0.0rc15', '1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26'}:
+    if LUCK_PREPARATION_VERSION in {'1.0.0rc15', '1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
         for kind in ('embedded','remote'):
             inventory=value['entrypoint_inventory'][f'party321.story_engine.{kind}']
             inventory['turn_interaction']=f'story_engine.entrypoints:create_{kind}_turn_interaction_engine'
@@ -398,10 +400,10 @@ def build_luck_preparation_entrypoint_contract(base: Mapping[str, Any], *, built
             'story_artifact', 'platform_bridge', 'turn.interaction/1.0.0',
             'platform committed actor, dialogue and phase facts and receipts',
         ]
-    if LUCK_PREPARATION_VERSION in {'1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26'}:
+    if LUCK_PREPARATION_VERSION in {'1.0.0rc16', '1.0.0rc19', '1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
         value['optional_engine_capabilities'] = sorted(
             set(value['optional_engine_capabilities']) | {'rules.world_template/1.0.0'})
-    if LUCK_PREPARATION_VERSION in {'1.0.0rc19', '1.0.0rc25', '1.0.0rc26'}:
+    if LUCK_PREPARATION_VERSION in {'1.0.0rc19', '1.0.0rc25', '1.0.0rc26', '1.0.0rc27', '1.0.0rc28'}:
         value['optional_engine_capabilities'] = sorted(set(value['optional_engine_capabilities']) |
             {'story.custom_plays/1.0.0','turn.timeout_ranking/1.0.0','story.chapter_plan/1.0.0','story.opening_world/1.0.0'})
     return value

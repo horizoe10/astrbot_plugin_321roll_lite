@@ -10,16 +10,16 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import adjust, loadout, shared
+from .. import adjust, loadout, narration, personas, quota, shared
 from .. import messages
-from ..commands import Caller, Reply, UserError
-from ..dice import roll_check
+from ..commands import Caller, Reply, UserError, split_title
+from ..dice import roll_check, success_chance
 from ..engine.gateway import EngineCallFailed, new_operation_ref
+from ..fun import luck
 from ..rooms import lifecycle
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import brief as world_brief
-
-from story_engine import hosted_narrative_policy as policy_rules
+from . import story_recap
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -27,8 +27,6 @@ if TYPE_CHECKING:
 LABELS = "ABCD"
 DIFFICULTY_LABELS = {"easy": "简单", "standard": "标准", "hard": "困难", "exceptional": "极难"}
 NARRATION_KINDS = ("narration", "action", "check", "play", "vote", "host", "chapter")
-LENGTH_MODES = {"简洁": "minimal", "均衡": "balanced", "长篇": "epic"}
-STYLE_PRESETS = {label: key for key, label in policy_rules.PRESETS.items()}
 
 
 # ---------------------------------------------------------------- reading
@@ -47,6 +45,9 @@ def limit_text(seconds: int) -> str:
 def _deadline(app: "LiteApp", room: sqlite3.Row) -> str | None:
     seconds = turn_seconds(app, room)
     return None if seconds <= 0 else (datetime.now(UTC) + timedelta(seconds=seconds)).isoformat(timespec="seconds")
+
+
+TURN_STATES = {"awaiting": "等待行动", "resolving": "结算中", "narration_failed": "正文待重试", "review": "正文待主持人审阅"}
 
 
 def current_turn(c: sqlite3.Connection, room_id: str) -> sqlite3.Row | None:
@@ -85,11 +86,15 @@ def actor_view(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
     archetype = next((a for a in pack["archetypes"] if a["id"] == actor["archetype_id"]), {"name": ""})
     skills = loads(actor["skills_json"], {})
     items = loads(actor["items_json"], {})
-    return {"actor_ref": actor["id"], "name": shared.actor_label(actor), "archetype": archetype["name"],
+    view = {"actor_ref": actor["id"], "name": shared.actor_label(actor), "archetype": archetype["name"],
             "attributes": loads(actor["attributes_json"], {}),
             "resources": {k: v["current"] for k, v in loads(actor["resources_json"], {}).items()},
             "skills": [s["name"] for s in pack["skills"] if s["id"] in skills],
             "items": [f"{i['name']}×{items[i['id']]['quantity']}" for i in pack["items"] if items.get(i["id"], {}).get("quantity")]}
+    persona = personas.model_line(room, actor)
+    if persona:
+        view["persona"] = persona
+    return view
 
 
 def recent_events(c: sqlite3.Connection, room: sqlite3.Row) -> list[str]:
@@ -102,25 +107,16 @@ def recent_events(c: sqlite3.Connection, room: sqlite3.Row) -> list[str]:
     when = lifecycle.clock_text(room)
     if when:
         result.append("当前时间：" + when)
+    result += narration.prompt_lines(room)
     directive = hosted_data(room).get("directive")
-    if directive:
+    if directive and not narration.is_legacy_directive(directive):    # an old table's world style is read as its improv
         result.append("主持人指引（优先遵循）：" + directive)
-    narrative = hosted_data(room).get("narrative") or {}
-    if not narrative.get("mode") and (narrative.get("preset") or narrative.get("style")):
-        result.append("主持人文风要求：" + "；".join(filter(None, [
-            f"对白与描写比例“{policy_rules.PRESETS[narrative['preset']]}”" if narrative.get("preset") else "",
-            narrative.get("style", "")])))
     return result
 
 
 def narrative_policy(room: sqlite3.Row) -> dict[str, Any] | None:
-    """The engine's length-and-style policy, only once the host has picked a length."""
-    settings = hosted_data(room).get("narrative") or {}
-    if not settings.get("mode"):
-        return None
-    style = settings.get("style") or (shared.world(room)["pack"].get("style") or "").strip() or "贴合本世界的基调与氛围"
-    return {"schema": policy_rules.SCHEMA, "revision": int(settings.get("revision", 1)), "mode": settings["mode"],
-            "preset": settings.get("preset") or "balanced", "style": style[:600]}
+    """The engine's length-and-style policy, only once the table has a length."""
+    return narration.policy(room, shared.world(room)["pack"].get("style") or "")
 
 
 def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, action: str,
@@ -134,7 +130,8 @@ def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, 
     events = recent_events(c, room)
     if note:
         events.append("主持人审稿意见（本次重写必须遵循）：" + note[:500])
-    context = {"brief": world_brief(shared.world(room)), "scene": {"title": scene.get("title") or "当前场景",
+    context = {"brief": world_brief(shared.world(room), lifecycle.current_act(room)),
+               "scene": {"title": scene.get("title") or "当前场景",
                                                                  "description": scene.get("description") or ""},
                "goal": room["goal"] or "", "actor": actor_view(room, actor), "npcs": npcs, "facts": facts,
                "recent_events": events, "action": action[:2000], "mechanical_receipt": receipt,
@@ -167,7 +164,16 @@ def check_label(rules: dict[str, Any], check: dict[str, Any]) -> str:
 
 def turn_prompt(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row) -> Any:
     rules = shared.rules(room)
-    choices = [{"label": c["label"], "text": c["text"], "tag": messages.check_tag(rules, c["check"])}
+    scores, base = loads(actor["attributes_json"], {}), rules["modifier"]
+
+    def chance(check: dict[str, Any]) -> int | None:
+        """The actor's odds on a check option before any preparation; the image card shows them."""
+        if check.get("kind") != "check" or check.get("difficulty") not in rules["difficulties"]:
+            return None
+        mod = (scores.get(check.get("attribute_ref"), base["baseline"]) - base["baseline"]) // base["divisor"]
+        return success_chance(mod, rules["difficulties"][check["difficulty"]])
+
+    choices = [{"label": c["label"], "text": c["text"], "tag": messages.check_tag(rules, c["check"]), "chance": chance(c["check"])}
                for c in loads(turn["choices_json"], [])]
     minutes = None
     if turn["deadline_at"]:
@@ -402,6 +408,7 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
             turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
             if turn is None or turn["state"] != "awaiting":
                 raise UserError("这个回合已经在处理或已结束。")
+            quota.require_round(app, c, c.execute("SELECT umo FROM rooms WHERE id=?", (room_id,)).fetchone()["umo"])
             actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
             lifecycle.auto_snapshot(c, room_id, f"第 {turn['round']} 轮 · {shared.actor_label(actor)} 行动前")
             c.execute("UPDATE turns SET state='resolving',action_text=?,updated_at=? WHERE id=?", (action, now(), turn_id))
@@ -427,6 +434,8 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                 receipt, doc = mechanics(room, actor, intent, prepared)
                 receipt["intent_reason"] = intent.get("reason", "")
                 loadout.save(c, actor["id"], doc)
+                if receipt.get("face"):
+                    luck.record(c, room["umo"], actor["user_id"], actor["user_name"], "check", [receipt["face"]])
                 if intent["kind"] == "recover":
                     loadout.refill(c, room, "rest", [actor["id"]])
                 c.execute("UPDATE turns SET intent_json=?,receipt_json=?,updated_at=? WHERE id=?",
@@ -450,7 +459,8 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         actors = eligible_actors(c, room_id)
     rules = shared.rules(room)
-    fields = {"brief": world_brief(shared.world(room)), "member_refs": [a["id"] for a in actors], "rules": rules}
+    fields = {"brief": world_brief(shared.world(room), lifecycle.current_act(room)),
+              "member_refs": [a["id"] for a in actors], "rules": rules}
     proposal = await app.engine.call("generate_initial_story", fields, room_id=room_id, umo=room["umo"], rules=rules)
     with app.store.tx() as c:
         c.execute("UPDATE rooms SET scene_json=?,goal=? WHERE id=?", (dumps(proposal["scene"]), proposal["goal"], room_id))
@@ -466,12 +476,16 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
         app.store.bump_room(c, room_id)
     acts = shared.world(room).get("presentation", {}).get("acts") or []
     act = next((a for a in acts if a["number"] == room["act"]), {"title": "", "lead": ""})
-    reply = Reply().say(messages.act_card(shared.world(room)["pack"]["title"], room["act"], act["title"], act["lead"]))
+    reply = Reply().say(messages.act_card(shared.world(room)["pack"]["title"], room["act"], act["title"], act["lead"],
+                                          world=room["world_id"], art="cover", total=lifecycle.acts_total(room)))
     reply.say(messages.scene_card(proposal["scene"]["title"], proposal["scene"]["description"], proposal["goal"],
                                   [(n["name"], n["description"]) for n in proposal["npcs"]])
               .with_art(room["world_id"], f"act:{room['act']}", _art_tag(room, act["title"])))
     if turn is not None:
         reply.say(turn_prompt(room, turn, first))
+    if lifecycle.improvises(room):
+        reply.say(messages.notice("核心版", "预设剧情只写到第一幕，之后由 AI 即兴续写，不推翻设定与已发生的事。",
+                                  "主持人想开新的一幕时发送 /团 主持 换幕 标题：引子；收尾时发送 /团 主持 完结 结局名"))
     return reply
 
 
@@ -513,7 +527,11 @@ async def on_room_resumed(room_id: str, *, app: "LiteApp") -> Reply:
         if turn is None or turn["state"] != "awaiting":
             return Reply()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-    return Reply().say(turn_prompt(room, turn, actor))
+    reply = Reply()
+    recap = await story_recap.on_resume(app, room_id)
+    if recap is not None:
+        reply.say(recap)
+    return reply.say(turn_prompt(room, turn, actor))
 
 
 async def on_room_restored(room_id: str, *, app: "LiteApp") -> Reply:
@@ -536,8 +554,7 @@ async def on_status(room_id: str, *, app: "LiteApp") -> Reply:
         if turn is None or room["state"] not in ("running", "paused"):
             return Reply()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-    states = {"awaiting": "等待行动", "resolving": "结算中", "narration_failed": "正文待重试", "review": "正文待主持人审阅"}
-    return Reply().say(f"第 {turn['round']} 轮：{shared.actor_label(actor)}（{states.get(turn['state'], turn['state'])}）")
+    return Reply().say(f"第 {turn['round']} 轮：{shared.actor_label(actor)}（{TURN_STATES.get(turn['state'], turn['state'])}）")
 
 
 async def on_tick(*, app: "LiteApp") -> Reply:
@@ -573,6 +590,12 @@ async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
         await app.notifier.send(room["umo"], items)
         return
     chosen = choices[0]
+    try:
+        with app.store.read() as c:
+            quota.require_round(app, c, room["umo"])
+    except UserError as exc:
+        await app.notifier.send(room["umo"], f"{label} 超时未行动。{exc.message}")
+        return
     try:
         context = {"round_ref": turn_id, "actor": label,
                    "candidates": [{"choice_ref": ch["label"], "text": ch["text"]} for ch in choices],
@@ -628,6 +651,9 @@ async def choose(app: "LiteApp", caller: Caller, args: str) -> Reply:
     prepared = loadout.freeze(room, actor, names, check.get("attribute_ref") if check.get("kind") == "check" else None) if names else None
     flourish = words[1].strip() if len(words) > 1 else ""
     action = choice["text"] + (f"（{flourish[:200]}）" if flourish else "")
+    with app.store.read() as c:
+        quota.require_round(app, c, room["umo"])
+    await story_recap.before_action(app, caller, room["id"])
     return await resolve(app, room["id"], turn["id"], action, intent_from_choice(choice), prepared=prepared)
 
 
@@ -639,6 +665,9 @@ async def act(app: "LiteApp", caller: Caller, args: str) -> Reply:
     if not 2 <= len(text) <= 500:
         raise UserError("写一句 2–500 字的行动描述，例如 /团 行动 推开音乐室的门看看。")
     prepared = loadout.freeze(room, actor, names) if names else None
+    with app.store.read() as c:
+        quota.require_round(app, c, room["umo"])        # before "正在结算" goes out
+    await story_recap.before_action(app, caller, room["id"])
     await caller.send("正在结算……")
     return await resolve(app, room["id"], turn["id"], text, None, prepared=prepared)
 
@@ -828,12 +857,29 @@ async def host_retry(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 async def host_next_act(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = _host_room(app, caller)
-    acts = shared.world(room).get("presentation", {}).get("acts") or []
-    target = int(args) if args.strip().isdigit() else room["act"] + 1
-    if acts and not any(a["number"] == target for a in acts):
-        raise UserError(f"本世界共 {len(acts)} 幕。")
+    preset = shared.world(room).get("presentation", {}).get("acts") or []
+    words = args.strip().split(maxsplit=1)
+    number = words[0] if words and words[0].isdigit() else ""
+    target = int(number) if number else room["act"] + 1
+    named = (words[1] if len(words) > 1 else "") if number else args.strip()
+    improvised = None
+    if preset and not any(a["number"] == target for a in preset):
+        if not lifecycle.improvises(room):
+            raise UserError(f"本世界共 {len(preset)} 幕。")
+        if target < 1 or target > max(room["act"], len(preset)) + 1:
+            raise UserError(f"下一幕是第 {max(room['act'], len(preset)) + 1} 幕。")
+        # A Core edition stops at its first act; the host names each later act and the model improvises it.
+        title, lead = split_title(named) if "：" in named or ":" in named else (named, "")
+        known = next((a for a in lifecycle.act_list(room) if a["number"] == target), None)
+        improvised = {"title": (title or (known or {}).get("title", ""))[:40], "lead": (lead or (known or {}).get("lead", ""))[:300]}
     with app.store.tx() as c:
+        from ..fun.report import act_recap, favourite_line, favourites
+        best = favourite_line(favourites(c, room["id"], room["act"])) if target != room["act"] else ""
+        recap = act_recap(c, room["id"]) if target != room["act"] else None
         c.execute("UPDATE rooms SET act=?,chapter=chapter+1 WHERE id=?", (target, room["id"]))
+        if improvised is not None:
+            extra = hosted_data(room).get("acts") or {}
+            set_hosted_data(c, room["id"], acts={**extra, str(target): improvised})
         app.store.bump_room(c, room["id"])
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
         heading = lifecycle.act_heading(room) or f"第 {target} 幕"
@@ -843,9 +889,9 @@ async def host_next_act(app: "LiteApp", caller: Caller, args: str) -> Reply:
         turn = current_turn(c, room["id"])
         holder = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone() \
             if turn is not None and turn["state"] == "awaiting" and turn["actor_id"] else None
-    acts = shared.world(room).get("presentation", {}).get("acts") or []
-    act = next((a for a in acts if a["number"] == target), {"title": "", "lead": ""})
-    reply = Reply().say(messages.act_card(room["title"], target, act["title"] or f"第 {target} 幕", act["lead"]))
+    act = next((a for a in lifecycle.act_list(room) if a["number"] == target), {"title": "", "lead": ""})
+    reply = Reply().say(messages.act_card(room["title"], target, act["title"] or f"第 {target} 幕", act["lead"],
+                                          world=room["world_id"], total=lifecycle.acts_total(room), best=best, recap=recap))
     if refilled:
         reply.say(f"新的一幕：按“每幕恢复”的技能与物品次数已恢复（{refilled} 名角色）。")
     if holder is not None and room["state"] == "running":
@@ -906,67 +952,68 @@ async def host_rewind(app: "LiteApp", caller: Caller, args: str) -> Reply:
     return reply
 
 
-def _narrative_settings(room: sqlite3.Row) -> dict[str, Any]:
-    return dict(hosted_data(room).get("narrative") or {})
+def set_narration(app: "LiteApp", room_id: str, changes: dict[str, Any], by: str) -> sqlite3.Row:
+    """Change the table's narration settings (group commands and the WebUI); the next narration uses them."""
+    what = "、".join(narration.FIELD_LABELS.get(f, "风格描述") for f in changes)
+    try:
+        with app.store.tx() as c:
+            narration.set_room(c, room_id, changes)
+            app.store.add_event(c, room_id, "system", f"{by} 调整了{what}")
+            return c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+    except ValueError as exc:
+        raise UserError(str(exc)) from exc
 
 
-def _save_narrative(app: "LiteApp", room: sqlite3.Row, caller: Caller, settings: dict[str, Any], what: str) -> None:
-    settings["revision"] = int(_narrative_settings(room).get("revision", 0)) + 1
-    with app.store.tx() as c:
-        set_hosted_data(c, room["id"], narrative=settings)
-        app.store.add_event(c, room["id"], "system", f"{caller.user_name} 调整了正文{what}")
+def _style_detail(view: dict[str, Any]) -> str:
+    return "对白与描写：" + narration.describe(view, "dialogue") + (f"；风格补充：{view['style']}" if view["style"] else "")
 
 
 async def host_length(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = _host_room(app, caller, "lobby", "running", "paused")
-    text = args.strip()
-    settings = _narrative_settings(room)
-    labels = {v: k for k, v in LENGTH_MODES.items()}
-    if not text:
-        current = settings.get("mode")
-        detail = (f"每段正文 {policy_rules.RANGES[current][0]}–{policy_rules.RANGES[current][1]} 字。" if current
-                  else "没有单独设置，模型通常写 2–4 个短段落。")
-        return Reply().say(messages.notice("正文篇幅：" + (labels[current] if current else "默认"), detail,
-                                           "发送 /团 主持 篇幅 简洁（100–300 字）、均衡（300–600 字）、长篇（600–1000 字）或 默认"))
-    if text not in (*LENGTH_MODES, "默认"):
-        raise UserError("写法：/团 主持 篇幅 简洁｜均衡｜长篇｜默认")
-    settings["mode"] = LENGTH_MODES.get(text)
-    _save_narrative(app, room, caller, settings, "篇幅")
-    if text == "默认":
-        return Reply().say(messages.notice("正文篇幅恢复默认", "模型通常写 2–4 个短段落。"))
-    low, high = policy_rules.RANGES[settings["mode"]]
-    return Reply().say(messages.notice(f"正文篇幅改为{text}", f"从下一段正文开始，每段 {low}–{high} 字（不计选项）。字数不合时模型会自动重写。",
-                                       "发送 /团 主持 文风 调整对白与描写的比例"))
+    word = args.strip()
+    usage = "发送 /团 主持 篇幅 不限、简洁（100–300 字）、均衡（300–600 字）或 长篇（600–1000 字）；写“默认”跟随世界"
+    if word:
+        value = None if word == "默认" else narration.parse("length", word)
+        if value is None and word != "默认":
+            raise UserError("写法：/团 主持 篇幅 不限｜简洁｜均衡｜长篇｜默认")
+        room = set_narration(app, room["id"], {"length": value}, caller.user_name)
+    view = narration.room_view(room)
+    detail = narration.length_detail(view["length"]["value"]) + ("。从下一段正文开始生效。" if word else "。")
+    return Reply().say(messages.notice("正文篇幅：" + narration.describe(view, "length"), detail,
+                                       usage if not word else "发送 /团 主持 文风 调整对白与描写的比例"))
 
 
 async def host_style(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = _host_room(app, caller, "lobby", "running", "paused")
     text = args.strip()
-    settings = _narrative_settings(room)
-    usage = "发送 /团 主持 文风 [" + "｜".join(STYLE_PRESETS) + "] [风格描述]，或 /团 主持 文风 默认"
-    if not text:
-        preset = settings.get("preset")
-        detail = "；".join(filter(None, [f"对白与描写：{policy_rules.PRESETS[preset]}" if preset else "",
-                                          f"风格：{settings['style']}" if settings.get("style") else ""])) or "没有单独设置，按世界包的风格写。"
-        return Reply().say(messages.notice("正文文风", detail, usage))
-    if text == "默认":
-        settings.pop("preset", None)
-        settings.pop("style", None)
-        _save_narrative(app, room, caller, settings, "文风")
-        return Reply().say(messages.notice("正文文风恢复默认", "按世界包的风格写。"))
-    words = text.split(maxsplit=1)
-    if words[0] in STYLE_PRESETS:
-        settings["preset"] = STYLE_PRESETS[words[0]]
-        text = words[1].strip() if len(words) > 1 else ""
+    usage = "发送 /团 主持 文风 [多对白｜偏对白｜均衡｜偏描写｜多描写] [风格补充]；写“默认”跟随世界并清除风格补充"
     if text:
-        if len(text) > 300:
-            raise UserError("风格描述最多 300 字。")
-        settings["style"] = text
-    _save_narrative(app, room, caller, settings, "文风")
-    preset = settings.get("preset")
-    detail = "；".join(filter(None, [f"对白与描写：{policy_rules.PRESETS[preset]}" if preset else "",
-                                      f"风格：{settings['style']}" if settings.get("style") else ""]))
-    return Reply().say(messages.notice("正文文风已更新", detail + "。从下一段正文开始生效。"))
+        words = text.split(maxsplit=1)
+        dialogue = narration.parse("dialogue", words[0])
+        changes: dict[str, Any] = {"dialogue": None, "style": ""} if text == "默认" else {}
+        if dialogue is not None:
+            changes["dialogue"] = dialogue
+            text = words[1].strip() if len(words) > 1 else ""
+        if text and text != "默认":
+            changes["style"] = text
+        room = set_narration(app, room["id"], changes, caller.user_name)
+    view = narration.room_view(room)
+    return Reply().say(messages.notice("正文文风", _style_detail(view) + ("。从下一段正文开始生效。" if args.strip() else "。"), usage))
+
+
+async def host_improv(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    room = _host_room(app, caller, "lobby", "running", "paused")
+    word = args.strip()
+    usage = "发送 /团 主持 即兴 严谨｜稳健｜均衡｜灵动｜奔放；写“默认”跟随世界"
+    if word:
+        value = None if word == "默认" else narration.parse("improv", word)
+        if value is None and word != "默认":
+            raise UserError("写法：/团 主持 即兴 严谨｜稳健｜均衡｜灵动｜奔放｜默认")
+        room = set_narration(app, room["id"], {"improv": value}, caller.user_name)
+    view = narration.room_view(room)
+    current = view["improv"]["value"]
+    detail = (narration.IMPROV_TEXT[current] if current else "没有设置，模型按自己的习惯发挥。") + ("从下一段正文开始生效。" if word else "")
+    return Reply().say(messages.notice("即兴程度：" + narration.describe(view, "improv"), detail, usage))
 
 
 async def host_check(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -1001,6 +1048,7 @@ async def host_check(app: "LiteApp", caller: Caller, args: str) -> Reply:
         label = shared.actor_label(actor)
         app.store.add_event(c, room["id"], "check", f"{label} 【主持检定】{receipt_text(receipt).removeprefix('【检定】')}"
                             + (f"（{reason}）" if reason else ""), actor_id=actor["id"], data=receipt)
+        luck.record(c, room["umo"], actor["user_id"], actor["user_name"], "check", [roll.face])
         queued: list[str] = []
         deltas = (rules.get("failure_costs") or {}).get("harm") or {}
         if harm and not roll.success and deltas:
@@ -1094,11 +1142,13 @@ def install(app: "LiteApp") -> None:
     r.register(("主持 跳过", "强制下一位"), host_skip, summary="跳过当前玩家", topic="主持")
     r.register("主持 选项", host_choices, summary="手动设置本轮选项", usage="/团 主持 选项 一｜二｜三", topic="主持")
     r.register("主持 重试", host_retry, summary="重新生成失败的正文", topic="主持")
-    r.register("主持 换幕", host_next_act, summary="进入下一幕", usage="/团 主持 换幕 [幕号]", topic="主持")
+    r.register("主持 换幕", host_next_act, summary="进入下一幕；核心版写完第一幕后可以自己命名新的一幕",
+               usage="/团 主持 换幕 [幕号] [标题：引子]", topic="主持")
     r.register("主持 轮到", host_turn_to, summary="把当前回合交给指定玩家", usage="/团 主持 轮到 <角色|@对方>", topic="主持")
     r.register("主持 回退", host_rewind, summary="撤回最近一步行动（最多 5 步）", topic="主持")
-    r.register("主持 篇幅", host_length, summary="正文篇幅：简洁、均衡、长篇或默认", usage="/团 主持 篇幅 [简洁|均衡|长篇|默认]", topic="主持")
-    r.register("主持 文风", host_style, summary="对白与描写的比例和风格描述", usage="/团 主持 文风 [多对白|偏对白|均衡|偏描写|多描写] [描述]", topic="主持")
+    r.register("主持 篇幅", host_length, summary="正文篇幅：不限、简洁、均衡或长篇", usage="/团 主持 篇幅 [不限|简洁|均衡|长篇|默认]", topic="主持")
+    r.register("主持 文风", host_style, summary="对白与描写的比例和风格补充", usage="/团 主持 文风 [多对白|偏对白|均衡|偏描写|多描写] [补充]", topic="主持")
+    r.register("主持 即兴", host_improv, summary="即兴程度：从严谨到奔放", usage="/团 主持 即兴 [严谨|稳健|均衡|灵动|奔放|默认]", topic="主持")
     r.register("主持 检定", host_check, summary="要求一位玩家立即检定", usage="/团 主持 检定 <角色> <属性> <难度> [受伤] [理由]", topic="主持")
     r.register("主持 审稿", host_review, summary="正文先私发主持人审阅再公开", usage="/团 主持 审稿 [开|关]", topic="主持")
     r.register("主持 发布", host_publish, summary="公开待审阅的正文", topic="主持", private="room")

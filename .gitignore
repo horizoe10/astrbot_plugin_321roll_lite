@@ -10,3 +10,5 @@ __pycache__/
 /tools/
 # Worlds still being written; they reach the market through the worlds branch when finished.
 /world-packs/
+# AstrBot runtime files created when the plugin is run from this folder.
+/data/

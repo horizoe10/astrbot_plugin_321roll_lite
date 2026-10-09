@@ -12,13 +12,14 @@ template is tried, and after that the segment goes out as text.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from astrbot.api import logger
 
 from . import cards
-from .render import MARKDOWN, PLAIN, Msg, mentions_of, render, target_format
+from .render import MARKDOWN, PLAIN, Msg, from_json, mentions_of, render, target_format, to_json
 from .storage import now
 
 if TYPE_CHECKING:
@@ -26,8 +27,10 @@ if TYPE_CHECKING:
 
 MAX_MESSAGE = 1800
 MENTION_PLATFORMS = frozenset({"aiocqhttp"})
-SEGMENTS = ("status", "narration", "choices")
-PREF_KEYS = ("format", "image_status", "image_narration", "image_choices", "card_theme", "interval", "merge")
+SEGMENTS = ("status", "narration", "choices", "moment", "sheet", "receipt", "room", "daily")
+PREF_KEYS = ("format", *(f"image_{s}" for s in SEGMENTS), "card_theme", "interval", "merge")
+# Undelivered messages handed over with one incoming message; the rest wait for the next one.
+PENDING_BATCH = 10
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,11 @@ class MessagePrefs:
     image_status: bool = False
     image_narration: bool = False
     image_choices: bool = False
+    image_moment: bool = False
+    image_sheet: bool = False
+    image_receipt: bool = False
+    image_room: bool = False
+    image_daily: bool = False
     card_theme: str = "light"
     interval: float = 1.0
     merge: bool = False
@@ -61,8 +69,7 @@ def save_prefs(app: "LiteApp", value: dict[str, Any]) -> MessagePrefs:
     except (TypeError, ValueError):
         interval = 1.0
     prefs = MessagePrefs(format=MARKDOWN if value.get("format") == MARKDOWN else PLAIN,
-                         image_status=bool(value.get("image_status")), image_narration=bool(value.get("image_narration")),
-                         image_choices=bool(value.get("image_choices")),
+                         **{f"image_{s}": bool(value.get(f"image_{s}")) for s in SEGMENTS},
                          card_theme=value.get("card_theme") if value.get("card_theme") in cards.THEMES else "light",
                          interval=interval, merge=bool(value.get("merge")))
     with app.store.tx() as c:
@@ -190,9 +197,15 @@ async def prepare(app: "LiteApp", items: list[Any], platform_name: str, platform
 Sender = Callable[[Any], Awaitable[Any]]
 
 
-async def deliver(app: "LiteApp", send: Sender, items: list[Any], *, platform_name: str, platform_id: str) -> None:
-    """Send items in order with the configured pacing; raises if the platform refuses plain text too."""
+async def deliver(app: "LiteApp", send: Sender, items: list[Any], *, platform_name: str, platform_id: str,
+                  merge: bool | None = None) -> None:
+    """Send items in order with the configured pacing; raises if the platform refuses plain text too.
+
+    merge overrides the admin's choice, so a backlog goes out in as few messages as possible.
+    """
     prefs = load_prefs(app)
+    if merge is not None:
+        prefs = replace(prefs, merge=merge)
     outgoing = await prepare(app, items, platform_name, platform_id, prefs)
     position = 0
     while position < len(outgoing):
@@ -210,7 +223,7 @@ async def deliver(app: "LiteApp", send: Sender, items: list[Any], *, platform_na
             _block_markdown(app, platform_id)
             remaining = items[out.source:]
             outgoing = outgoing[:position] + await prepare(app, remaining, platform_name, platform_id,
-                                                           MessagePrefs(**{**prefs.public(), "format": PLAIN, "blocked": ()}))
+                                                           replace(prefs, format=PLAIN, blocked=()))
             continue
         position += 1
 
@@ -232,7 +245,42 @@ def platform_of(app: "LiteApp", umo: str) -> tuple[str, str]:
         return "", platform_id
 
 
+QQ_OFFICIAL = frozenset({"qq_official", "qq_official_webhook"})
+
+
+def qq_reachable(app: "LiteApp", umo: str) -> bool:
+    """Whether AstrBot's QQ official adapter will really post a proactive message to this conversation.
+
+    Its send_by_session returns quietly, without raising, for a group it has not heard from since the
+    last restart (no remembered scene or message id).  Such a message must wait in the outbox instead
+    of being counted as sent.  Private chats always go out.  An adapter without these fields (another
+    AstrBot version) is trusted to raise on its own.
+    """
+    platform_id, message_type, session_id = (umo.split(":", 2) + ["", ""])[:3]
+    if message_type != "GroupMessage":
+        return True
+    try:
+        inst = app.context.get_platform_inst(platform_id)
+    except Exception:
+        return True
+    scenes = getattr(inst, "_session_scene", None)
+    message_ids = getattr(inst, "_session_last_message_id", None)
+    if not isinstance(scenes, dict) or not isinstance(message_ids, dict):
+        return True
+    if message_ids.get(session_id):
+        return True
+    return scenes.get(session_id) == "group" and bool(getattr(inst, "_allow_group_proactive_send", False))
+
+
 class Notifier:
+    """Messages the plugin sends on its own (timeouts, votes, announcements from a private chat).
+
+    A platform may refuse them: a QQ official bot posts to a group on its own only when the group
+    allows it ("允许机器人主动在群聊内发言") and only after the group has spoken to it since AstrBot
+    started.  A refused message waits in the outbox with its full structure; the next /团 in that
+    conversation carries it as part of the reply (take_pending/settle in main.py).
+    """
+
     def __init__(self, app: "LiteApp") -> None:
         self.app = app
         self._locks: dict[str, asyncio.Lock] = {}
@@ -243,6 +291,8 @@ class Notifier:
 
     async def _send_items(self, umo: str, items: list[Any]) -> None:
         platform_name, platform_id = platform_of(self.app, umo)
+        if platform_name in QQ_OFFICIAL and not qq_reachable(self.app, umo):
+            raise RuntimeError("QQ 官方机器人自启动后还没收到过这个群的消息，暂时无法主动发送")
         async with self.lock(umo):
             await deliver(self.app, lambda chain: self.app.context.send_message(umo, chain), items,
                           platform_name=platform_name, platform_id=platform_id)
@@ -258,26 +308,50 @@ class Notifier:
             logger.warning("321Roll Lite proactive send failed for %s: %s", umo, exc)
             text = "\n\n".join(render(i, PLAIN) for i in items)
             with self.app.store.tx() as c:
-                c.execute("INSERT INTO outbox(umo,text,state,attempts,last_error,created_at,updated_at) "
-                          "VALUES(?,?,'pending',1,?,?,?)", (umo, text, str(exc)[:300], now(), now()))
+                c.execute("INSERT INTO outbox(umo,text,items_json,state,attempts,last_error,created_at,updated_at) "
+                          "VALUES(?,?,?,'pending',1,?,?,?)",
+                          (umo, text, json.dumps([to_json(i) for i in items], ensure_ascii=False), str(exc)[:300], now(), now()))
             return False
 
-    async def flush(self, umo: str) -> None:
-        """Retry pending messages for a conversation that just became active again."""
+    def take_pending(self, umo: str) -> tuple[list[int], list[Any]]:
+        """Ids and messages still waiting for this conversation, oldest first (rows without items_json are plain text)."""
         with self.app.store.read() as c:
-            rows = c.execute("SELECT id,text,attempts FROM outbox WHERE umo=? AND state='pending' ORDER BY id LIMIT 10",
-                             (umo,)).fetchall()
+            rows = c.execute("SELECT id,text,items_json FROM outbox WHERE umo=? AND state='pending' ORDER BY id LIMIT ?",
+                             (umo, PENDING_BATCH)).fetchall()
+        items: list[Any] = []
         for row in rows:
-            try:
-                await self._send_items(umo, [row["text"]])
-                state, error = "sent", ""
-            except Exception as exc:
-                state, error = ("dropped" if row["attempts"] >= 5 else "pending"), str(exc)[:300]
-            with self.app.store.tx() as c:
-                c.execute("UPDATE outbox SET state=?,attempts=attempts+1,last_error=?,updated_at=? WHERE id=?",
-                          (state, error, now(), row["id"]))
-            if state != "sent":
-                break
+            items.extend([from_json(i) for i in json.loads(row["items_json"])] if row["items_json"] else [row["text"]])
+        return [row["id"] for row in rows], items
+
+    def settle(self, ids: list[int], error: Exception | None) -> None:
+        """Mark a carried backlog sent, or count the failed try (a row is dropped after five)."""
+        if not ids:
+            return
+        marks = ",".join("?" * len(ids))
+        with self.app.store.tx() as c:
+            if error is None:
+                c.execute(f"UPDATE outbox SET state='sent',attempts=attempts+1,last_error='',updated_at=? WHERE id IN ({marks})",
+                          (now(), *ids))
+            else:
+                c.execute(f"UPDATE outbox SET state=CASE WHEN attempts>=5 THEN 'dropped' ELSE 'pending' END,"
+                          f"attempts=attempts+1,last_error=?,updated_at=? WHERE id IN ({marks})", (str(error)[:300], now(), *ids))
+
+    async def carry(self, umo: str, send: Sender, *, platform_name: str, platform_id: str) -> None:
+        """Answer an incoming message with the backlog for its conversation, merged into few messages.
+
+        A reply is accepted where a proactive message is not (QQ official groups), so the backlog rides on it.
+        """
+        ids, items = self.take_pending(umo)
+        if not ids:
+            return
+        error: Exception | None = None
+        try:
+            async with self.lock(umo):
+                await deliver(self.app, send, items, platform_name=platform_name, platform_id=platform_id, merge=True)
+        except Exception as exc:
+            error = exc
+            logger.warning("321Roll Lite could not deliver the backlog for %s: %s", umo, exc)
+        self.settle(ids, error)
 
     async def retry(self, umo: str, text: str) -> None:
         await self._send_items(umo, [text])

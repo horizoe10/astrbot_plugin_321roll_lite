@@ -55,11 +55,17 @@ def world_list(entries: list[dict[str, Any]]) -> Msg:
     return m.gap().hint(f"管理员发送 {cmd('/团 开启 序号')} 开一桌；更多世界可以在后台“世界 → 世界市场”安装")
 
 
-def open_card(title: str, hook: str, seat_cap: int, min_players: int, host: str) -> Msg:
+def open_card(title: str, hook: str, seat_cap: int, min_players: int, host: str, world: str = "", note: str = "") -> Msg:
     m = Msg().banner(short_title(title))
+    m.as_segment("moment").with_data({"kind": "open", "title": short_title(title), "sub": subtitle(title), "hook": hook,
+                                      "cap": seat_cap, "min": min_players, "host": host, "note": note})
+    if world:
+        m.with_art(world, "cover", "开团招募")
     if subtitle(title):
         m.caption(subtitle(title))
     m.para(hook)
+    if note:
+        m.caption(note)
     m.field("席位", f"0/{seat_cap}　最少 {min_players} 人可开演").field("主持", host).gap()
     return m.hint(f"{cmd('/团 加入')} 入座，然后私聊我 {cmd('/团 职业')}、{cmd('/团 选职业 1 名字')} 建卡（群里发也可以）　{cmd('/团 世界观')} 读设定")
 
@@ -83,8 +89,12 @@ def archetype_list(title: str, archetypes: list[dict[str, Any]]) -> Msg:
 
 def character_card(c: dict[str, Any]) -> Msg:
     m = Msg().title(c["name"], f"{c['archetype']}　{c['archetype_text']}".strip() if c.get("archetype") else "")
+    m.as_segment("sheet").with_data(c)
     if c.get("user_name") and c["user_name"] != c["name"]:
         m.text(f"玩家 {safe(c['user_name'])}" + ("　· 暂离" if c.get("away") else ""))
+    persona = c.get("persona")
+    if persona:
+        m.field("人设", f"「{safe(persona['name'])}」" + (f"　{safe(persona['intro'])}" if persona.get("intro") else ""))
     if not c.get("archetype"):
         return m.gap().hint(f"还没选职业，发送 {cmd('/团 职业')} 查看")
     m.gap().text("　".join(f"{n} **{v}**" if mod > 0 else f"{n} {v}" for n, v, mod in c["attributes"]))
@@ -102,12 +112,14 @@ def character_card(c: dict[str, Any]) -> Msg:
 
 def roster(seated: int, cap: int, rows: list[tuple[str, str, str]]) -> Msg:
     m = Msg().title("阵容", f"{seated}/{cap} 人　{dots(seated, cap)}").gap()
+    m.as_segment("room").with_data({"kind": "roster", "seated": seated, "cap": cap, "rows": [list(r) for r in rows]})
     return m.items([f"**{safe(user)}**　{safe(role)}　{state}" for user, role, state in rows] or ["还没有人入座"])
 
 
 def joined(user: str, seated: int, cap: int) -> Msg:
     m = Msg().title(f"{safe(user)} 已入座", f"{seated}/{cap} 人　{dots(seated, cap)}")
-    return m.gap().hint(f"下一步建卡：私聊我发送 {cmd('/团 职业')} 看职业，再发 {cmd('/团 选职业 序号 角色名')}；在群里发也可以")
+    return m.gap().hint(f"下一步建卡：私聊我发送 {cmd('/团 职业')} 看职业，再发 {cmd('/团 选职业 序号 角色名')}；在群里发也可以。"
+                        f"有人设卡的话，角色名写人设的名字就会带上它（{cmd('/团 人设')} 查看）")
 
 
 def next_steps_after_card(state: str) -> str:
@@ -117,14 +129,23 @@ def next_steps_after_card(state: str) -> str:
 
 
 # ---------------------------------------------------------------- story
-def act_card(world_title: str, act_number: int, act_title: str, lead: str) -> Msg:
+def act_card(world_title: str, act_number: int, act_title: str, lead: str, *, world: str = "", art: str = "",
+             total: int = 0, best: str = "", recap: dict[str, Any] | None = None) -> Msg:
+    """art: the banner image key, 'cover' at the opening (the scene card after it shows act:1) and act:N later.
+    recap (actions, checks, crits, fumbles of the act just closed) only feeds the image card."""
     m = Msg().banner(short_title(world_title))
+    m.as_segment("moment").with_data({"kind": "act", "title": short_title(world_title), "number": act_number,
+                                      "act_title": act_title, "lead": lead, "total": total, "best": best, "recap": recap})
+    if world:
+        m.with_art(world, art or f"act:{act_number}", short_title(world_title))
     if subtitle(world_title):
         m.caption(subtitle(world_title))
     if act_title:
         m.gap().heading(f"{act_label(act_number)} · {act_title}")
         if lead:
             m.quote(lead)
+    if best:
+        m.gap().field("上一幕最佳", best)
     return m
 
 
@@ -207,6 +228,7 @@ def loadout_card(name: str, entries: list[dict[str, Any]], resources: list[tuple
         m.gap()
         for label, current, maximum in resources:
             m.meter(label, current, maximum)
+    shown: list[dict[str, Any]] = []
     for kind, label in (("skill", "技能"), ("item", "物品")):
         rows = [e for e in entries if e["kind"] == kind]
         if not rows:
@@ -228,7 +250,12 @@ def loadout_card(name: str, entries: list[dict[str, Any]], resources: list[tuple
             state = "" if e["usable"] else f"　〔{e['reason']}〕"
             note = f"　—— {safe(e['text'])}" if e.get("text") and e["text"] != " · ".join(effect) else ""
             lines.append(f"**{safe(e['name'])}**　{BT}{' · '.join(effect) or '叙事效果'}{BT}　{' · '.join(count)}{state}{note}")
+            shown.append({"kind": kind, "name": e["name"], "effect": " · ".join(effect) or "叙事效果", "count": " · ".join(count),
+                          "usable": bool(e["usable"]), "reason": "" if e["usable"] else str(e["reason"]),
+                          "note": e["text"] if note else ""})
         m.items(lines)
+    m.as_segment("sheet").with_data({"kind": "loadout", "name": name, "entries": shown,
+                                     "resources": [list(r) for r in resources], "own": own})
     if not entries:
         m.gap().text("没有技能或物品。")
     if own:
@@ -260,6 +287,8 @@ def attitude_scale(standing: int) -> str:
 
 def people_list(met: list[dict[str, Any]]) -> Msg:
     m = Msg().title("登场人物", "态度针对整个队伍")
+    m.as_segment("receipt").with_data({"kind": "people", "met": [
+        {"name": p["name"], "standing": p["standing"], "tier": p["tier"], "contributions": p["contributions"]} for p in met[:20]]})
     if not met:
         return m.gap().text("还没有遇到任何人。").gap().hint(f"剧情里出现的人物会自动记录；{cmd('/团 关系 人物 名字：做法 [属性 难度]')} 争取态度")
     rows = []
@@ -272,6 +301,10 @@ def people_list(met: list[dict[str, Any]]) -> Msg:
 
 def person_card(p: dict[str, Any]) -> Msg:
     m = Msg().title(p["name"], "势力" if p["kind"] == "faction" else "人物")
+    m.as_segment("receipt").with_data({"kind": "person", "name": p["name"], "faction": p["kind"] == "faction",
+                                       "description": p.get("description") or "", "motivation": p.get("motivation") or "",
+                                       "standing": p["standing"], "tier": p["tier"], "contributions": p["contributions"],
+                                       "memories": (p.get("memories") or [])[-6:]})
     if p.get("description"):
         m.text(safe(p["description"]))
     if p.get("motivation"):
@@ -289,7 +322,7 @@ def person_card(p: dict[str, Any]) -> Msg:
 def play_receipt(actor: str, summary: str, *, check: dict[str, Any] | None = None, draw: tuple[int, str] | None = None,
                  changes: list[str] | None = None, records: list[str] | None = None, note: str = "",
                  steps: list[str] | None = None) -> Msg:
-    m = Msg().title(actor, summary)
+    m = Msg().title(actor, summary).as_segment("receipt")
     if check:
         m.gap().check(**check)
     if draw:
@@ -315,8 +348,13 @@ def records_list(lines: list[str], label: str = "") -> Msg:
     return Msg().title("玩法记录", label).gap().items(lines).gap().hint(f"{cmd('/团 查看 #编号')} 查看详情")
 
 
-def record_detail(line: str, texts: list[str], rows: list[str], steps: list[str] | None = None) -> Msg:
+def record_detail(line: str, texts: list[str], rows: list[str], steps: list[str] | None = None,
+                  meter: dict[str, Any] | None = None) -> Msg:
+    """meter draws the record's progress on the image card: contest (ours, theirs, length), progress (done, total)
+    or steps (each step's state)."""
     m = Msg().text(line)
+    m.as_segment("receipt").with_data({"kind": "record", "line": line, "texts": texts, "rows": rows, "steps": steps or [],
+                                       "meter": meter})
     for text in texts:
         m.gap().quote(text)
     if rows:
@@ -418,20 +456,31 @@ def vote_card(title: str, premise: str, options: list[dict[str, Any]], ballots: 
         tag = "　".join(t for t in (f"风险：{o['risk']}" if o.get("risk") else "", f"代价：{o['cost']}" if o.get("cost") else "") if t)
         items.append({"label": o["key"], "text": o["label"] + (f"——{o['description']}" if o.get("description") else ""), "tag": tag})
     m.gap().choices(items)
+    m.with_data({"kind": "vote_open", "ballots": ballots, "voters": voters, "minutes": minutes})
     return m.gap().hint(f"{cmd('/团 投 A')}　已投 {ballots}/{voters}　{minutes} 分钟后截止",
                         note=f"已投 {ballots}/{voters}，{minutes} 分钟后截止。", cmds=[("投票", "/团 投 A")]).as_segment("choices")
 
 
-def vote_result(title: str, winner: str, counts: list[tuple[str, int]], note: str = "") -> Msg:
+def vote_result(title: str, winner: str, counts: list[tuple[str, int]], note: str = "",
+                voters: dict[str, list[str]] | None = None) -> Msg:
     """Winner first, then every option's count, e.g. 结果：同意　同意 2 · 反对 1."""
     tally = " · ".join(f"{safe(label)} {n}" for label, n in counts)
     m = Msg().title("表决结果", title).text(f"结果：**{safe(winner)}**　{BT}{tally}{BT}")
+    m.as_segment("moment").with_data({"kind": "vote", "title": title, "winner": winner, "counts": [list(c) for c in counts],
+                                      "note": note, "voters": voters or {}})
     return m.gap().hint(note) if note else m
 
 
 def status_card(title: str, state: str, act: tuple[int, int, str] | None, round_number: int | None, clock: str,
-                scene: str, goal: str, me: dict[str, Any] | None, table: list[str]) -> Msg:
-    m = Msg().title(short_title(title), state)
+                scene: str, goal: str, me: dict[str, Any] | None, table: list[str], world: str = "",
+                party: list[dict[str, Any]] | None = None, npcs: list[dict[str, Any]] | None = None) -> Msg:
+    """party (name, role, player, resources, acting: the turn's state for whoever holds it, away) and npcs (name,
+    standing, tier) only feed the image card."""
+    m = Msg().title(short_title(title), state).as_segment("room")
+    m.with_data({"title": short_title(title), "state": state, "act": list(act) if act else None, "round": round_number,
+                 "clock": clock, "scene": scene, "goal": goal, "me": me, "table": table, "party": party or [], "npcs": npcs or []})
+    if world:
+        m.with_art(world, "cover", "团桌状态")
     if act:
         number, total, act_title = act
         m.text(f"{act_label(number)} · {act_title}　{BT}{dots(number, total, '■', '□')}{BT}" if total else f"{act_label(number)} · {act_title}")
@@ -451,8 +500,14 @@ def status_card(title: str, state: str, act: tuple[int, int, str] | None, round_
     return m
 
 
-def ending_card(world_title: str, ending: str, epilogues: list[tuple[str, str]], stats: str) -> Msg:
+def ending_card(world_title: str, ending: str, epilogues: list[tuple[str, str]], stats: str, *, world: str = "",
+                art: str = "", report: dict[str, Any] | None = None) -> Msg:
+    """report is the battle report's data (acts, cast, outcomes); the image card draws the journey from it."""
     m = Msg().banner("终章" + (f" · {ending}" if ending else "")).caption(short_title(world_title))
+    m.as_segment("moment").with_data({"kind": "ending", "title": short_title(world_title), "ending": ending,
+                                      "epilogues": [list(e) for e in epilogues], "stats": stats, "report": report})
+    if world:
+        m.with_art(world, art or "cover", "终章")
     if epilogues:
         m.gap().items([f"**{safe(name)}**　{safe(text)}" for name, text in epilogues])
     return m.gap().hint(stats + f"　主持人发送 {cmd('/团 关闭')} 收桌")
@@ -469,8 +524,280 @@ def help_index(topics: list[str]) -> Msg:
     m.gap().caption("私聊里也能用")
     m.text(f"建卡、{cmd('/团 角色')}、{cmd('/团 背包')}、{cmd('/团 使用')}、{cmd('/团 人物')}、{cmd('/团 状态')}、{cmd('/团 回顾')}、"
            f"{cmd('/团 记录')}；在私聊里行动或使用玩法，结果会发到群里")
+    m.gap().caption("带上自己的角色")
+    m.text(f"私聊我 {cmd('/团 人设 导入')} 导入酒馆角色卡，或 {cmd('/团 人设 新建 名字')} 手写；建卡时 {cmd('/团 选职业 序号 人设名')} 带上，"
+           f"{cmd('/团 人设 融入')} 让 AI 写出你在这个世界里的身份")
+    m.gap().caption("每天一次")
+    m.text(f"{cmd('/团 一掷')} 掷出今天的 d20 和宜忌，{cmd('/团 一掷 全群')} 看本群今日榜")
     return m.gap().hint(f"{cmd('/团 帮助 分类')} 查看详细指令，分类：" + "、".join(topics))
 
 
 def help_topic(topic: str, rows: list[tuple[str, str]]) -> Msg:
     return Msg().title("帮助", topic).gap().items([f"{BT}{usage}{BT}　{summary}" for usage, summary in rows])
+
+
+# ---------------------------------------------------------------- today's roll
+def daily_roll(name: str, day: str, face: int, fortune: str, tier: str, yi: list[list[str]], ji: list[list[str]],
+               *, again: bool = False, crit: str = "") -> Msg:
+    """One player's d20 of the day with two 宜 and two 忌; again marks a repeat ask (same result)."""
+    m = Msg().title("今日一掷", day).as_segment("daily")
+    m.with_data({"kind": "roll", "name": name, "day": day, "face": face, "fortune": fortune, "tier": tier,
+                 "yi": [list(s) for s in yi], "ji": [list(s) for s in ji], "again": again, "crit": crit})
+    m.text(f"{safe(name)}　**{face} · {fortune}**")
+    if again:
+        m.caption("今天已经掷过，结果不会改变")
+    if crit:
+        m.gap().text(crit)
+    for label, signs in (("宜", yi), ("忌", ji)):
+        m.gap().field(label, " · ".join(term for term, _ in signs)).text("；".join(gloss for _, gloss in signs) + "。")
+    return m.gap().caption("每日一次，不改变故事里的检定")
+
+
+def daily_board(day: str, rows: list[dict[str, Any]]) -> Msg:
+    """This group's rolls today, highest first."""
+    m = Msg().title("今日一掷 · 本群", f"{day}　{len(rows)} 人已掷").as_segment("daily")
+    m.with_data({"kind": "board", "day": day, "rows": [dict(r) for r in rows[:30]]})
+    if not rows:
+        return m.gap().text("今天还没有人掷。").gap().hint(f"发送 {cmd('/团 一掷')} 掷出你的今日一掷")
+    m.gap().items([f"**{r['face']} · {r['fortune']}**　{safe(r['name'])}" for r in rows[:30]])
+    if len(rows) > 30:
+        m.caption(f"另有 {len(rows) - 30} 人未列出")
+    return m.gap().hint(f"发送 {cmd('/团 一掷')} 掷出你的今日一掷")
+
+
+
+# ---------------------------------------------------------------- group pastimes
+def dice_roll(name: str, expr: str, reason: str, terms: list[dict[str, Any]], total: int, *, hidden: bool = False) -> Msg:
+    """A free roll; dropped dice (kh/kl) are shown in parentheses."""
+    m = Msg().title("暗骰" if hidden else "掷骰", safe(reason)).as_segment("daily")
+    dice = [t for t in terms if "faces" in t]
+    natural = dice[0]["faces"][0] if len(dice) == 1 and dice[0]["sides"] == 20 and len(dice[0]["faces"]) == 1 else None
+    m.with_data({"kind": "dice", "name": name, "expr": expr, "reason": reason, "terms": terms, "total": total,
+                 "hidden": hidden, "natural": natural if natural in (1, 20) else None})
+    parts = []
+    for t in terms:
+        if "faces" in t:
+            faces = ", ".join(str(f) if k else f"({f})" for f, k in zip(t["faces"], t["kept"]))
+            parts.append(f"{t['label']} [{faces}]")
+        else:
+            parts.append(t["label"])
+    m.text(f"{safe(name)} 掷 {cmd(expr)}").text(" ".join(parts) + f" ＝ **{total}**")
+    if natural in (1, 20):
+        m.caption(f"天然 {natural}")
+    if hidden:
+        m.caption("暗骰：只有你能看到")
+    return m
+
+
+def duel_challenge(name: str, target: str | None, reason: str, minutes: int) -> Msg:
+    m = Msg().title("骰子对决", safe(reason))
+    if target:
+        m.mention(target, "对手")
+    m.text(f"{safe(name)} 发起了一场骰子对决，双方各掷一次 d20，点大者胜。")
+    return m.gap().hint(f"{'被点名的人' if target else '谁都可以'}发送 {cmd('/团 应战')} 接下，{minutes} 分钟内有效")
+
+
+def duel_result(a: str, b: str, rounds: list[tuple[int, int]], winner: str, reason: str) -> Msg:
+    x, y = rounds[-1]
+    m = Msg().title("骰子对决", safe(reason)).as_segment("daily")
+    m.with_data({"kind": "duel", "a": a, "b": b, "rounds": [list(r) for r in rounds], "winner": winner, "reason": reason})
+    m.text(f"{safe(a)}　**{x}** ： **{y}**　{safe(b)}")
+    if len(rounds) > 1:
+        m.caption(f"平局重掷 {len(rounds) - 1} 次")
+    return m.text(f"胜者：**{safe(winner)}**" if winner else "连掷十次都是平局，握手言和。")
+
+
+def battle_report(d: dict[str, Any], art: str = "cover") -> Msg:
+    m = Msg().banner(f"战报 · {d['title']}").as_segment("moment").with_data({"kind": "report", **d})
+    if d.get("world"):
+        m.with_art(d["world"], art, "战报")
+    if d.get("sub"):
+        m.caption(d["sub"])
+    acts = d.get("acts") or []
+    now_act = next((a for a in acts if a["number"] == d["act"]), None)
+    progress = act_label(d["act"]) + (f" · {now_act['title']}" if now_act and now_act["title"] else "")
+    progress += f"（共 {d['total']} 幕）" if d.get("total") else ""
+    m.gap().field("进度", f"{d['state']}　{progress}" + (f"　结局：{safe(d['ending'])}" if d.get("ending") else ""))
+    if d.get("cast"):
+        m.field("阵容", "、".join(f"{safe(c['name'])}（{safe(c['role'])}）" if c.get("role") else safe(c["name"]) for c in d["cast"]))
+    m.field("统计", f"{d['rounds']} 轮 · {d['checks']} 次检定 · 大成功 {d['crits']} · 大失败 {d['fumbles']}")
+    if d.get("best"):
+        m.field("全场最佳", safe(d["best"]))
+    bests = [f"{act_label(a['number'])}{(' · ' + safe(a['title'])) if a['title'] else ''}　{safe(a['best'])}" for a in acts if a.get("best")]
+    if bests:
+        m.gap().caption("每幕最佳").items(bests)
+    if d.get("quote"):
+        m.gap().quote(d["quote"])
+    return m
+
+
+def schedule_board(title: str, options: list[dict[str, Any]], declined: list[str], *, decided: bool) -> Msg:
+    m = Msg().title("约团", short_title(title)).as_segment("room")
+    m.with_data({"kind": "schedule", "title": short_title(title), "options": options, "declined": declined, "decided": decided})
+    rows = []
+    for i, o in enumerate(options, 1):
+        names = "、".join(safe(n) for n in o["names"])
+        rows.append(f"**{i}.** {o['label']}　{len(o['names'])} 人" + (f"　{names}" if names else "") + ("　**已定档**" if o["decided"] else ""))
+    m.gap().items(rows)
+    if declined:
+        m.field("都不行", "、".join(safe(n) for n in declined))
+    if decided:
+        return m.gap().hint("开始前 30 分钟会在群里提醒勾选了这个时间的人")
+    return m.gap().hint(f"{cmd('/团 约 1 3')} 勾选合适的时间，都不行就发 {cmd('/团 约 都不行')}；主持人 {cmd('/团 定档 序号')} 定下")
+
+
+def schedule_notice(title: str, when: str, who: list[tuple[str, str]], kind: str) -> Msg:
+    m = Msg().title("已定档" if kind == "定档" else "约团提醒", short_title(title))
+    for user_id, name in who:
+        m.mention(user_id, name)
+    m.text(f"开团时间：**{when}**")
+    return m.text("还有 30 分钟开始，准备上桌。" if kind == "提醒" else "开始前 30 分钟会再提醒一次。")
+
+
+def relay_progress(lines: list[dict[str, str]], total: int, *, intro: bool = False) -> Msg:
+    if intro:
+        return Msg().title("故事接龙").text(f"还没有人起头。发送 {cmd('/团 接龙 第一句')} 开始，满 {total} 句由 AI 写结尾。")
+    m = Msg().title("故事接龙", f"{len(lines)}/{total} 句").gap()
+    m.items([f"{safe(line['text'])}　—— {safe(line['name'])}" for line in lines])
+    return m.gap().hint(f"{cmd('/团 接龙 你的句子')} 接下去；起头的人可以 {cmd('/团 接龙 收尾')} 提前请 AI 收尾")
+
+
+def sentence(text: str) -> str:
+    """A relay line with its closing punctuation, so the lines read as one passage."""
+    return text if text[-1:] in "。！？…!?」”』）)～~" else text + "。"
+
+
+def relay_story(title: str, lines: list[dict[str, str]], ending: str) -> Msg:
+    m = Msg().title("故事接龙", safe(title) or "未完").as_segment("daily")
+    m.with_data({"kind": "relay", "title": title, "lines": [dict(line) for line in lines], "ending": ending})
+    m.para("".join(sentence(safe(line["text"])) for line in lines))
+    if ending:
+        m.para(safe(ending))
+    names = list(dict.fromkeys(line["name"] for line in lines))
+    return m.caption("执笔：" + "、".join(safe(n) for n in names) + ("　·　AI 收尾" if ending else ""))
+
+
+# ---------------------------------------------------------------- luck, quotes, turtle soup
+def _bar(value: int, peak: int, width: int = 12) -> str:
+    return "▇" * max(1 if value else 0, round(value / peak * width)) if peak else ""
+
+
+def luck_card(name: str, period: str, s: dict[str, Any], total: int) -> Msg:
+    """One member's d20s in this group: average, tier, 20s and 1s, and the spread of faces."""
+    m = Msg().title("骰运", f"{safe(name)}　{period}").as_segment("daily")
+    m.with_data({"kind": "luck", "name": name, "period": period, "total": total, **s})
+    if not s["count"]:
+        return m.gap().text(f"这段时间还没掷过 d20，全部记录共 {total} 次。").gap().hint(f"发送 {cmd('/团 骰运 全部')} 看全部记录")
+    m.gap().text(f"平均 **{s['average']:.2f}** · {s['tier']}　共 {s['count']} 次")
+    m.field("大成功", f"{s['crits']} 次").field("大失败", f"{s['fumbles']} 次").field("过半", f"{s['high']}%（掷出 11 以上）")
+    if s["sources"]:
+        m.field("来源", "　".join(f"{label} {n}" for label, n in s["sources"]))
+    peak = max(s["faces"])
+    m.gap().caption("点数分布").items([f"{face:>2}　{_bar(n, peak)} {n}" for face, n in
+                                    ((20, s["faces"][19]), (15, sum(s["faces"][14:19])), (10, sum(s["faces"][9:14])),
+                                     (5, sum(s["faces"][4:9])), (2, sum(s["faces"][1:4])), (1, s["faces"][0]))])
+    return m.gap().hint(f"{cmd('/团 骰运 榜')} 看本群本月的欧皇与非酋")
+
+
+def luck_board(month: str, ranked: list[dict[str, Any]], rows: list[dict[str, Any]], minimum: int) -> Msg:
+    m = Msg().title("骰运榜", f"本群 · {month}").as_segment("daily")
+    crit = max(rows, key=lambda r: (r["crits"], -r["count"]), default=None)
+    fumble = max(rows, key=lambda r: (r["fumbles"], -r["count"]), default=None)
+    m.with_data({"kind": "luck_board", "month": month, "ranked": ranked[:20], "minimum": minimum, "players": len(rows),
+                 "rolls": sum(r["count"] for r in rows),
+                 "crit": {"name": crit["name"], "n": crit["crits"]} if crit and crit["crits"] else None,
+                 "fumble": {"name": fumble["name"], "n": fumble["fumbles"]} if fumble and fumble["fumbles"] else None})
+    if not ranked:
+        m.gap().text(f"这个月还没有人掷满 {minimum} 次 d20。")
+    else:
+        top, bottom = ranked[:3], [r for r in ranked[::-1][:3] if r not in ranked[:3]]
+        m.gap().caption("欧皇").items([f"**{r['average']:.2f}**　{safe(r['name'])}　{r['count']} 次" for r in top])
+        if bottom:
+            m.gap().caption("非酋").items([f"**{r['average']:.2f}**　{safe(r['name'])}　{r['count']} 次" for r in bottom])
+    if crit and crit["crits"]:
+        m.gap().field("大成功最多", f"{safe(crit['name'])} {crit['crits']} 次")
+    if fumble and fumble["fumbles"]:
+        m.field("大失败最多", f"{safe(fumble['name'])} {fumble['fumbles']} 次")
+    return m.gap().caption(f"掷满 {minimum} 次 d20 才上榜；检定、一掷、掷骰和对决都算")
+
+
+QUOTE_HEADS = {"saved": "已收入金句", "marked": "已收藏金句", "random": "金句重温"}
+
+
+def quote_card(text: str, source: str, number: int, marks: int, saved_name: str, kind: str) -> Msg:
+    m = Msg().title(QUOTE_HEADS.get(kind, "金句"), f"No.{number}").as_segment("daily")
+    m.with_data({"kind": "quote", "head": QUOTE_HEADS.get(kind, "金句"), "text": text, "source": source, "no": number,
+                 "marks": marks, "saved_name": saved_name, "mode": kind})
+    m.gap().quote(text)
+    if source:
+        m.caption(f"—— {safe(source)}")
+    m.gap().caption(f"{marks} 人收藏 · {safe(saved_name)} 最先收录")
+    if kind == "random":
+        return m.hint(f"喜欢这句就发送 {cmd(f'/团 金句 +{number}')} 一起收藏")
+    return m.hint(f"{cmd('/团 金句')} 随机重温，{cmd('/团 金句 榜')} 看收藏最多的句子")
+
+
+def quote_board(rows: list[dict[str, Any]], total: int) -> Msg:
+    m = Msg().title("金句榜", f"本群共 {total} 句").as_segment("daily")
+    m.with_data({"kind": "quote_board", "total": total,
+                 "rows": [{k: r[k] for k in ("id", "text", "source", "marks", "saved_name")} for r in rows]})
+    if not rows:
+        return m.gap().text("本群还没有金句。").gap().hint(f"回复故事消息发送 {cmd('/团 金句')}，或 {cmd('/团 金句 那句话里的几个字')}")
+    m.gap().items([f"**{r['marks']}** 人　{safe(r['text'])}　—— {safe(r['source'])}（No.{r['id']}）" for r in rows])
+    return m.gap().hint(f"发送 {cmd('/团 金句 +编号')} 收藏榜上的句子")
+
+
+SOUP_TONES = {"是": "yes", "否": "no", "无关": "skip", "是也不是": "half"}
+
+
+def soup_board(soup: dict[str, Any], *, fresh: bool = False) -> Msg:
+    """The surface, the unlocked key points and the latest questions of the group's turtle soup."""
+    found = sum(k["by"] is not None for k in soup["keys"])
+    m = Msg().title(f"海龟汤 · {soup['flavor']}", safe(soup["title"])).as_segment("daily")
+    m.with_data({"kind": "soup", "fresh": fresh, "title": soup["title"], "flavor": soup["flavor"], "surface": soup["surface"],
+                 "server": soup["name"], "count": soup["count"], "guesses": soup["guesses"],
+                 "keys": [{"text": k["text"] if k["by"] else "", "by": k["by"] or ""} for k in soup["keys"]],
+                 "asked": soup["asked"][-8:]})
+    m.gap().quote(soup["surface"])
+    m.gap().field("关键线索", f"{found}/{len(soup['keys'])} {dots(found, len(soup['keys']))}")
+    for k in soup["keys"]:
+        if k["by"]:
+            m.text(f"✦ {safe(k['text'])}（{safe(k['by'])}）")
+    if soup["asked"]:
+        m.gap().caption(f"已问 {soup['count']} 个问题").items(
+            [f"{safe(a['name'])}：{safe(a['q'])} → **{a['a']}**" for a in soup["asked"][-5:]])
+    return m.gap().hint(f"{cmd('/团 问 是非题')} 提问，{cmd('/团 猜 你的推理')} 揭开汤底",
+                        note=f"{safe(soup['name'])} 端上了这碗汤" if fresh else "")
+
+
+def _soup_notes(m: Msg, notes: list[str]) -> Msg:
+    for line in notes:
+        m.text(line)
+    return m
+
+
+def soup_answer(number: int, name: str, question: str, answer: str, notes: list[str]) -> Msg:
+    """One answered question, plain lines in every mode; notes are the key points it unlocked."""
+    return _soup_notes(Msg().text(f"第 {number} 问 · {safe(name)}：{safe(question)}").text(f"→ **{answer}**"), notes)
+
+
+def soup_guess(name: str, guess: str, verdict: str, comment: str, notes: list[str]) -> Msg:
+    head = "**接近了**" if verdict == "close" else "**不对**"
+    m = Msg().text(f"{safe(name)} 猜：{safe(guess)}").text(f"→ {head}" + (f"：{safe(comment)}" if comment else ""))
+    return _soup_notes(m, notes)
+
+
+def soup_reveal(soup: dict[str, Any], solver: str, guess: str, minutes: int) -> Msg:
+    m = Msg().title("汤底揭晓", safe(soup["title"])).as_segment("daily")
+    finders = [k["by"] for k in soup["keys"] if k["by"]]
+    m.with_data({"kind": "soup_end", "title": soup["title"], "flavor": soup["flavor"], "surface": soup["surface"],
+                 "truth": soup["truth"], "keys": [dict(k) for k in soup["keys"]], "solver": solver, "guess": guess,
+                 "count": soup["count"], "guesses": soup["guesses"], "minutes": minutes,
+                 "top": max(finders, key=finders.count) if finders else ""})      # ties: whoever found one first
+    m.gap().text(f"**{safe(solver)} 猜中了！**" if solver else "这碗汤没人喝透，直接揭晓。")
+    if guess:
+        m.caption(f"推理：{safe(guess)}")
+    m.gap().field("汤面", safe(soup["surface"])).gap().field("汤底", safe(soup["truth"]))
+    m.gap().caption("关键线索").items([f"{'✦' if k['by'] else '○'} {safe(k['text'])}" + (f"（{safe(k['by'])}）" if k["by"] else "")
+                                   for k in soup["keys"]])
+    return m.gap().caption(f"问了 {soup['count']} 个问题 · 猜了 {soup['guesses']} 次 · 用时 {minutes} 分钟")

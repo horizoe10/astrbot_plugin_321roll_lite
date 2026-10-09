@@ -69,6 +69,14 @@ class Reply:
 
 
 @dataclass(frozen=True)
+class Attachment:
+    """A file or picture that came with the message; fetch() downloads its bytes when it is needed."""
+    kind: str                                   # 'file' | 'image'
+    name: str
+    fetch: Callable[[], Awaitable[bytes]]
+
+
+@dataclass(frozen=True)
 class Caller:
     umo: str                 # AstrBot unified_msg_origin of the conversation
     platform_id: str
@@ -79,6 +87,8 @@ class Caller:
     send: Callable[[Any], Awaitable[None]]   # immediate message (Msg or str) into this conversation
     private_umo: str | None = None           # set when a private-chat command runs in its group's context
     mentions: tuple[str, ...] = ()           # user ids @-mentioned in the message, the bot itself excluded
+    quote: str = ""                          # plain text of the message this one replies to, when the platform gives it
+    attachments: tuple[Attachment, ...] = ()  # files and pictures in the message (persona import in a private chat)
 
     @property
     def in_group(self) -> bool:

@@ -64,14 +64,6 @@ def safe(text: Any) -> str:
     return str(text).replace(BT, "'").replace("**", "*")
 
 
-def meter(current: int, maximum: int, width: int = 10) -> str:
-    if maximum <= 0:
-        return ""
-    cells = min(width, maximum)
-    filled = round(cells * max(0, min(current, maximum)) / maximum)
-    return "▰" * filled + "▱" * (cells - filled)
-
-
 def dots(filled: int, total: int, on: str = "●", off: str = "○") -> str:
     total = max(0, min(total, 12))
     filled = max(0, min(filled, total))
@@ -109,10 +101,11 @@ class Block:
         if k == "field":
             return f"**{esc_inline(d['label'])}**　{inline(d['value'], fmt, False)}" if md else f"{d['label']}　{inline(d['value'], fmt)}"
         if k == "meter":
-            bar, tail, delta = meter(d["current"], d["maximum"]), f"{d['current']}/{d['maximum']}", d.get("delta")
+            # a number reads at any maximum; a run of cells would not fit a 20-point resource
+            delta = d.get("delta")
             if md:
-                return f"{esc(d['label'])}　{BT}{bar}{BT}　{tail}" + (f"　**{delta:+d}**" if delta else "")
-            return f"{d['label']}  {bar}  {tail}" + (f"  {delta:+d}" if delta else "")
+                return f"{esc(d['label'])}　**{d['current']}**/{d['maximum']}" + (f"　{BT}{delta:+d}{BT}" if delta else "")
+            return f"{d['label']}  {d['current']}/{d['maximum']}" + (f"  ({delta:+d})" if delta else "")
         if k == "check":
             mod, label = d["modifier"], OUTCOMES.get(d["outcome"], d["outcome"])
             if md:
@@ -152,13 +145,19 @@ BLOCK_LEVEL = frozenset({"banner", "heading", "quote", "choices", "list", "peopl
 class Msg:
     sections: list[list[Block]] = field(default_factory=list)
     mentions: list[tuple[str, str]] = field(default_factory=list)   # (user_id, display name), put before the text
-    # 'status' | 'narration' | 'choices' | '': segments the admin may send as images.
+    # 'status' | 'narration' | 'choices' | 'moment' | 'sheet' | 'receipt' | 'room' | 'daily' | '': kinds the admin may send as images.
     segment: str = ""
     # Scene banner for the image card: {'world': id, 'key': 'act:2', 'tag': '…'}; set at opening, act or scene change.
     art: dict[str, str] | None = None
+    # Structured values an image card lays out itself (character sheet, room status); text rendering ignores it.
+    data: dict[str, Any] | None = None
 
     def as_segment(self, name: str) -> "Msg":
         self.segment = name
+        return self
+
+    def with_data(self, data: dict[str, Any]) -> "Msg":
+        self.data = data
         return self
 
     def with_art(self, world: str, key: str, tag: str = "") -> "Msg":
@@ -257,3 +256,19 @@ def render(item: Any, fmt: str) -> str:
 
 def mentions_of(item: Any) -> list[tuple[str, str]]:
     return list(item.mentions) if isinstance(item, Msg) else []
+
+
+def to_json(item: Any) -> Any:
+    """A message as JSON-ready data, so an undelivered one can be stored and sent later unchanged."""
+    if not isinstance(item, Msg):
+        return str(item)
+    return {"sections": [[{"kind": b.kind, "data": b.data} for b in section] for section in item.sections],
+            "mentions": [list(m) for m in item.mentions], "segment": item.segment, "art": item.art, "data": item.data}
+
+
+def from_json(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return str(value)
+    return Msg(sections=[[Block(b["kind"], b["data"]) for b in section] for section in value.get("sections", [])],
+               mentions=[(str(u), str(n)) for u, n in value.get("mentions", [])], segment=value.get("segment") or "",
+               art=value.get("art"), data=value.get("data"))

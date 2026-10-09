@@ -4,13 +4,14 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
-from .. import shared
+from .. import personas, shared
 from .. import messages
 from ..commands import Caller, Reply, UserError
 from ..engine import VENDOR  # noqa: F401
 from ..engine.gateway import EngineCallFailed
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import WorldCatalog
+from ..worlds.package import edition_of
 
 from story_engine import world_rules
 
@@ -25,6 +26,7 @@ ROOM_SAVE_COLUMNS = ("state", "title", "scene_json", "goal", "act", "chapter", "
 AUTO_SAVE = "auto"          # saves.created_by of the snapshots /团 主持 回退 uses; hidden from the save list
 AUTO_KEEP = 5
 NUMERALS = "一二三四五六七八九十"
+CORE_NOTE = "核心版：预设剧情只写到第一幕，之后由 AI 即兴续写"
 
 
 def catalog(app: "LiteApp") -> WorldCatalog:
@@ -42,6 +44,7 @@ def card_data(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
     skills = loads(actor["skills_json"], {})
     items = loads(actor["items_json"], {})
     archetype = next((a for a in pack["archetypes"] if a["id"] == actor["archetype_id"]), None)
+    persona = personas.active(room, actor)
     return {"name": shared.actor_label(actor), "user_name": actor["user_name"], "away": actor["presence"] == "away",
             "archetype": archetype["name"] if archetype else "", "archetype_text": (archetype or {}).get("text", ""),
             "attributes": [(a["name"], attrs.get(a["id"], 0), (attrs.get(a["id"], 0) - mod["baseline"]) // mod["divisor"])
@@ -50,7 +53,10 @@ def card_data(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
             "skills": [(s["name"], s.get("text", ""), skills[s["id"]].get("uses_left") if s.get("uses") else None)
                        for s in pack["skills"] if s["id"] in skills],
             "items": [f"{i['name']}×{items[i['id']]['quantity']}" for i in pack["items"] if items.get(i["id"], {}).get("quantity")],
-            "traits": [t["title"] for t in loads(actor["traits_json"], [])]}
+            "traits": [t["title"] for t in loads(actor["traits_json"], [])],
+            "persona": None if not persona else {"name": persona["name"], "intro": persona.get("intro", ""),
+                                                 "text": persona["text"], "avatar": persona.get("avatar", ""),
+                                                 "tags": persona.get("tags") or []}}
 
 
 def character_card(room: sqlite3.Row, actor: sqlite3.Row) -> Any:
@@ -65,13 +71,37 @@ def clock_text(room: sqlite3.Row) -> str:
 
 
 def act_heading(room: sqlite3.Row, number: int | None = None) -> str:
-    acts = shared.world(room).get("presentation", {}).get("acts") or []
     number = room["act"] if number is None else number
-    act = next((a for a in acts if a["number"] == number), None)
+    act = next((a for a in act_list(room) if a["number"] == number), None)
     if act is None:
         return ""
     label = NUMERALS[number - 1] if 1 <= number <= 10 else str(number)
-    return f"第{label}幕 · {act['title']}" + (f"\n{act['lead']}" if act["lead"] else "")
+    return f"第{label}幕" + (f" · {act['title']}" if act["title"] else "") + (f"\n{act['lead']}" if act["lead"] else "")
+
+
+def current_act(room: sqlite3.Row) -> dict[str, Any] | None:
+    """The act the table is in, for the hosting model's context (None before any act is known)."""
+    return next((a for a in act_list(room) if a["number"] == room["act"]), None)
+
+
+def improvises(room: sqlite3.Row) -> bool:
+    """A Core edition (world card) presets the first act only; the host opens and names every later act."""
+    return loads(room["data_json"], {}).get("edition") == "core"
+
+
+def act_list(room: sqlite3.Row) -> list[dict[str, Any]]:
+    """The world's preset acts, then the acts a Core-edition table opened itself (/团 主持 换幕 标题)."""
+    acts = list(shared.world(room).get("presentation", {}).get("acts") or [])
+    known = {a["number"] for a in acts}
+    extra = loads(room["data_json"], {}).get("hosted", {}).get("acts") or {}
+    acts += [{"number": int(n), "title": v.get("title", ""), "lead": v.get("lead", "")}
+             for n, v in sorted(extra.items(), key=lambda kv: int(kv[0])) if int(n) not in known]
+    return acts
+
+
+def acts_total(room: sqlite3.Row) -> int:
+    """How many acts the story has, for progress bars; 0 (unknown) on a Core edition, whose story goes on unwritten."""
+    return 0 if improvises(room) else len(shared.world(room).get("presentation", {}).get("acts") or [])
 
 
 # ---------------------------------------------------------------- actor building
@@ -110,6 +140,10 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
         raise UserError("没有找到这个世界。发送 /团 世界 查看列表。")
     snapshot, rules = await catalog(app).snapshot(entry)
     pack = snapshot["pack"]
+    from .. import narration
+    defaults = narration.world_defaults(app, entry)
+    inherited = {f: d["value"] for f, d in defaults.items()}
+    edition = edition_of(entry.edition) if entry.origin or entry.edition else None
     room_id = new_id("room")
     cap = min(app.config.default_seat_cap, pack["rules"]["seats"])
     try:
@@ -121,11 +155,21 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
                       (room_id, caller.umo, caller.platform_id, caller.group_id, entry.id, dumps(snapshot), dumps(rules),
                        pack["title"], dumps({"title": pack["initial"]["place"], "description": pack["initial"].get("state", "")}),
                        "", dumps({"day": 1, "slot": 0}), cap, caller.user_id, now(), now()))
+            # The world's narration defaults are copied once; later changes to the world do not reach this table.
+            data: dict[str, Any] = {"hosted": {"narration_defaults": inherited}}
+            if edition == "core":
+                data["edition"] = "core"
+            c.execute("UPDATE rooms SET data_json=? WHERE id=?", (dumps(data), room_id))
             app.store.add_event(c, room_id, "system", f"{caller.user_name} 开启了《{pack['title']}》")
             app.store.audit(c, caller.user_id, "room.open", room_id, {"world": entry.id, "umo": caller.umo})
     except sqlite3.IntegrityError as exc:
         raise UserError("本群已有一桌未关闭的团。") from exc
-    return Reply().say(messages.open_card(pack["title"], pack["seed"], cap, pack["rules"]["minPlayers"], caller.user_name))
+    reply = Reply().say(messages.open_card(pack["title"], pack["seed"], cap, pack["rules"]["minPlayers"], caller.user_name,
+                                           world=entry.id, note=CORE_NOTE if edition == "core" else ""))
+    if any(d["source"] != "fallback" for d in defaults.values()):
+        reply.say(messages.notice("叙事设置：" + narration.summary(inherited), "沿用这个世界的默认设置，主持人可以随时调整，从下一段正文开始生效。",
+                                  "主持人发送 /团 主持 即兴、/团 主持 文风 或 /团 主持 篇幅 调整"))
+    return reply
 
 
 async def show_worldview(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -197,6 +241,7 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
         raise UserError("故事开始后不能更换职业。")
     built = build_character(shared.rules(room), pack, arch["id"], name)
     with app.store.tx() as c:
+        persona = personas.pick_for_card(app, c, room, actor, built["name"])
         changed = c.execute(
             "UPDATE actors SET name=?,archetype_id=?,attributes_json=?,resources_json=?,skills_json=?,items_json=?,"
             "revision=revision+1,updated_at=? WHERE id=? AND revision=?",
@@ -204,10 +249,17 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
              dumps(built["items"]), now(), actor["id"], actor["revision"])).rowcount
         if changed != 1:
             raise UserError("角色刚刚发生了变化，请再发一次。")
+        if persona is not None:
+            personas.attach(c, c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone(), persona)
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 选择了{arch['name']}「{built['name']}」", actor_id=actor["id"])
         app.store.bump_room(c, room["id"])
         actor = c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone()
     reply = Reply().say(character_card(room, actor))
+    if persona is not None:
+        reply.say(f"已带上你的人设「{persona['name']}」：AI 会按它的性格和经历来写这个角色，属性和技能仍按{arch['name']}。"
+                  "想让 AI 写一句你在这个世界里的身份，发送 /团 人设 融入。")
+    elif personas.attached(actor):
+        reply.say(f"这个角色带着人设「{personas.attached(actor)['name']}」。")
     public: list[Any] = []
     if caller.in_private:
         public.append(f"{caller.user_name} 建好了角色：{arch['name']}「{built['name']}」。")
@@ -382,12 +434,16 @@ async def complete_story(app: "LiteApp", room_id: str, ending: dict[str, Any] | 
         names = {a["id"]: shared.actor_label(a) for a in c.execute("SELECT * FROM actors WHERE room_id=?", (room_id,))}
         record = c.execute("SELECT document_json FROM records WHERE room_id=? AND kind='ending' ORDER BY seq DESC LIMIT 1",
                            (room_id,)).fetchone()
-        rounds = c.execute("SELECT COALESCE(MAX(round),0) FROM turns WHERE room_id=?", (room_id,)).fetchone()[0]
-        checks = c.execute("SELECT COUNT(*) FROM events WHERE room_id=? AND (kind='check' OR (kind='play' AND text LIKE '%【检定】%'))",
-                           (room_id,)).fetchone()[0]
+        from ..fun.report import report_data
+        report = report_data(c, c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone())
+    rounds, checks, best = report["rounds"], report["checks"], report["best"]
     epilogues = [(names.get(e["actor_ref"], ""), e["text"]) for e in (loads(record["document_json"]) if record else {}).get("epilogues", [])]
-    reply.say(messages.ending_card(shared.world(room)["pack"]["title"], (ending or {}).get("title", ""), epilogues,
-                                   f"共 {rounds} 轮 · {checks} 次检定"))
+    title = (ending or {}).get("title", "")
+    shown = next((e for e in shared.world(room).get("presentation", {}).get("endings") or []
+                  if title and e.get("name") == title), None)
+    reply.say(messages.ending_card(shared.world(room)["pack"]["title"], title, epilogues,
+                                   f"共 {rounds} 轮 · {checks} 次检定" + (f" · 全场最佳 {best}" if best else ""), world=room["world_id"],
+                                   art=f"ending:{shown['id']}" if shown and shown.get("id") else "", report=report))
     return reply
 
 
@@ -414,21 +470,38 @@ async def close(app: "LiteApp", caller: Caller, args: str) -> Reply:
 async def status(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller)
     scene = loads(room["scene_json"], {})
-    acts = shared.world(room).get("presentation", {}).get("acts") or []
-    act = next((a for a in acts if a["number"] == room["act"]), None)
+    act = next((a for a in act_list(room) if a["number"] == room["act"]), None)
     started = room["state"] != "lobby"
     with app.store.read() as c:
         actor = shared.actor_for(c, room["id"], caller.user_id)
         round_row = c.execute("SELECT MAX(round) FROM turns WHERE room_id=?", (room["id"],)).fetchone()
+        party, npcs = _party(c, room) if started else ([], [])
     me = None
     if actor is not None and actor["archetype_id"]:
         data = card_data(room, actor)
         me = {"name": data["name"], "archetype": data["archetype"], "resources": data["resources"]}
     extra = await app.hooks.emit("status_lines", room_id=room["id"])
     return Reply().say(messages.status_card(
-        room["title"], STATE_LABELS[room["state"]], (room["act"], len(acts), act["title"]) if act and started else None,
+        room["title"], STATE_LABELS[room["state"]], (room["act"], acts_total(room), act["title"]) if act and started else None,
         round_row[0] if started else None, clock_text(room) if started else "",
-        scene.get("title", "") if started else "", room["goal"] if started else "", me, [str(m) for m in extra.messages]))
+        scene.get("title", "") if started else "", room["goal"] if started else "", me, [str(m) for m in extra.messages],
+        world=room["world_id"], party=party, npcs=npcs))
+
+
+def _party(c: sqlite3.Connection, room: sqlite3.Row) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Every seated character with resources and whose turn it is, and the NPCs whose attitude to the party moved most."""
+    from ..people import people
+    from ..plays.hosted import TURN_STATES, current_turn
+    turn = current_turn(c, room["id"])
+    party = []
+    for a in c.execute("SELECT * FROM actors WHERE room_id=? AND archetype_id IS NOT NULL AND archetype_id<>'' "
+                       "ORDER BY order_index,created_at", (room["id"],)):
+        data = card_data(room, a)
+        party.append({"name": data["name"], "role": data["archetype"], "player": a["user_name"], "resources": data["resources"],
+                      "acting": TURN_STATES.get(turn["state"], "行动中") if turn and turn["actor_id"] == a["id"] else "",
+                      "away": data["away"]})
+    npcs = [{"name": p["name"], "standing": p["standing"], "tier": p["tier"]} for p in people(c, room["id"])[:4]]
+    return party, npcs
 
 
 # ---------------------------------------------------------------- saves

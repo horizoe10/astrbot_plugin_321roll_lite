@@ -125,11 +125,57 @@ CREATE TABLE IF NOT EXISTS audit(
 CREATE TABLE IF NOT EXISTS worlds(
   id TEXT PRIMARY KEY, pack_json TEXT NOT NULL, presentation_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+
+-- Today's roll (roll_lite/daily.py): one row per player per UTC+8 day, and who asked in which group.
+CREATE TABLE IF NOT EXISTS daily_rolls(
+  platform TEXT NOT NULL, user_id TEXT NOT NULL, day TEXT NOT NULL, face INTEGER NOT NULL,
+  signs_json TEXT NOT NULL, rolled_at TEXT NOT NULL, PRIMARY KEY(platform, user_id, day));
+CREATE TABLE IF NOT EXISTS daily_board(
+  umo TEXT NOT NULL, day TEXT NOT NULL, platform TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+  seen_at TEXT NOT NULL, PRIMARY KEY(umo, day, platform, user_id));
+
+-- Cheers for a character (roll_lite/fun/report.py): one per member per act, the latest one counts.
+CREATE TABLE IF NOT EXISTS cheers(
+  room_id TEXT NOT NULL REFERENCES rooms(id), act INTEGER NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+  actor_id TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(room_id, act, user_id));
+
+-- Group pastimes outside a table (roll_lite/fun/): dice rolls, duels and finished story relays, for usage counts.
+CREATE TABLE IF NOT EXISTS fun_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, umo TEXT NOT NULL, kind TEXT NOT NULL, user_id TEXT NOT NULL,
+  data_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS fun_log_kind ON fun_log(kind, umo, created_at);
+
+-- An open dice duel per conversation (roll_lite/fun/dice.py); expires_at is a Unix time, so a restart keeps it.
+CREATE TABLE IF NOT EXISTS duels(
+  umo TEXT PRIMARY KEY, data_json TEXT NOT NULL, expires_at REAL NOT NULL);
+
+-- Every natural d20 face rolled in a conversation (roll_lite/fun/luck.py): story and play checks, draws,
+-- today's roll (once per group it is shown in), free dice and duels.  source: check | daily | dice | duel.
+CREATE TABLE IF NOT EXISTS d20_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, umo TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+  source TEXT NOT NULL, face INTEGER NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS d20_log_umo ON d20_log(umo, created_at);
+
+-- Story lines a group saved (roll_lite/fun/quotes.py), and who saved each one (marks rank the board).
+CREATE TABLE IF NOT EXISTS quotes(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, umo TEXT NOT NULL, text TEXT NOT NULL, source TEXT NOT NULL DEFAULT '',
+  saved_by TEXT NOT NULL, saved_name TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(umo, text));
+CREATE TABLE IF NOT EXISTS quote_marks(
+  quote_id INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE, user_id TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(quote_id, user_id));
+
+-- Players' own characters (roll_lite/personas.py): words only, copied onto an actor when picked at a table.
+-- avatar: a small JPEG data URI or ''.
+CREATE TABLE IF NOT EXISTS personas(
+  id TEXT PRIMARY KEY, platform TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL, data_json TEXT NOT NULL DEFAULT '{}', avatar TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(platform, user_id, name));
 """
 
 # Columns added after a table first shipped: (table, column, definition).  migrate() adds any that are missing.
 ADDED_COLUMNS = (("model_calls", "note", "TEXT NOT NULL DEFAULT ''"),
-                 ("worlds", "origin_json", "TEXT NOT NULL DEFAULT ''"))
+                 ("worlds", "origin_json", "TEXT NOT NULL DEFAULT ''"),
+                 ("outbox", "items_json", "TEXT NOT NULL DEFAULT ''"))
 
 
 def now() -> str:

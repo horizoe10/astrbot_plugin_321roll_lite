@@ -3,6 +3,10 @@ export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ 
 export const fmt = (n) => Number(n || 0).toLocaleString("zh-CN");
 export const shortTitle = (title) => String(title || "").split(" · ")[0];
 export const subTitle = (title) => (String(title || "").includes(" · ") ? String(title).split(" · ").slice(1).join(" · ") : "");
+// A world version as people see it: the edition's letter and the revision, C1 / P2 / M1 (Core, Pro, Max); Pro when not
+// given, lite / plus (the names of the first hour) as Core / Pro, and an edition this page does not know by its first letter.
+const EDITIONS = { core: "C", pro: "P", max: "M", lite: "C", plus: "P" };
+export const tier = (edition, revision) => (EDITIONS[edition || "pro"] || String(edition).charAt(0).toUpperCase()) + revision;
 
 export function when(iso) {
   if (!iso) return "—";
@@ -205,7 +209,8 @@ export function acts(list, current, mini = false) {
   return '<div class="acts' + (mini ? " mini" : "") + '" aria-label="第 ' + current + " 幕，共 " + list.length + ' 幕">' + list.map((a) => {
     const n = typeof a === "object" ? a.number : a;
     const state = n < current ? "done" : n === current ? "now" : "";
-    return '<div class="act-seg ' + state + '"><i></i>' + (mini ? "" : "<span>" + esc(typeof a === "object" ? a.title : "") + "</span>") + "</div>";
+    return '<div class="act-seg ' + state + '"><i></i>' + (mini ? "" : "<span>" + esc(typeof a === "object" ? a.title : "") + "</span>" +
+      (typeof a === "object" && a.note ? "<em>" + esc(a.note) + "</em>" : "")) + "</div>";
   }).join("") + "</div>";
 }
 /** Acts with titles only up to the one reached; later ones read "第 N 幕" so the track does not spoil the story. */
@@ -227,13 +232,134 @@ export function ring(remaining, total, caption, size = 92) {
     '" stroke-dashoffset="' + (length * (1 - share)).toFixed(1) + '"/></svg><div class="center"><b>' + text + "</b>" + (caption ? "<small>" + esc(caption) + "</small>" : "") + "</div></div>";
 }
 
-export function meter(name, current, max, alt = false) {
+// Resources take a colour by their place in the world, as on the image cards: red, blue, green, violet.
+export const RES_TONES = ["hp", "mp", "sp", "xp"];
+export function meter(name, current, max, index = 0) {
   const share = max ? Math.max(0, Math.min(1, (current ?? 0) / max)) : 0;
-  return '<div class="meter' + (alt ? " alt" : "") + (share <= 0.25 ? " low" : "") + '"><span>' + esc(name) + '</span><div class="bar"><span style="width:' +
-    (share * 100).toFixed(0) + '%"></span></div><span class="num">' + (current ?? "—") + "/" + max + "</span></div>";
+  return '<div class="meter rc-' + RES_TONES[index % RES_TONES.length] + (share <= 0.25 ? " low" : "") + '"><span>' + esc(name) + '</span><div class="bar"><span style="width:' +
+    (share * 100).toFixed(0) + '%"></span></div><span class="num"><b>' + (current ?? "—") + "</b>/" + max + "</span></div>";
+}
+
+// Check outcomes in the order the bar draws them, with their labels.
+export const OUTCOMES = [["critical", "大成功"], ["success", "成功"], ["failure", "失败"], ["fumble", "大失败"]];
+export const outcomeLabel = (key) => (OUTCOMES.find(([k]) => k === key) || [, key || ""])[1];
+
+/** One bar split by check outcome, with a legend; counts is {critical, success, failure, fumble}. */
+export function outcomeBar(counts, { legend = true, slim = false } = {}) {
+  const total = OUTCOMES.reduce((s, [k]) => s + (counts?.[k] || 0), 0);
+  const bar = '<div class="obar' + (slim ? " slim" : "") + '">' + (total ? OUTCOMES.filter(([k]) => counts[k]).map(([k, l]) =>
+    '<i class="o-' + k + '" style="flex:' + counts[k] + '" title="' + l + " " + counts[k] + '"></i>').join("") : '<i class="o-none"></i>') + "</div>";
+  return bar + (legend ? '<div class="olegend">' + OUTCOMES.map(([k, l]) => '<span class="o-' + k + '"><i></i>' + l + "<b>" + (counts?.[k] || 0) + "</b></span>").join("") + "</div>" : "");
+}
+
+/** A d20 face as a small hexagon badge, coloured by the outcome. */
+export const d20 = (face, outcome = "") => '<span class="d20 o-' + esc(outcome) + '" title="d20 ' + esc(face) + '"><b>' + esc(face) + "</b></span>";
+
+/** Attitude from 敌对 (-3) to 盟友 (+3) as a continuous track with a marker; labels are the seven tiers. */
+export function standing(value, labels) {
+  const share = ((Math.max(-3, Math.min(3, value)) + 3) / 6) * 100;
+  return '<div class="standing' + (value > 0 ? " pos" : value < 0 ? " neg" : "") + '" title="' + esc(labels[value + 3] || "") + '"><div class="st-track"><i class="st-mid"></i>' +
+    '<i class="st-fill" style="left:' + Math.min(50, share) + "%;right:" + (100 - Math.max(50, share)) + '%"></i><i class="st-dot" style="left:' + share + '%"></i></div>' +
+    '<div class="st-ends"><span>' + esc(labels[0]) + "</span><span>" + esc(labels[3]) + "</span><span>" + esc(labels[6]) + "</span></div></div>";
+}
+
+/** Column chart: items [{label, ok, fail, title, now}]; columns scale to the busiest, counts sit on top. */
+export function columns(items, height = 150) {
+  const peak = Math.max(1, ...items.map((x) => (x.ok || 0) + (x.fail || 0)));
+  return '<div class="colchart" style="height:' + height + 'px">' + items.map((x) => {
+    const sum = (x.ok || 0) + (x.fail || 0);
+    return '<div class="cc' + (x.now ? " now" : "") + (sum ? "" : " zero") + '" title="' + esc(x.title || x.label) + '"><div class="cc-stack">' +
+      (sum ? '<b class="cc-n">' + sum + "</b>" : "") + (x.fail ? '<i class="fail" style="height:' + ((x.fail / peak) * 100).toFixed(1) + '%"></i>' : "") +
+      (x.ok ? '<i style="height:' + ((x.ok / peak) * 100).toFixed(1) + '%"></i>' : "") + '</div><span class="cc-l">' + esc(x.label) + "</span></div>";
+  }).join("") + "</div>";
+}
+
+/** Proportion bar: parts [{label, value, tone}] side by side, with an optional legend of shares. */
+export function shares(parts, { legend = true } = {}) {
+  const total = parts.reduce((s, p) => s + p.value, 0);
+  const shown = parts.filter((p) => p.value > 0);
+  return '<div class="shares">' + (total ? shown.map((p) => '<i class="' + esc(p.tone || "") + '" style="flex:' + p.value + '" title="' + esc(p.label) + " " + p.value + '"></i>').join("") : '<i class="none"></i>') + "</div>" +
+    (legend ? '<div class="shares-legend">' + parts.map((p) => '<span class="' + esc(p.tone || "") + (p.value ? "" : " zero") + '"><i></i>' + esc(p.label) + "<b>" +
+      (total ? Math.round((p.value / total) * 100) : 0) + "%</b></span>").join("") + "</div>" : "");
+}
+
+// Difficulty tiers of a world, for the editor and the world page: names, the line from dcMin to dcMax and the chance
+// to succeed with no modifier.
+export const DIFFICULTY = ["简单", "标准", "困难", "极难"];
+export function dcScale(rules) {
+  const lo = rules.dcMin ?? 5, hi = rules.dcMax ?? 25, span = Math.max(1, hi - lo);
+  const pos = (v) => Math.max(0, Math.min(100, ((v - lo) / span) * 100));
+  const chance = (dc) => Math.max(5, Math.min(100, (21 - dc) * 5));
+  return '<div class="dc-scale"><div class="dc-line"></div>' + (rules.difficulties || []).map((d, i) => '<div class="dc-mark" style="left:' + pos(d) + '%"><i></i><b>' +
+    DIFFICULTY[i] + " " + d + "</b><span>" + chance(d) + "%</span></div>").join("") +
+    (rules.dc != null ? '<div class="dc-mark default" style="left:' + pos(rules.dc) + '%"><i></i><b>默认</b></div>' : "") +
+    '<span class="dc-end" style="left:0">' + lo + '</span><span class="dc-end" style="left:100%">' + hi + "</span></div>";
+}
+
+// Play categories shared by the plays page and the overview.  tone picks the category colour.
+export const PLAY_GROUPS = [
+  ["回合与协作", "每桌都会用到的基础玩法", ["playActions", "playCollaboration"], "c1"],
+  ["调查与社交", "找线索、对证词、谈条件、拉关系", ["playInvestigation", "playTestimony", "playNegotiation", "playRelations"], "c2"],
+  ["时间与经营", "让世界时间流动，推进长期目标", ["playCalendar", "playProjects"], "c3"],
+  ["对抗", "一对一或多人的较量", ["playConflict", "playChase", "playDebate"], "c4"],
+  ["计划与命运", "规划、求签、问神谕，改变角色与结局", ["playPlans", "playOracle", "playFortune", "playTransformation", "playBranchEndings"], "c5"],
+  ["群聊小玩法", "团外也能玩，不影响故事里的任何结算", ["funDaily", "funDice", "funLuck", "funReport", "funQuotes", "funSchedule", "funRelay", "funSoup"], "c6"],
+];
+export const playTone = (key) => (PLAY_GROUPS.find((g) => g[2].includes(key)) || [, , , ""])[3];
+
+/** Clock time of an ISO moment, HH:MM, for rows that sit under a dated heading. */
+export function clock(iso) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : date.toTimeString().slice(0, 5);
 }
 
 export const cells = (on, total) => '<span class="cells">' + Array.from({ length: Math.min(total || 0, 12) }, (_, i) => '<i class="' + (i < on ? "on" : "") + '"></i>').join("") + "</span>";
+
+// Narration settings (roll_lite/narration.py): [value, label, what it means].  Improvisation and dialogue are centred on
+// 均衡 and lean either way; length counts up from 不限.
+export const NARRATION = {
+  improv: { title: "即兴程度", centred: true, options: [
+    ["严谨", "严谨", "只依据设定与已发生的事实叙述，不新增人物、地点与事件。"],
+    ["稳健", "稳健", "紧贴设定，可以补充细节，不新增重要人物与地点。"],
+    ["均衡", "均衡", "适度发挥，可以引入次要人物与小事件。"],
+    ["灵动", "灵动", "主动制造转折，可以引入新的支线。"],
+    ["奔放", "奔放", "大胆即兴，允许意外的发展，但不推翻设定与已发生的事实。"]] },
+  dialogue: { title: "对白与描写", centred: true, options: [
+    ["description_high", "多描写", "以场景、动作和心理描写为主，对白很少。"],
+    ["description_soft", "偏描写", "描写为主，关键处穿插对白。"],
+    ["balanced", "均衡", "对白与描写各占一半。"],
+    ["dialogue_soft", "偏对白", "人物对白推动情节，描写点到为止。"],
+    ["dialogue_high", "多对白", "大段对白，像在听人物说话。"]] },
+  length: { title: "正文篇幅", centred: false, options: [
+    ["free", "不限", "不限字数，模型通常写 2–4 个短段落。"],
+    ["minimal", "简洁", "每段正文 100–300 字。"],
+    ["balanced", "均衡", "每段正文 300–600 字。"],
+    ["epic", "长篇", "每段正文 600–1000 字，字数不合时模型会自动重写。"]] },
+};
+export const narrationLabel = (field, value) => (NARRATION[field].options.find((o) => o[0] === value) || [, "未设置"])[1];
+export const narrationHint = (field, value) => (NARRATION[field].options.find((o) => o[0] === value) || [, , ""])[2];
+
+/** A snapping step scale for one narration setting; each step is a button carrying data-field and data-value.
+ *  A centred scale fills from its middle step toward the chosen side; the others fill from the left. */
+export function notch(field, value, { disabled = false } = {}) {
+  const spec = NARRATION[field], n = spec.options.length, found = spec.options.findIndex((o) => o[0] === value);
+  const start = found < 0 || !spec.centred ? 0 : (n - 1) / 2;
+  const from = found < 0 ? 0 : Math.min(start, found), to = found < 0 ? 0 : Math.max(start, found);
+  return '<div class="notch' + (disabled ? " off" : "") + '" style="--n:' + n + ";--from:" + from + ";--to:" + to + '">' +
+    '<div class="notch-track"><i class="notch-fill"></i>' + spec.options.map(([v, l], i) => '<button type="button" class="' + (i === found ? "on" : i >= from && i <= to && found >= 0 ? "past" : "") +
+      '" data-field="' + field + '" data-value="' + esc(v) + '" title="' + esc(l) + '"' + (disabled ? " disabled" : "") + "><span></span></button>").join("") + "</div>" +
+    '<div class="notch-labels">' + spec.options.map(([, l], i) => '<span class="' + (i === found ? "on" : "") + '">' + esc(l) + "</span>").join("") + "</div></div>";
+}
+
+/** world.json extensions for narration defaults, as the plugin's own export writes them. */
+export function narrationExtensions(values) {
+  const band = { 严谨: 10, 稳健: 25, 均衡: 50, 灵动: 75, 奔放: 100 };
+  const out = {};
+  if (band[values.improv] != null) out["321roll"] = { randomness: band[values.improv] };
+  const lite = Object.fromEntries(["dialogue", "length"].filter((f) => values[f]).map((f) => [f, values[f]]));
+  if (Object.keys(lite).length) out["321roll-lite"] = lite;
+  return out;
+}
 export const stamps = (on, total) => '<span class="stamps">' + Array.from({ length: Math.min(total || 0, 8) }, (_, i) => '<i class="' + (i < on ? "on" : "") + '"></i>').join("") + "</span>";
 
 /** Contest track: ours fills leftwards from the centre, theirs rightwards, both toward the length. */

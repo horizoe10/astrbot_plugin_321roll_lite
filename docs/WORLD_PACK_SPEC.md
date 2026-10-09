@@ -10,6 +10,7 @@
 - **保留编号**：官方世界使用 `greycrown-prequel`、`seventh-mystery`、`wildfire-hunt`、`nameless-sword-tomb`、`neon-pawnshop`、`final-curtain`，第三方世界不要使用。
 - **版本号（revision）**：从 1 开始的整数。每次发布新内容都加 1；同一个版本号只对应一份内容。
 - **安装包文件名**：`<id>-r<revision>.zip`。已发布的文件不再修改或删除。
+- **版本档（edition）**：选填，`core`（核心版 Core·世界卡：轻量化的世界设定，保留核心内容与开篇，后续走向交给主持人）、`pro`（专业版 Pro·世界包：更完整的世界观、人物和剧情设定）、`max`（旗舰版 Max·世界模组：完整的世界体系，更丰富的规则与交互）；不写视为 `pro`。界面显示档位字母加修订号，如 C1、P2、M1。各档修订号各自从 1 起；同一个世界的不同档位用不同编号（如 `<id>-core`）。Lite 只安装 `core` 与 `pro`，专业版里读不了的部分（天气、氛围音与 `extensions`）自动略过；`max` 需要 321Roll 全量版，Lite 拒收；不认识的档位提示更新插件。早先写成 `lite`、`plus` 的包按 `core`、`pro` 读取。
 - **标题**：`主标题 · 副标题`，中间是空格、间隔号、空格。副标题可以省略。
 
 ## 2. 内容要求
@@ -162,6 +163,16 @@
 { "format": "321roll-lite.world-bundle/1", "pack": { … }, "presentation": { … } }
 ```
 
+`world.json` 和导出的 JSON 文件还可以带 `extensions`。其中大部分供全量版使用，Lite 只读取世界的叙事默认：
+
+| 位置 | 取值 | 含义 |
+|---|---|---|
+| `extensions."321roll".randomness` | 0–100 的整数，步长 5 | 即兴程度：≤14 严谨，≤34 稳健，≤64 均衡，≤84 灵动，其余奔放 |
+| `extensions."321roll-lite".dialogue` | `description_high`、`description_soft`、`balanced`、`dialogue_soft`、`dialogue_high` | 对白与描写：多描写、偏描写、均衡、偏对白、多对白 |
+| `extensions."321roll-lite".length` | `free`、`minimal`、`balanced`、`epic` | 正文篇幅：不限、简洁、均衡、长篇 |
+
+没写的项使用插件默认（均衡、偏对白、不限）；值不合法时忽略，不拒收。开桌时团桌复制一份当时的世界默认，主持人之后可以逐项调整。管理员在后台世界页调整预设或市场世界的叙事默认时，只保存在本机，不改动安装包。自定义世界在编辑器“基本信息”里设置，导出安装包或 JSON 时会一起写进 `extensions`。
+
 ## 8. 安装包 .zip
 
 格式标识 `321roll-lite.world-package/2`。zip 中只允许以下文件，放在压缩包根目录，不能加密：
@@ -178,6 +189,7 @@
 |---|---|
 | `format` | `321roll-lite.world-package/2` |
 | `id`、`revision` | 与 `world.json` 中的世界一致 |
+| `edition` | 选填，版本档，见第 1 节；不写视为 `pro` |
 | `title`、`summary` | 标题与一句简介 |
 | `min_plugin` | 需要的最低插件版本，例如 `0.1.0` |
 | `cover` | `{"mark", "tone"}`，或 `null` |
@@ -217,9 +229,12 @@
 ```
 
 - 必填：`id`、`revision`、`title`（≤100 字）、`file`、`size`、`sha256`（64 位小写十六进制）。
-- 选填：`summary`、`cover`、`images`、`min_plugin`、`preview`。
+- 选填：`summary`、`cover`、`images`、`min_plugin`、`preview`、`edition`（版本档；写明 `pro` 时市场卡片标“含专业版效果（Lite 中不显示）”，`max` 标“需要全量版”且不能安装）。
 - `file` 和 `preview` 是相对索引所在位置的路径，也可以写完整的 http(s) 地址。
 - 每个世界只列最新版本。格式不对的条目会被跳过，其余条目照常显示。
+- 已安装的世界与索引行编号、修订号相同而 sha256 不同时，市场显示“内容不同”，可以替换安装。
+
+官方渠道默认提供核心版（C），也会提供部分专业版（P）。
 
 ## 10. 上限
 

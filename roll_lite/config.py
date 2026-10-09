@@ -28,6 +28,7 @@ class LiteConfig:
     group_whitelist_enabled: bool
     allowed_groups: frozenset[str]
     chat_provider_id: str
+    fallback_provider_id: str
     model_timeout_seconds: int
     model_attempts: int
     turn_timeout_seconds: int
@@ -43,6 +44,7 @@ class LiteConfig:
             group_whitelist_enabled=bool(value.get("group_whitelist_enabled", False)),
             allowed_groups=_ids(value.get("allowed_groups")),
             chat_provider_id=str(value.get("chat_provider_id") or "").strip(),
+            fallback_provider_id=str(value.get("fallback_provider_id") or "").strip(),
             model_timeout_seconds=_int(value.get("model_timeout_seconds"), 120, 15, 600),
             model_attempts=_int(value.get("model_attempts"), 3, 1, 3),
             turn_timeout_seconds=_int(value.get("turn_timeout_seconds"), 300, 0, 86400),

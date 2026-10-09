@@ -1,7 +1,8 @@
 // World editor: a seven-step flow over a draft {pack, presentation}.
 // Inputs bind to draft paths (data-bind); structural edits are data-act buttons that re-render the step.
 // Every change re-checks the draft, so the stepper always shows which step still has problems.
-import { acts as actTrack, busy, cover, esc, shortTitle, subTitle } from "../ui.js";
+import { DIFFICULTY as DIFF, NARRATION, acts as actTrack, busy, cover, dcScale, esc, meter, narrationExtensions, narrationHint, notch, shortTitle, subTitle, tier } from "../ui.js";
+import { HANDOFF } from "./tavern.js";
 
 const STEPS = [
   ["basics", "基本信息", "封面、标题、世界观与开场"],
@@ -13,12 +14,14 @@ const STEPS = [
   ["review", "检查与保存", "校验、保存或导出"],
 ];
 const KINDS = [["region", "地区"], ["place", "地点"], ["faction", "势力"], ["npc", "人物"], ["goal", "目标"], ["clue", "线索"]];
-const DIFF = ["简单", "标准", "困难", "极难"];
 const MODES = [["hybrid", "选项与自由行动"], ["choice_only", "只用选项"], ["dialogue_only", "只用自由行动"]];
 const RESETS = [["scene", "每幕"], ["rest", "休整后"], ["never", "不恢复"]];
 const TONES = [["ink", "墨蓝"], ["ember", "余烬"], ["neon", "霓紫"], ["jade", "青玉"], ["wine", "酒红"], ["slate", "石灰"]];
 const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,100}$/;
 const LIMITS = { title: 100, worldview: 6000, seed: 3000, style: 300, boundaries: 1000, guidance: 2000 };
+// What new tables on a world start with when it sets nothing (roll_lite/narration.py FALLBACK).
+const NARRATION_DEFAULTS = { improv: "均衡", dialogue: "dialogue_soft", length: "free" };
+const withNarration = (d, given) => ({ ...d, narration: { ...NARRATION_DEFAULTS, ...(d.narration || {}), ...(given || {}) } });
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const isInt = (v) => Number.isInteger(v);
 // Starting point for a world made from scratch: common rules and one placeholder archetype; the steps flag what is still empty.
@@ -39,33 +42,43 @@ const BLANK = {
   bundle_format: "321roll-lite.world-bundle/1",
 };
 
-export async function render(root, ctx, { id, from }) {
+// A world card made by the tavern import wizard (views/tavern.js), handed over through sessionStorage.
+function tavernSource() {
+  let handed = null;
+  try { handed = JSON.parse(sessionStorage.getItem(HANDOFF) || "null"); } catch { /* storage unavailable */ }
+  if (!handed?.pack) throw new Error("没有找到酒馆导入的草稿，请回到“新建世界 → 从酒馆导入”重新生成预览。");
+  return { pack: handed.pack, presentation: handed.presentation, cover: handed.presentation?.cover,
+    narration: Object.fromEntries(Object.entries(handed.narration || {}).map(([f, v]) => [f, { value: v }])), bundle_format: BLANK.bundle_format, title: handed.title };
+}
+
+export async function render(root, ctx, { id, from, tavern = false }) {
   const list = await ctx.api.get("worlds");
   const taken = new Set(list.worlds.map((w) => w.id));
-  // No id and no from: a blank world.
-  const blank = !id && !from;
-  const source = blank ? clone(BLANK) : await ctx.api.get("world", { id: id || from });
+  // No id, no from and no tavern draft: a blank world.
+  const blank = !id && !from && !tavern;
+  const source = blank ? clone(BLANK) : tavern ? tavernSource() : await ctx.api.get("world", { id: id || from });
   const isNew = !id;
-  if (!blank && source.source !== "custom") throw new Error("预设世界和市场世界是只读的，不能修改或复制。想写自己的世界，请在“新建世界”里从空白开始。");
+  if (!blank && !tavern && source.source !== "custom") throw new Error("预设世界和市场世界是只读的，不能修改或复制。想写自己的世界，请在“新建世界”里从空白开始。");
 
   let draft = { pack: clone(source.pack), presentation: clone(source.presentation || {}) };
+  draft = withNarration(draft, Object.fromEntries(Object.entries(source.narration || {}).map(([f, d]) => [f, d.value])));
   draft.presentation.acts = draft.presentation.acts || [];
   draft.presentation.endings = draft.presentation.endings || [];
   draft.presentation.places = draft.presentation.places || [];
   if (isNew) {
-    const stem = blank ? "my-world" : (from + "-copy").slice(0, 90);
+    const stem = blank ? "my-world" : tavern ? draft.pack.id : (from + "-copy").slice(0, 90);
     let next = stem;
     for (let n = 2; taken.has(next); n++) next = stem + "-" + n;
     draft.pack.id = next;
     draft.pack.revision = 1;
-    if (!blank) {
+    if (!blank && !tavern) {
       const [main, ...rest] = draft.pack.title.split(" · ");
       draft.pack.title = [main + "（副本）", ...rest].join(" · ");
     }
   }
   draft.presentation.cover = draft.presentation.cover || { ...source.cover };
 
-  const key = "roll-lite-world-draft:" + (isNew ? "new:" + (from || "blank") : id);
+  const key = "roll-lite-world-draft:" + (isNew ? "new:" + (from || (tavern ? "tavern" : "blank")) : id);
   let saved = JSON.stringify(draft);
   let step = Math.max(0, STEPS.findIndex(([k]) => k === ctx.route.params.step));
   let serverCheck = null;
@@ -79,8 +92,9 @@ export async function render(root, ctx, { id, from }) {
   const dirty = () => JSON.stringify(draft) !== saved;
   ctx.guard((silent) => !dirty() || (!silent && window.confirm("世界包还有未保存的修改，离开后只保留在本机草稿里。确定离开吗？")));
 
-  root.innerHTML = '<div class="ed-root"><a class="crumb" href="#/worlds' + (blank ? "/import" : "/" + encodeURIComponent(isNew ? from : id)) + '">← ' + (blank ? "返回新建世界" : isNew ? "返回原世界" : "返回世界详情") + "</a>" +
-    '<header class="ed-head"><div data-live="cover-mini"></div><div class="ed-title"><div class="eyebrow">' + (blank ? "新建世界 · 从空白开始" : isNew ? "新建世界 · 复制自 " + esc(shortTitle(source.pack.title)) : "编辑世界 · 第 " + source.pack.revision + " 版") +
+  root.innerHTML = '<div class="ed-root"><a class="crumb" href="#/worlds' + (blank ? "/import" : tavern ? "/tavern" : "/" + encodeURIComponent(isNew ? from : id)) + '">← ' +
+    (blank ? "返回新建世界" : tavern ? "返回酒馆导入" : isNew ? "返回原世界" : "返回世界详情") + "</a>" +
+    '<header class="ed-head"><div data-live="cover-mini"></div><div class="ed-title"><div class="eyebrow">' + (blank ? "新建世界 · 从空白开始" : tavern ? "新建世界 · 从酒馆导入" : isNew ? "新建世界 · 复制自 " + esc(shortTitle(source.pack.title)) : "编辑世界 · " + tier(draft.presentation.edition, source.pack.revision)) +
     '</div><h1 class="page-title" data-live="title"></h1><div class="ed-meta" data-live="meta"></div></div>' +
     '<div class="btns"><button class="btn" data-act="export">导出 JSON</button><button class="btn primary" data-act="save">' + (isNew ? "保存为新世界" : "保存修改") + "</button></div></header>" +
     '<div data-live="draft-notice"></div>' +
@@ -170,7 +184,7 @@ export async function render(root, ctx, { id, from }) {
     out.review = Object.entries(out).filter(([k]) => k !== "review").flatMap(([, v]) => v);
     return out;
   }
-  const fieldName = (f) => ({ title: "标题", worldview: "世界观", seed: "开场", style: "叙事风格", boundaries: "内容边界", guidance: "主持要点" })[f] || f;
+  const fieldName = (f) => ({ title: "标题", worldview: "世界观", seed: "开场", style: "文笔与基调", boundaries: "内容边界", guidance: "主持要点" })[f] || f;
 
   function summary(k) {
     const p = draft.pack, pr = draft.presentation;
@@ -217,13 +231,22 @@ export async function render(root, ctx, { id, from }) {
         '<label class="field"><span class="label">副标题</span><input class="input" data-bind="title.sub" value="' + esc(rest.join(" · ")) + '" placeholder="一句话钩子，可不填" /></label></div>' +
         '<label class="field"><span class="label">编号（id）</span><input class="input num" data-bind="pack.id" value="' + esc(pack().id) + '"' + (isNew ? "" : " readonly") + " /><span class=\"hint\">" +
         (isNew ? "用于区分世界包，保存后不能修改。只能用字母、数字和 - _ . :" : "已保存的世界不能改编号；想换编号，请导出后改成新世界导入。") + "</span></label>" +
+        '<div class="field"><span class="label">版本</span><div class="seg" role="group" aria-label="世界版本">' +
+          [["core", "核心版 · 世界卡"], ["pro", "专业版"]].map(([v, l]) => '<button type="button" data-act="edition" data-v="' + v + '" aria-pressed="' + ((draft.presentation.edition || "pro") === v) + '">' + l + "</button>").join("") +
+          '</div><span class="hint">' + ((draft.presentation.edition || "pro") === "core"
+            ? "核心版只预设第一幕，没有固定结局；之后的幕由主持人用 /团 主持 换幕 标题 即兴开启。"
+            : "专业版按你写好的幕和结局推进。") + "</span></div>" +
         '<hr class="rule" />' + sectionHead("世界与开场", "世界观和开场会交给叙事模型；开场是第一幕的起点描写。") +
         text("pack.worldview", "世界观", { limit: LIMITS.worldview, area: true, rows: 9 }) +
         text("pack.seed", "开场", { limit: LIMITS.seed, area: true, rows: 5, hint: "开团时会作为开团卡的引子发到群里。" }) +
-        text("pack.style", "叙事风格", { limit: LIMITS.style, area: true, rows: 2 }) +
+        text("pack.style", "文笔与基调", { limit: LIMITS.style, area: true, rows: 2, placeholder: "例如：冷峻克制，多用短句，带一点黑色幽默", hint: "写给叙事模型的文字要求；主持人开桌后还可以补充。" }) +
         '<details class="ed-more"><summary>主持要点与内容边界（不公开）</summary><div style="margin-top:14px">' +
         text("pack.guidance", "主持要点", { limit: LIMITS.guidance, area: true, rows: 5, hint: "真相、伏笔等只给模型看的内容。" }) +
-        text("pack.boundaries", "内容边界", { limit: LIMITS.boundaries, area: true, rows: 3 }) + "</div></details>";
+        text("pack.boundaries", "内容边界", { limit: LIMITS.boundaries, area: true, rows: 3 }) + "</div></details>" +
+        '<hr class="rule" />' + sectionHead("叙事默认", "新开的团桌沿用这些设置，主持人开桌后可以随时调整。") +
+        '<div class="narr">' + ["improv", "dialogue", "length"].map((f) => '<div class="narr-row"><div class="narr-head"><b>' + NARRATION[f].title + '</b><span class="now">' +
+          esc(NARRATION[f].options.find((o) => o[0] === draft.narration[f])[1]) + "</span></div>" + notch(f, draft.narration[f]) +
+          '<p class="narr-hint">' + esc(narrationHint(f, draft.narration[f])) + "</p></div>").join("") + "</div>";
     },
 
     rules() {
@@ -313,7 +336,9 @@ export async function render(root, ctx, { id, from }) {
 
     acts() {
       const pr = draft.presentation;
-      return sectionHead("幕", "幕是故事的大段落，团桌页会按幕显示进度，主持人可以用 /团 主持 换幕 推进。", '<button class="btn small" data-act="add-act" type="button">添加一幕</button>') +
+      const core = pr.edition === "core";
+      return (core ? '<div class="notice" style="margin-bottom:16px">这是核心版世界卡：写好第一幕就够了，后面的幕由主持人即兴开启，结局也可以留空。</div>' : "") +
+        sectionHead("幕", "幕是故事的大段落，团桌页会按幕显示进度，主持人可以用 /团 主持 换幕 推进。", '<button class="btn small" data-act="add-act" type="button">添加一幕</button>') +
         '<div class="panel soft" style="margin-bottom:16px" data-live="act-track"></div>' +
         pr.acts.map((a, i) => '<div class="ed-act"><span class="opt-num">' + (i + 1) + '</span><div class="ed-act-body"><input class="input strong" data-bind="presentation.acts.' + i + '.title" value="' + esc(a.title) + '" placeholder="幕名" />' +
           '<input class="input" data-bind="presentation.acts.' + i + '.lead" value="' + esc(a.lead || "") + '" placeholder="引子：进入这一幕时的一句话" /></div><div class="ed-act-tools">' +
@@ -347,7 +372,7 @@ export async function render(root, ctx, { id, from }) {
     "cover-mini": () => cover(draft.presentation.cover, "tile"),
     "cover-poster": () => cover(draft.presentation.cover, "poster", pack().title),
     title: () => esc(shortTitle(pack().title) || "未命名世界"),
-    meta: () => '<span class="num">' + esc(pack().id) + "</span><span>第 " + pack().revision + " 版" + (isNew ? "（新建）" : "") + "</span>" +
+    meta: () => '<span class="num">' + esc(pack().id) + "</span><span>" + tier(draft.presentation.edition, pack().revision) + (isNew ? "（新建）" : "") + "</span>" +
       (dirty() ? '<span class="gold">● 有未保存的修改</span>' : persisted ? "<span>已保存</span>" : '<span class="gold">● 尚未保存</span>') +
       (subTitle(pack().title) ? "<span>" + esc(subTitle(pack().title)) + "</span>" : ""),
     issues: () => {
@@ -372,13 +397,7 @@ export async function render(root, ctx, { id, from }) {
       const p = pack(), lo = p.attributes.reduce((s, a) => s + (a.min || 0), 0), hi = p.attributes.reduce((s, a) => s + (a.max || 0), 0);
       return "允许 " + lo + "–" + hi + "；每个职业的属性合计都要等于预算，平均每项 " + (p.attributes.length ? (p.budget / p.attributes.length).toFixed(1) : "—");
     },
-    scale: () => {
-      const r = pack().rules, span = Math.max(1, r.dcMax - r.dcMin);
-      const pos = (v) => Math.max(0, Math.min(100, ((v - r.dcMin) / span) * 100));
-      const chance = (dc) => Math.max(5, Math.min(100, (21 - dc) * 5));
-      return '<div class="dc-scale"><div class="dc-line"></div>' + r.difficulties.map((d, i) => '<div class="dc-mark" style="left:' + pos(d) + '%"><i></i><b>' + DIFF[i] + " " + d + "</b><span>" + chance(d) + "%</span></div>").join("") +
-        '<div class="dc-mark default" style="left:' + pos(r.dc) + '%"><i></i><b>默认</b></div><span class="dc-end" style="left:0">' + r.dcMin + '</span><span class="dc-end" style="left:100%">' + r.dcMax + "</span></div>";
-    },
+    scale: () => dcScale(pack().rules),
     players: () => {
       const r = pack().rules;
       return '<div class="seat-scale">' + Array.from({ length: 8 }, (_, i) => {
@@ -425,8 +444,7 @@ export async function render(root, ctx, { id, from }) {
     if (kind === "res") {
       const x = p.resources[a];
       if (!x) return "";
-      const share = x.max ? Math.max(0, Math.min(1, x.initial / x.max)) : 0;
-      return '<div class="meter"><span>开局</span><div class="bar"><span style="width:' + (share * 100).toFixed(0) + '%"></span></div><span class="num">' + x.initial + "/" + x.max + "</span></div>";
+      return meter("开局", x.initial, x.max, Number(a));
     }
     if (kind === "alloc") {
       const arch = p.archetypes[a];
@@ -449,7 +467,7 @@ export async function render(root, ctx, { id, from }) {
       '<div data-live="issues"></div>' + STEP_VIEWS[STEPS[step][0]]() + "</div>";
     stepEl.querySelectorAll('input[type="range"]').forEach(fillRange);
     updateLive();
-    const url = "#/worlds/" + (isNew ? "new?" + (from ? "from=" + encodeURIComponent(from) + "&" : "") : encodeURIComponent(id) + "/edit?") + "step=" + STEPS[step][0];
+    const url = "#/worlds/" + (isNew ? "new?" + (from ? "from=" + encodeURIComponent(from) + "&" : tavern ? "tavern=1&" : "") : encodeURIComponent(id) + "/edit?") + "step=" + STEPS[step][0];
     history.replaceState(null, "", url);
   }
 
@@ -505,6 +523,7 @@ export async function render(root, ctx, { id, from }) {
   const ACTIONS = {
     goto: (i) => { step = Math.max(0, Math.min(STEPS.length - 1, i)); renderStep(); window.scrollTo({ top: 0, behavior: "smooth" }); },
     tone: (_, v) => { draft.presentation.cover.tone = v; },
+    edition: (_, v) => { if (v === "core") draft.presentation.edition = "core"; else delete draft.presentation.edition; },
     "add-attr": () => {
       const p = pack(), ref = p.attributes[0] || { min: 6, max: 16 };
       const at = { id: newId("attr", p.attributes), name: "", min: ref.min, max: ref.max };
@@ -555,7 +574,7 @@ export async function render(root, ctx, { id, from }) {
     "move-act": (i, v) => { const list = draft.presentation.acts, j = i + Number(v); [list[i], list[j]] = [list[j], list[i]]; },
     "add-ending": () => { const list = draft.presentation.endings; list.push({ id: "ending-" + (list.length + 1), name: "", rule: "" }); },
     "del-ending": (i) => { draft.presentation.endings.splice(i, 1); },
-    restore: () => { draft = pendingDraft.draft; pendingDraft = null; },
+    restore: () => { draft = withNarration(pendingDraft.draft); pendingDraft = null; },
     discard: () => { pendingDraft = null; try { localStorage.removeItem(key); } catch { /* ignore */ } },
   };
   function fit(a) {
@@ -591,11 +610,11 @@ export async function render(root, ctx, { id, from }) {
       return ACTIONS.goto(first);
     }
     try {
-      const result = await busy(button, () => ctx.api.post("worlds/save", { pack: draft.pack, presentation: draft.presentation, create: isNew }));
+      const result = await busy(button, () => ctx.api.post("worlds/save", { pack: draft.pack, presentation: draft.presentation, narration: draft.narration, create: isNew }));
       saved = JSON.stringify(draft);
       persisted = true;
       try { localStorage.removeItem(key); } catch { /* ignore */ }
-      ctx.toast("已保存「" + shortTitle(draft.pack.title) + "」第 " + result.revision + " 版");
+      ctx.toast("已保存「" + shortTitle(draft.pack.title) + "」" + (result.label || tier(null, result.revision)));
       ctx.go("worlds/" + encodeURIComponent(result.id));
     } catch (error) {
       serverCheck = { error: error.message };
@@ -606,7 +625,8 @@ export async function render(root, ctx, { id, from }) {
 
   function exportFile() {
     normalise();
-    const blob = new Blob([JSON.stringify({ format: source.bundle_format, pack: draft.pack, presentation: draft.presentation }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ format: source.bundle_format, pack: draft.pack, presentation: draft.presentation,
+      extensions: narrationExtensions(draft.narration) }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = draft.pack.id + ".world.json";
@@ -615,6 +635,12 @@ export async function render(root, ctx, { id, from }) {
   }
 
   root.addEventListener("click", (e) => {
+    const pick = e.target.closest(".notch [data-field]");
+    if (pick && !pick.disabled) {
+      draft.narration[pick.dataset.field] = pick.dataset.value;
+      changed();
+      return renderStep();
+    }
     const el = e.target.closest("[data-act]");
     if (!el || el.disabled) return;
     const act = el.dataset.act;

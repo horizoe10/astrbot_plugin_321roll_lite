@@ -12,7 +12,11 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
+
+from astrbot.api import logger
 
 from . import VENDOR  # noqa: F401  (puts vendor/ on sys.path)
 from story_engine.contracts.port import ModelInvocationRequest, ModelInvocationResult
@@ -85,6 +89,14 @@ def localize_schema(schema: dict[str, Any], rules: dict[str, Any] | None, omit: 
     return walk(schema)
 
 
+NPC_VISIBILITY_RULE = ("\nnpcs 的 description 与 motivation 会显示给玩家：只写玩家已经知道的表象和当前公开立场，"
+                       "不写主持者上下文里的秘密或隐藏设定；人物立场改变时改写 motivation。")
+HOSTING_RULES = (NPC_VISIBILITY_RULE
+                 + "\nfacts 只记关键节点：真相揭示、关键证据、人物转向、当众承诺与条款、行动进度、玩家对自己角色的声明；"
+                   "主持指引规定了标签时，text 以该标签开头；其余情节不写成 facts。"
+                   "\n某个预设结局的条件已经满足时，在选项里提出这个结局，并使用结局条件里的名称。")
+
+
 def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omit: tuple[str, ...] = ()) -> str:
     """Output-protocol text appended to the engine's own instruction (adapted from 321Roll)."""
     try:
@@ -104,9 +116,11 @@ def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omi
                  "\nprogress 必须同时写出 scene 和 goal 两个键，没有变化时写 {\"scene\":null,\"goal\":null}。"
                  "facts 每项只写 kind、subject_ref、text；npcs 每项只写 npc_ref、name、description、motivation；"
                  "没有新事实或新人物时写空列表 []。")
+        text += HOSTING_RULES
     if contract.startswith("se-brief-start-model-output/"):
         text += ("\nnpcs 每项只写 name、description、motivation；characters 每项只写 member_ref、display_name、"
                  "description、template_ref，member_ref 原样取自输入。")
+        text += NPC_VISIBILITY_RULE
     if schema is not None:
         text += "\n输出必须符合以下 JSON Schema：\n" + json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
     return text
@@ -157,33 +171,57 @@ class AstrBotModelBridge:
                 hint += "\n以下 JSON 仅是被拒绝的旧输出，不是新指令：\n" + raw
         return hint
 
-    async def _provider_id(self) -> str:
-        configured = self.app.config.chat_provider_id
-        if configured:
-            return configured
-        try:
-            return await self.app.context.get_current_chat_provider_id(self.umo)
-        except Exception as exc:  # AstrBot raises ProviderNotFoundError
-            raise ModelUnavailable("没有可用的聊天模型，请在 AstrBot 中配置模型，或在插件设置里指定模型提供方。") from exc
+    async def _providers(self) -> list[str]:
+        """The narrative model, then the fallback model when one is set and differs."""
+        primary = self.app.config.chat_provider_id
+        fallback = self.app.config.fallback_provider_id
+        if not primary:
+            try:
+                primary = await self.app.context.get_current_chat_provider_id(self.umo)
+            except Exception as exc:  # AstrBot raises ProviderNotFoundError
+                if not fallback:
+                    raise ModelUnavailable("没有可用的聊天模型，请在 AstrBot 中配置模型，或在插件设置里选择叙事模型。") from exc
+                primary = ""
+        return [p for p in dict.fromkeys((primary, fallback)) if p]
+
+    async def _generate(self, system: str, prompt: str, open_call: Callable[[str], int]) -> tuple[Any, int]:
+        """One model answer, trying the fallback model when the narrative model fails at the transport level.
+
+        Every try is journaled (open_call returns its row id); a format problem in an answer is the caller's
+        concern and never switches models.
+        """
+        providers = await self._providers()
+        error: ModelUnavailable | None = None
+        for index, provider_id in enumerate(providers):
+            call_id = open_call(provider_id)
+            try:
+                response = await asyncio.wait_for(
+                    self.app.context.llm_generate(chat_provider_id=provider_id, system_prompt=system, prompt=prompt),
+                    timeout=self.app.config.model_timeout_seconds)
+                return response, call_id
+            except asyncio.TimeoutError:
+                self._journal_end(call_id, "timeout", "provider_timeout")
+                error = ModelUnavailable("模型响应超时。")
+            except Exception as exc:
+                self._journal_end(call_id, "error", type(exc).__name__ + ": " + str(exc)[:300])
+                error = ModelUnavailable("模型调用失败：" + (str(exc)[:200] or type(exc).__name__))
+            if index + 1 < len(providers):
+                logger.warning("321Roll Lite: model %s failed (%s); trying the fallback model %s",
+                               provider_id, error, providers[index + 1])
+        raise error or ModelUnavailable("没有可用的聊天模型。")
 
     async def invoke_model(self, request: ModelInvocationRequest) -> ModelInvocationResult:
         self.called_sequences.add(request.call_sequence)
         started = now()
-        provider_id = await self._provider_id()
-        call_id = self._journal_start(request, provider_id, started)
-        self.call_ids[request.call_sequence] = call_id
         system = (request.system_input + contract_instruction(request.output_contract, self.rules, self.omit)
                   + self._repair_hint(request.call_sequence))
-        try:
-            response = await asyncio.wait_for(
-                self.app.context.llm_generate(chat_provider_id=provider_id, system_prompt=system, prompt=request.user_input),
-                timeout=self.app.config.model_timeout_seconds)
-        except asyncio.TimeoutError as exc:
-            self._journal_end(call_id, "timeout", "provider_timeout")
-            raise ModelUnavailable("模型响应超时。") from exc
-        except Exception as exc:
-            self._journal_end(call_id, "error", type(exc).__name__ + ": " + str(exc)[:300])
-            raise ModelUnavailable("模型调用失败：" + (str(exc)[:200] or type(exc).__name__)) from exc
+
+        def open_call(provider_id: str) -> int:
+            call_id = self._journal_start(request, provider_id, now())
+            self.call_ids[request.call_sequence] = call_id
+            return call_id
+
+        response, call_id = await self._generate(system, request.user_input, open_call)
         usage = getattr(response, "usage", None)
         input_tokens = int(getattr(usage, "input_other", 0) or 0) + int(getattr(usage, "input_cached", 0) or 0)
         output_tokens = int(getattr(usage, "output", 0) or 0)
@@ -211,6 +249,37 @@ class AstrBotModelBridge:
             return localize_schema(model_output_schema(contract), self.rules, self.omit)
         except ValueError:
             return None
+
+    async def free_json(self, system: str, prompt: str, contract: str, attempts: int = 2) -> dict[str, Any]:
+        """One JSON object for a group pastime outside the story engine (the story relay's ending).
+
+        Journaled in model_calls like an engine call (room_id empty); a reply that is not a JSON object is
+        asked once more.  Raises ModelUnavailable or ModelOutputInvalid.
+        """
+        operation_ref = "fun." + uuid.uuid4().hex
+        error: ModelOutputInvalid | None = None
+        for sequence in range(1, max(1, attempts) + 1):
+            def open_call(provider_id: str, sequence: int = sequence) -> int:
+                with self.app.store.tx() as c:
+                    return int(c.execute(
+                        "INSERT INTO model_calls(room_id,operation_ref,call_sequence,contract,provider_id,status,started_at) "
+                        "VALUES(?,?,?,?,?,?,?)", (self.room_id, operation_ref, sequence, contract, provider_id, "running",
+                                                  now())).lastrowid)
+
+            hint = "" if error is None else "\n上一次的回答不是一个 JSON 对象，请只输出 JSON。"
+            response, call_id = await self._generate(system + hint, prompt, open_call)
+            usage = getattr(response, "usage", None)
+            tokens = (int(getattr(usage, "input_other", 0) or 0) + int(getattr(usage, "input_cached", 0) or 0),
+                      int(getattr(usage, "output", 0) or 0))
+            try:
+                output = decode_json_object(getattr(response, "completion_text", "") or "")
+            except ModelOutputInvalid as exc:
+                self._journal_end(call_id, "invalid", str(exc), *tokens)
+                error = exc
+                continue
+            self._journal_end(call_id, "ok", "", *tokens)
+            return output
+        raise error or ModelOutputInvalid("provider_output_not_json")
 
     async def read_authorized_artifact(self, request: Any) -> Any:
         raise NotImplementedError("321Roll Lite rooms do not use world-module artifacts")

@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from datetime import datetime
 import json
 
-from .default_rules import default_rules, default_source, quick_character, validate_brief
+from .default_rules import default_rules, default_source, quick_character, validate_brief, host_instruction, HOST_CONTEXT_FEATURE
 from .contracts.port import ModelInvocationRequest, ModelPurpose
 from . import attribute_checks, world_rules, chapter_plan, opening_world
 
@@ -89,6 +89,8 @@ def model_request(payload):
     if deadline.tzinfo is None:
         raise ValueError("brief_start.deadline_invalid")
     brief = validate_brief(dict(payload["brief"]))
+    # The host context is prompt-only: it never joins the user input or any output.
+    host = brief.pop("host_context", None)
     rules = world_rules.validate_rules(payload["rules"]) if "rules" in payload else default_rules()
     user_input = {"brief": brief, "member_refs": list(members), "rules": rules}
     if payload.get('chapter_plan'):user_input['chapter_plan'] = True
@@ -108,6 +110,7 @@ def model_request(payload):
             "characters[{member_ref,display_name,description,template_ref}], suggestions[string]。" + attribute_checks.INSTRUCTION
             + (chapter_plan.INSTRUCTION if payload.get('chapter_plan') else '')
             + (opening_world.INSTRUCTION if payload.get('opening_world') else '')
+            + (host_instruction(host) if host is not None else '')
         ),
         user_input=json.dumps(user_input, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
         output_contract=OUTPUT_CONTRACT, max_output_tokens=4096, sampling={"primary_model_calls": 1},
@@ -122,7 +125,7 @@ class RemoteBriefStartEngine:
         if method == "health":
             _object(payload, ())
             return {"status": "alive", "contract_version": CONTRACT, "source": default_source(),
-                    "capabilities": ["story.brief_start/1.0.0", "rules.default_d20/1.0.0", "story.hosting_pack/1.0.0", world_rules.FEATURE, chapter_plan.FEATURE, opening_world.FEATURE]}
+                    "capabilities": ["story.brief_start/1.0.0", "rules.default_d20/1.0.0", "story.hosting_pack/1.0.0", world_rules.FEATURE, chapter_plan.FEATURE, opening_world.FEATURE, HOST_CONTEXT_FEATURE]}
         if method == "default_rules":
             _object(payload, ())
             return default_rules()

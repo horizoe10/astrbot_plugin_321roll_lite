@@ -3,12 +3,13 @@ import { esc, failure, loading, toast } from "./ui.js";
 import * as overview from "./views/overview.js";
 import * as rooms from "./views/rooms.js";
 import * as worlds from "./views/worlds.js";
+import * as personas from "./views/personas.js";
 import * as plays from "./views/plays.js";
 import * as messages from "./views/messages.js";
 import * as ops from "./views/ops.js";
 import * as settings from "./views/settings.js";
 
-const NAV = [["overview", "总览", overview], ["rooms", "团桌", rooms], ["worlds", "世界", worlds], ["plays", "玩法", plays],
+const NAV = [["overview", "总览", overview], ["rooms", "团桌", rooms], ["worlds", "世界", worlds], ["personas", "人设", personas], ["plays", "玩法", plays],
   ["messages", "消息", messages], ["ops", "运行", ops], ["settings", "设置", settings]];
 const VIEWS = Object.fromEntries(NAV.map(([key, label, view]) => [key, { label, view }]));
 
