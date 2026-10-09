@@ -7,7 +7,7 @@
       "revision": 1,
       "edition": "core",
       "title": "封箱戏（核心版） · 第七夜，台下多出一排看客",
-      "summary": "后台的红布不知被谁揭开了，镜子里映出一张上好妆的脸，可镜子前没有人。",
+      "summary": "“封箱前不唱《夜奔》，后台镜子盖红布，散场给老郎神留一盏灯。”",
       "cover": {
         "mark": "戏",
         "tone": "wine"
@@ -15,9 +15,9 @@
       "images": 5,
       "min_plugin": "0.1.0",
       "file": "packs/final-curtain-core-C1.zip",
-      "size": 797641,
-      "sha256": "2bbc62f5088795f5135f47d5c861ada165f195771df4be1442c5a3bc074daed0",
-      "content_digest": "5d76903cab8bfe00d29f47e546ba331959c87403a7512e97c37b7d19bcae8d0e",
+      "size": 798375,
+      "sha256": "56c1e5527b2c69681df4b8014cf20323685d9cace0c502b4ba2a54fcd4c9e73d",
+      "content_digest": "bcd274e57a8e42fccc51df7d93c4b387408bcdef40d2837a35a56ce6a17cd0eb",
       "immersive": true,
       "preview": "previews/final-curtain-core-C1.webp"
     },
@@ -26,7 +26,7 @@
       "revision": 1,
       "edition": "core",
       "title": "灰冠之下：祖约（核心版） · 冠落纪 236 年，赤髓煤脉现世",
-      "summary": "春汛退去的第三天，石环山门前的空地上挤满了人：石环的工匠、流民坡的男男女女、山下来看热闹的商贩。",
+      "summary": "春汛退去的第三天，石环山门前挤满了人。正午的钟声从山脚传上来，赫铎长老把告示最后一个角按平，手背的烫疤蹭上了浆糊。",
       "cover": {
         "mark": "冠",
         "tone": "slate"
@@ -34,9 +34,9 @@
       "images": 5,
       "min_plugin": "0.1.0",
       "file": "packs/greycrown-prequel-core-C1.zip",
-      "size": 1046572,
-      "sha256": "279a71e030af43a6a9f65f1737fc12e0955e33a3b5e57d64fedd8f5aeb95f4c5",
-      "content_digest": "b038bd4681d2e3eb0a4eef29a5b26f3fc97dcd1ad03f080d7ba387ac66b67ff2",
+      "size": 1047159,
+      "sha256": "d8c0a88728b6b549fabd6d28e417f1c6784a8ef683a88c0d49e53eb7f1d54548",
+      "content_digest": "7b55062ba87849a3c50815a4b9d79482e2ab888d610e24988bc98e7862333ce4",
       "immersive": true,
       "preview": "previews/greycrown-prequel-core-C1.webp"
     },
@@ -45,7 +45,7 @@
       "revision": 1,
       "edition": "core",
       "title": "无名剑冢（核心版） · 第一道潮痕，是用剑刻的",
-      "summary": "霜降前夜，霜降客栈灯笼通明。台阶上的剑痕结了一层白霜，在灯下反着光。",
+      "summary": "霜降前夜，客栈的酒温了两遍，靠门那杯没人碰。",
       "cover": {
         "mark": "剑",
         "tone": "jade"
@@ -53,9 +53,9 @@
       "images": 4,
       "min_plugin": "0.1.0",
       "file": "packs/nameless-sword-tomb-core-C1.zip",
-      "size": 707782,
-      "sha256": "a6df73b25ded1a172d491c59d967f8ca5f85d6a6a3a3b21bb06ac6a8b1148733",
-      "content_digest": "d5d6d187e134de92067729032bb676a4729c448ac5b7bf6723c8bad86c250aa6",
+      "size": 708559,
+      "sha256": "80e09bcbd3daadcacac790c6396f7af2cbd7f1fc00037ea7bab57c790d893aec",
+      "content_digest": "ad9084ecf7d9be0f0a21d085ef95d02ccf4e939045ca1bfe9109040d954bc2fc",
       "immersive": true,
       "preview": "previews/nameless-sword-tomb-core-C1.webp"
     },
@@ -64,7 +64,7 @@
       "revision": 1,
       "edition": "core",
       "title": "霓虹典当行（核心版） · 今夜有人当掉了整座城的昨天",
-      "summary": "卷帘门拉开一半，雨水灌进来。柜台上的老式收银机自己弹开了抽屉，里面躺着一张当票和一枚滚烫的芯片。",
+      "summary": "“先别用手碰。”梅婆用账簿垫起滚烫的芯片。收银机的抽屉自己弹开，里面的当票烤卷了角。",
       "cover": {
         "mark": "当",
         "tone": "neon"
@@ -72,9 +72,9 @@
       "images": 2,
       "min_plugin": "0.1.0",
       "file": "packs/neon-pawnshop-core-C1.zip",
-      "size": 380121,
-      "sha256": "10906ca1a478fb89a6df878b7e5fe3567dcd653bf326273b9f30ec72e64667c2",
-      "content_digest": "85e3758886656cb59cb77b0b03c06b83111b3d8f84f5e330c17c5a8e50a33c68",
+      "size": 380921,
+      "sha256": "60c030ca8523384b2f35402a72c3a0d0896c7a16bf37e09ca2962eca62f79cd7",
+      "content_digest": "3ea901754a16c5d5402ac76171677742c06bff99783d3da9e68f46b6b6ea48ad",
       "immersive": true,
       "preview": "previews/neon-pawnshop-core-C1.webp"
     },
@@ -83,7 +83,7 @@
       "revision": 1,
       "edition": "core",
       "title": "第七个不思议（核心版） · 钟楼在放学后多敲了一下",
-      "summary": "放学铃响过二十分钟，新教学楼的人已经走空。",
+      "summary": "“五点四十。你们也是这个时候？”旧校舍门口，苏清荷看着你们的便签。相同的字迹，背面七个圆圈，前六个涂黑，最后一个空着。",
       "cover": {
         "mark": "七",
         "tone": "ink"
@@ -91,9 +91,9 @@
       "images": 2,
       "min_plugin": "0.1.0",
       "file": "packs/seventh-mystery-core-C1.zip",
-      "size": 210255,
-      "sha256": "aed16e227f6b4d0b14dc62f174f916bd7a7910741f212df0e89a8bdd20c0427d",
-      "content_digest": "bce6586095222e9544641011304baad89072ec9dcf3de3e932d2170fa12f223a",
+      "size": 211117,
+      "sha256": "a750d611da0eeb3435565b3d3ad5642a471ab83d0a1d8ba49bebb174fad93c23",
+      "content_digest": "3c4e1fe81737b1c072dae71ce3ed21e8100ff97b92a90c60e35b472802bf5d74",
       "immersive": true,
       "preview": "previews/seventh-mystery-core-C1.webp"
     },
@@ -102,7 +102,7 @@
       "revision": 1,
       "edition": "core",
       "title": "狩火（核心版） · 群兽迁徙之年",
-      "summary": "营地的警钟响了三声：长、短、长，意思是\"大型兽，向镇\"。你们冲出帐篷时，西边的天已经染成橘红，风里有焦草和硫磺的味道。",
+      "summary": "警钟响了三声：长、短、长。大型兽，向镇。",
       "cover": {
         "mark": "狩",
         "tone": "ember"
@@ -110,9 +110,9 @@
       "images": 4,
       "min_plugin": "0.1.0",
       "file": "packs/wildfire-hunt-core-C1.zip",
-      "size": 701472,
-      "sha256": "ede21f02ac6055c1f6d2029dffde0131f72d34f382f3aae8454d957eb2c38792",
-      "content_digest": "6c92d2ac45931f029c7561c3f7e9a1fc1cb650b87e5a50d533b950c339ce7dff",
+      "size": 702031,
+      "sha256": "97b8d56a931aaba9f7cb3485078a234ff2e369679881d7fa15dc0e9a32bb2476",
+      "content_digest": "03f2f02c8dcaebe505333dc73d754f60d9220754122fb27e6db2769a3b410296",
       "immersive": true,
       "preview": "previews/wildfire-hunt-core-C1.webp"
     }
