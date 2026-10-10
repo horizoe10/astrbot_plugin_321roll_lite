@@ -1,10 +1,10 @@
 {
   "schema": "se-active-source-version-guard/1.1.0",
-  "current_distribution_version": "1.0.0rc28",
-  "working_tree_candidate": "1.0.0rc28",
+  "current_distribution_version": "1.0.0rc29",
+  "working_tree_candidate": "1.0.0rc29",
   "installable": true,
   "next_version_required": false,
-  "formal_version_owner_decision": "assigned:1.0.0rc28",
+  "formal_version_owner_decision": "assigned:1.0.0rc29",
   "blocked_active_release_versions": [
     "1.0.0.dev4",
     "1.0.0.dev5",

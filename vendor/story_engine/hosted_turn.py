@@ -117,6 +117,7 @@ async def propose_collective_event(payload, bridge):
         "不得替真人承诺、消耗、移交控制或决定其结果，不得输出骰面、DC、数值结算或他人隐私。"
         "每个方向给出稳定 ASCII 令牌 direction_ref（小写字母、数字、点、下划线或连字符，不得重复）、"
         "单行 label、说明 description、可选 risk 与 cost 文案。"
+        "premise 只写眼前的局面和为何必须立刻共同决定，不列出、不复述也不预告各个方向；方向由平台单独展示为选项。"
         "只输出 title,premise,directions。"
     )
     if host is not None:
@@ -410,6 +411,7 @@ class RemoteHostedTurnEngine:
                 'suggestions及决策候选是供下一位实际行动玩家选择的行动，用省略行动者的通用措辞，例如“查看塔门”；不得把刚行动的真人姓名固定为下一选项的执行者，也不得替其他真人承诺行动。正文仍按本轮实际行动者叙述。'
                 'player_declaration只能复述本人已声明内容；hypothesis须描述尚未证实的客观关联，不能把模型猜想归为玩家的想法。'
                 'facts只记录新信息，未变化的NPC不重复输出。'
+                'paragraphs只写已经发生的故事，不列出、不复述也不预告suggestions、choices或决策候选里的选项；选项由平台单独展示。'
                 'fact.kind 为 world_fact,npc_statement,player_declaration,hypothesis；subject_ref 只能是 scene、goal 或已知/本次 NPC 引用。'
                 'npc_ref 使用 npc. 前缀的稳定英文引用，保留已有人物的引用。'
             )

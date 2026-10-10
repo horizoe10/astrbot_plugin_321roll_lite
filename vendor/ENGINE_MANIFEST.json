@@ -1,6 +1,6 @@
 {
   "engine": "party321-story-engine",
-  "version": "1.0.0rc28",
+  "version": "1.0.0rc29",
   "file_count": 313,
   "files": {
     "__init__.py": "sha256:44d4232a5196827af73998226da9c90885aeadbefd28a4c0bdffbc690d688416",
@@ -99,7 +99,7 @@
     "event_narrative_annotations.py": "sha256:66542ccb623cdfc1fa17444670463d31280ab91e83aae1b7792aba39f7d2220e",
     "hosted_decisions.py": "sha256:56e814d33b0cdc0768363c4a19b82e75cdbbc42731bf5b6938339a9b8721a986",
     "hosted_narrative_policy.py": "sha256:2dd357b39ad0026872a83c9ca61a763809e5aa85b740ae3d09ccfab1e41c41a7",
-    "hosted_turn.py": "sha256:6437f73c785a57471692d4efbd1ce9de2b685348ba35cb777a6c9c193d334bf7",
+    "hosted_turn.py": "sha256:0ddda5d95ff8ec65a715caf3e88b3fa45be4b0254184660b0c8cf046164fa346",
     "inventory_equipment.py": "sha256:8b8d3d5f1afcde14eacb9ee5ee5a868054c6c1e3b96612018f0de48723867d19",
     "luck_action_bindings.py": "sha256:6aaecc4976fd91c6a193c3c339da170e3ac8ec5066fbd4e14e0bbce3e43a663d",
     "luck_intervention.py": "sha256:2fbcd8d48ce6bd2054d247f6a27497c806c2571db0650e90d3376ddf6ab162ef",
@@ -112,7 +112,7 @@
     "narrative_annotations.py": "sha256:ecfcaf61f2174e4543ec9a10faa2bfce59337383291d9b982402708a2dd9a02e",
     "narrative_length.py": "sha256:19630e52161996346fa8ecec13a64b99b6ec03a828ae1687550a244b0bfe763d",
     "narrative_style.py": "sha256:fc2fdfc9d070f66aaf09a80dc8007616dcc158916d1de61b0bdfc14336c3a677",
-    "NEXT_VERSION_REQUIRED.json": "sha256:21787f0505b1285e2c4703289a07ef63d606853328db1c1fd289b371b76afb63",
+    "NEXT_VERSION_REQUIRED.json": "sha256:a750062d7515d95028ad42fae692aedac6c17f0bf1185ac3b3edc5b5ab47f18d",
     "offline_public.py": "sha256:cbf9507c01a36d20b66d58887074ada9e962dec51020f9f30c34b828397ffcfc",
     "opening_world.py": "sha256:14be52c82f2b70c867f7a8aee92bc7d47565139b46a697b241340a138f5ee154",
     "pack_check_plan.py": "sha256:b357b2db27f9483e0bb83ce3f50d9c643262d5a794354169c1f77f9af0abe551",
@@ -125,7 +125,7 @@
     "provider_registry.py": "sha256:1a7f8f2d6a831dffa99192a1c57d735e41c0ee6ed4c0dd8343df4111a597fa77",
     "recovery_cycle.py": "sha256:1719f02650329bb16d47af8a05bc9e92db49a753230243f0f1f2b3384fb10073",
     "recovery_cycle_v2.py": "sha256:e3967b40cc645a0344ce8dcc2024dd7302259a02780f71d11a9e588cf128e840",
-    "release_contract.py": "sha256:89d49d617faae297a10c3fdf904bfd280a643c36e63d54418e152e0c0e05eef2",
+    "release_contract.py": "sha256:efdf87ed33220d8ede6cbc42eec0f11b398706dc76202a14ce11a1e0c55571f2",
     "resolution_action_offer.py": "sha256:7569fc434f413e7a85bb495c117ec724f6389118c5eed5e9703a0568645346d1",
     "resolution_check.py": "sha256:bb2fed7004464e5677f309bb2d2d83b2e02bf8c60064a1f6a6b56ea6836defdf",
     "resolution_rule.py": "sha256:c83c1cb2ad670dacbbc4821cd5124e779a8e1a64edd8bb3fa8a2ddff5205b9a9",
@@ -313,7 +313,7 @@
     "timeout_ranking.py": "sha256:80167a4cc21ba3c703e54237f0c76c8b37bb9526500b3fe65279d2a658b744ce",
     "turn_interaction.py": "sha256:531fefc583b31e7c1eceea46b6b634f5d1248c13bbc4af1c4ec64bde7dd54037",
     "v02_extension_candidate.py": "sha256:9ee90b26d5f3295405e58bf6a5ff7ec15f1e99dfdbed9f8fdd13faa586ccc84f",
-    "versions.py": "sha256:764795ee893817432b08b57701ad7babac3d7fdcf1d8697560bbb4324f3ef53f",
+    "versions.py": "sha256:dffc15fb19a131a7e49f01b89b53005ed22bd62251c9d11b2ef95759c5105a08",
     "world_entities.py": "sha256:f154ceb624e3f051ca628e8c378f2806711fdda63bcb0bc162a0613187a09e73",
     "world_rules.py": "sha256:5047af253b1a6b3cd3b1341d5ac77271a170a44fb49b0b127ddb2faa8eef97f9"
   }
