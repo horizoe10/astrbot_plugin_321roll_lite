@@ -58,7 +58,7 @@ export async function render(root, ctx, { id, from, tavern = false }) {
   const blank = !id && !from && !tavern;
   const source = blank ? clone(BLANK) : tavern ? tavernSource() : await ctx.api.get("world", { id: id || from });
   const isNew = !id;
-  if (!blank && !tavern && source.source !== "custom") throw new Error("预设世界和市场世界是只读的，不能修改或复制。想写自己的世界，请在“新建世界”里从空白开始。");
+  if (!blank && !tavern && source.source !== "custom") throw new Error("自带世界和市场世界是只读的，不能修改或复制。想写自己的世界，请在“新建世界”里从空白开始。");
 
   let draft = { pack: clone(source.pack), presentation: clone(source.presentation || {}) };
   draft = withNarration(draft, Object.fromEntries(Object.entries(source.narration || {}).map(([f, d]) => [f, d.value])));
@@ -232,10 +232,10 @@ export async function render(root, ctx, { id, from, tavern = false }) {
         '<label class="field"><span class="label">编号（id）</span><input class="input num" data-bind="pack.id" value="' + esc(pack().id) + '"' + (isNew ? "" : " readonly") + " /><span class=\"hint\">" +
         (isNew ? "用于区分世界包，保存后不能修改。只能用字母、数字和 - _ . :" : "已保存的世界不能改编号；想换编号，请导出后改成新世界导入。") + "</span></label>" +
         '<div class="field"><span class="label">版本</span><div class="seg" role="group" aria-label="世界版本">' +
-          [["core", "核心版 · 世界卡"], ["pro", "专业版"]].map(([v, l]) => '<button type="button" data-act="edition" data-v="' + v + '" aria-pressed="' + ((draft.presentation.edition || "pro") === v) + '">' + l + "</button>").join("") +
+          [["core", "核心版 · 世界卡"], ["pro", "进阶版 · 世界包"]].map(([v, l]) => '<button type="button" data-act="edition" data-v="' + v + '" aria-pressed="' + ((draft.presentation.edition || "pro") === v) + '">' + l + "</button>").join("") +
           '</div><span class="hint">' + ((draft.presentation.edition || "pro") === "core"
             ? "核心版只预设第一幕，没有固定结局；之后的幕由主持人用 /团 主持 换幕 标题 即兴开启。"
-            : "专业版按你写好的幕和结局推进。") + "</span></div>" +
+            : "进阶版按你写好的幕和结局推进。") + "</span></div>" +
         '<hr class="rule" />' + sectionHead("世界与开场", "世界观和开场会交给叙事模型；开场是第一幕的起点描写。") +
         text("pack.worldview", "世界观", { limit: LIMITS.worldview, area: true, rows: 9 }) +
         text("pack.seed", "开场", { limit: LIMITS.seed, area: true, rows: 5, hint: "开团时会作为开团卡的引子发到群里。" }) +

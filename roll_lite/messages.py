@@ -48,11 +48,16 @@ def first_sentence(text: str, limit: int = 60) -> str:
 
 
 # ---------------------------------------------------------------- lobby
-def world_list(entries: list[dict[str, Any]]) -> Msg:
-    m = Msg().title("可开的世界").gap()
-    m.items([f"**{i}. {safe(short_title(e['title']))}**　{safe(subtitle(e['title']))}　{BT}{e['players']} 人{BT}"
-             for i, e in enumerate(entries, 1)])
-    return m.gap().hint(f"管理员发送 {cmd('/团 开启 序号')} 开一桌；更多世界可以在后台“世界 → 世界市场”安装")
+def world_list(entries: list[dict[str, Any]], picking: bool = False) -> Msg:
+    """The enabled worlds, numbered for /团 开启; picking=True when /团 开启 came without a world."""
+    m = Msg().title("选一个世界开团" if picking else "可开的世界").gap()
+    for i, e in enumerate(entries, 1):
+        m.text(f"**{i}. {safe(short_title(e['title']))}**　{safe(subtitle(e['title']))}")
+        m.text(f"{BT}{e['label']}{BT} {e['kind']}　{e['players']} 人").gap()
+    if picking:
+        return m.hint(f"发送 {cmd('/团 开启 序号')} 开一桌，例如 {cmd('/团 开启 1')}；也可以写世界名，如 {cmd('/团 开启 ' + short_title(entries[0]['title']))}",
+                      note="核心版只预设第一幕，之后由 AI 即兴续写；更多世界在后台“世界 → 世界市场”安装")
+    return m.hint(f"管理员发送 {cmd('/团 开启 序号')} 开一桌；更多世界可以在后台“世界 → 世界市场”安装")
 
 
 def open_card(title: str, hook: str, seat_cap: int, min_players: int, host: str, world: str = "", note: str = "") -> Msg:
@@ -122,10 +127,30 @@ def joined(user: str, seated: int, cap: int) -> Msg:
                         f"有人设卡的话，角色名写人设的名字就会带上它（{cmd('/团 人设')} 查看）")
 
 
-def next_steps_after_card(state: str) -> str:
+def next_steps_after_card(state: str, regroup_open: bool = False) -> str:
     if state == "lobby":
         return f"角色已就绪。等主持人发送 {cmd('/团 开演')}；随时可以发送 {cmd('/团 背包')} 查看技能和物品。".replace(BT, "")
+    if state == "paused":
+        step = "发送 /团 准备" if regroup_open else "等主持人发送 /团 恢复 打开准备大厅后发送 /团 准备"
+        return f"角色已就绪。故事正在暂停：{step}，主持人开演后你会排进行动顺序末尾，AI 会把你写进故事。"
     return f"角色已就绪，已排进行动顺序。轮到你时会在群里@你；{cmd('/团 背包')} 查看技能和物品。".replace(BT, "")
+
+
+def regroup_card(title: str, rows: list[tuple[str, str, str, bool]], left: list[str], minutes: int, all_ready: bool) -> Msg:
+    """The preparation lobby after /团 恢复: (name, archetype, state, newcomer) per seated player."""
+    ready = sum(1 for r in rows if r[2] == "已准备")
+    players = sum(1 for r in rows if r[2] != "未建卡")
+    m = Msg().title(safe(title), f"{ready}/{players} 人已准备").gap()
+    m.items([f"**{safe(name)}**　{safe(role)}　{BT}{state}{BT}" + ("　新加入" if new else "") for name, role, state, new in rows]
+            or ["还没有人在座"])
+    if left:
+        m.text("本次离开：" + "、".join(safe(n) for n in left))
+    m.gap()
+    if all_ready:
+        return m.hint(f"全员已准备。主持人发送 {cmd('/团 开演')} 继续故事" + ("，AI 会先把人员变动写进故事" if left or any(r[3] for r in rows) else ""))
+    note = f"{minutes} 分钟后，没准备的玩家自动准备。" if minutes else ""
+    return m.hint(f"准备好后发送 {cmd('/团 准备')}；这段时间可以 {cmd('/团 加入')}、建卡或 {cmd('/团 退出')}。"
+                  f"{note}主持人可以发送 {cmd('/团 主持 全员准备')}")
 
 
 # ---------------------------------------------------------------- story
@@ -511,29 +536,6 @@ def ending_card(world_title: str, ending: str, epilogues: list[tuple[str, str]],
     if epilogues:
         m.gap().items([f"**{safe(name)}**　{safe(text)}" for name, text in epilogues])
     return m.gap().hint(stats + f"　主持人发送 {cmd('/团 关闭')} 收桌")
-
-
-def help_index(topics: list[str]) -> Msg:
-    m = Msg().title("321Roll Lite", "群聊文字跑团").gap()
-    m.caption("一局怎么玩")
-    m.items([f"在群里发送 {cmd('/团 加入')} 入座",
-             f"私聊我发送 {cmd('/团 职业')} 看职业，{cmd('/团 选职业 序号 角色名')} 建卡（群里发也可以）",
-             f"主持人发送 {cmd('/团 开演')}；轮到你时选 {cmd('/团 选 A')} 或写 {cmd('/团 行动 你的做法')}",
-             f"检定时在句末写 {cmd('[用 名称]')} 带上技能或物品；{cmd('/团 背包')} 看持有的技能和物品",
-             f"线索、交涉、对抗、计划等玩法随时可用，回执里会写下一步怎么做"])
-    m.gap().caption("私聊里也能用")
-    m.text(f"建卡、{cmd('/团 角色')}、{cmd('/团 背包')}、{cmd('/团 使用')}、{cmd('/团 人物')}、{cmd('/团 状态')}、{cmd('/团 回顾')}、"
-           f"{cmd('/团 记录')}；在私聊里行动或使用玩法，结果会发到群里")
-    m.gap().caption("带上自己的角色")
-    m.text(f"私聊我 {cmd('/团 人设 导入')} 导入酒馆角色卡，或 {cmd('/团 人设 新建 名字')} 手写；建卡时 {cmd('/团 选职业 序号 人设名')} 带上，"
-           f"{cmd('/团 人设 融入')} 让 AI 写出你在这个世界里的身份")
-    m.gap().caption("每天一次")
-    m.text(f"{cmd('/团 一掷')} 掷出今天的 d20 和宜忌，{cmd('/团 一掷 全群')} 看本群今日榜")
-    return m.gap().hint(f"{cmd('/团 帮助 分类')} 查看详细指令，分类：" + "、".join(topics))
-
-
-def help_topic(topic: str, rows: list[tuple[str, str]]) -> Msg:
-    return Msg().title("帮助", topic).gap().items([f"{BT}{usage}{BT}　{summary}" for usage, summary in rows])
 
 
 # ---------------------------------------------------------------- today's roll

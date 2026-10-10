@@ -124,7 +124,9 @@ class Block:
                     rows.append(f" {item['label']} │ {item['text']}" + (f"　〈{tag}〉" if tag else ""))
             return "\n".join(rows)
         if k == "list":
-            return "\n".join((f"- {inline(i, fmt, False)}" if md else f"· {inline(i, fmt)}") for i in d["items"])
+            # A line break inside an item stays a break in Markdown instead of folding into the line above.
+            return "\n".join((f"- {inline(i, fmt, False)}".replace("\n", "  \n  ") if md else f"· {inline(i, fmt)}")
+                             for i in d["items"])
         if k == "people":
             if md:
                 return f"**{esc_inline(d['label'])}**\n" + "\n".join(f"- **{esc_inline(n)}**　{esc_inline(t)}" for n, t in d["items"])

@@ -22,7 +22,7 @@ def require_room(app: "LiteApp", caller: Caller, *states: str) -> sqlite3.Row:
     with app.store.read() as c:
         room = open_room(c, caller.umo)
     if room is None:
-        raise UserError("本群还没有开团。管理员可以发送 /团 开启 [世界] 开一桌。")
+        raise UserError("本群还没有开团。管理员可以发送 /团 开启 选一个世界开一桌。")
     if states and room["state"] not in states:
         labels = {"lobby": "筹备中", "running": "进行中", "paused": "已暂停", "ended": "已完结"}
         raise UserError(f"当前团桌{labels.get(room['state'], room['state'])}，不能执行这个操作。")

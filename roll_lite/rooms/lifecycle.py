@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from .. import personas, shared
@@ -11,7 +12,7 @@ from ..engine import VENDOR  # noqa: F401
 from ..engine.gateway import EngineCallFailed
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import WorldCatalog
-from ..worlds.package import edition_of
+from ..worlds.package import edition_of, label
 
 from story_engine import world_rules
 
@@ -27,6 +28,8 @@ AUTO_SAVE = "auto"          # saves.created_by of the snapshots /团 主持 回�
 AUTO_KEEP = 5
 NUMERALS = "一二三四五六七八九十"
 CORE_NOTE = "核心版：预设剧情只写到第一幕，之后由 AI 即兴续写"
+# How long the preparation lobby waits after /团 恢复 before everyone still seated counts as ready.
+REGROUP_SECONDS = 300
 
 
 def catalog(app: "LiteApp") -> WorldCatalog:
@@ -126,18 +129,38 @@ def build_character(rules: dict[str, Any], pack: dict[str, Any], archetype_id: s
 
 
 # ---------------------------------------------------------------- commands
+def world_rows(entries: list[Any]) -> list[dict[str, Any]]:
+    """What /团 世界 and the /团 开启 picker show for each world: edition label, what that edition means, players."""
+    rows = []
+    for e in entries:
+        core = edition_of(e.edition) == "core"
+        acts = len(e.presentation.get("acts") or [])
+        kind = "核心版 · 第一幕后即兴" if core else "进阶版" + (f" · {acts} 幕" if acts else "")
+        rows.append({"title": e.title, "label": label(e.edition, e.pack["revision"]), "kind": kind,
+                     "players": f"{e.pack['rules']['recommendedMin']}–{e.pack['rules']['recommendedMax']}"})
+    return rows
+
+
 async def list_worlds(app: "LiteApp", caller: Caller, args: str) -> Reply:
     entries = catalog(app).entries()
     if not entries:
         return Reply().say("当前没有启用的世界包。请在后台启用或导入世界。")
-    return Reply().say(messages.world_list([{"title": e.title, "players": f"{e.pack['rules']['recommendedMin']}–"
-                                             f"{e.pack['rules']['recommendedMax']}"} for e in entries]))
+    return Reply().say(messages.world_list(world_rows(entries)))
 
 
 async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    with app.store.read() as c:
+        if shared.open_room(c, caller.umo) is not None:
+            raise UserError("本群已有一桌未关闭的团。主持人可以先发送 /团 关闭。")
+    if not args.strip():
+        # Choosing the world is its own step, even when only one is enabled.
+        entries = catalog(app).entries()
+        if not entries:
+            raise UserError("当前没有启用的世界。请在后台“世界”启用，或到世界市场安装。")
+        return Reply().say(messages.world_list(world_rows(entries), picking=True))
     entry = catalog(app).resolve(args)
     if entry is None:
-        raise UserError("没有找到这个世界。发送 /团 世界 查看列表。")
+        raise UserError("没有找到这个世界。发送 /团 开启 查看可开的世界和序号。")
     snapshot, rules = await catalog(app).snapshot(entry)
     pack = snapshot["pack"]
     from .. import narration
@@ -206,7 +229,11 @@ async def join(app: "LiteApp", caller: Caller, args: str) -> Reply:
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 入座", actor_id=actor_id)
         app.store.bump_room(c, room["id"])
     reply = Reply().say(messages.joined(caller.user_name, seated + 1, room["seat_cap"]))
-    if room["state"] != "lobby":
+    if room["state"] == "paused":
+        reply.say("故事正在暂停：建好角色后发送 /团 准备，主持人开演后你会排进行动顺序末尾，AI 会把你写进故事。"
+                  if regroup(room) is not None else
+                  "故事正在暂停：先建好角色，等主持人发送 /团 恢复 打开准备大厅后发送 /团 准备；开演后你会排进行动顺序末尾。")
+    elif room["state"] != "lobby":
         reply.say("故事已经开始：选好职业后会排进行动顺序末尾。")
     return reply
 
@@ -271,7 +298,7 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
             reply.extend(hook)
     if public:
         await app.notifier.send(room["umo"], public)
-    reply.say(messages.next_steps_after_card(room["state"]))
+    reply.say(messages.next_steps_after_card(room["state"], regroup(room) is not None))
     return reply
 
 
@@ -369,8 +396,10 @@ async def seat_cap(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 
 async def start(app: "LiteApp", caller: Caller, args: str) -> Reply:
-    room = shared.require_room(app, caller, "lobby")
+    room = shared.require_room(app, caller, "lobby", "paused")
     shared.require_host(app, caller, room)
+    if room["state"] == "paused":
+        return await continue_story(app, caller, room)
     rules = shared.world(room)["pack"]["rules"]
     with app.store.read() as c:
         actors = shared.present_actors(c, room["id"])
@@ -400,21 +429,171 @@ async def pause(app: "LiteApp", caller: Caller, args: str) -> Reply:
     shared.require_host(app, caller, room)
     with app.store.tx() as c:
         c.execute("UPDATE rooms SET state='paused' WHERE id=?", (room["id"],))
+        remember_roster(c, room["id"])
         app.store.bump_room(c, room["id"])
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 暂停了故事")
-    reply = Reply().say(messages.notice("故事已暂停", "回合计时停止，玩家暂时不能行动；私聊里的查看指令照常可用。", "主持人发送 /团 恢复 继续"))
+    reply = Reply().say(messages.notice("故事已暂停", "回合计时停止，玩家暂时不能行动；私聊里的查看指令照常可用。暂停期间可以入座、建卡或离座。",
+                                        "主持人发送 /团 恢复 打开准备大厅，大家准备好后再开演"))
     return reply.extend(await app.hooks.emit("room_paused", room_id=room["id"]))
+
+
+# ---------------------------------------------------------------- preparation lobby
+# A paused story comes back through a lobby: /团 恢复 opens it, players may join, build a card or
+# leave, everyone marks ready (or the host or the clock does it for them), then /团 开演 continues.
+def regroup(room: sqlite3.Row) -> dict[str, Any] | None:
+    return loads(room["data_json"], {}).get("regroup")
+
+
+def _set_data(c: sqlite3.Connection, room_id: str, **values: Any) -> None:
+    """Set or (with None) drop top-level keys of the room's data_json."""
+    row = c.execute("SELECT data_json FROM rooms WHERE id=?", (room_id,)).fetchone()
+    data = loads(row["data_json"], {})
+    for key, value in values.items():
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+    c.execute("UPDATE rooms SET data_json=? WHERE id=?", (dumps(data), room_id))
+
+
+def remember_roster(c: sqlite3.Connection, room_id: str) -> None:
+    """Who was in the story when it stopped, so the lobby can tell who joined and who left."""
+    roster = [a["id"] for a in shared.present_actors(c, room_id) if a["archetype_id"]]
+    _set_data(c, room_id, pause_roster=roster, regroup=None)
+
+
+def regroup_people(c: sqlite3.Connection, room: sqlite3.Row, info: dict[str, Any]) -> dict[str, list[sqlite3.Row]]:
+    """The lobby's people: players with a card, the ones not ready yet, newcomers and those who left."""
+    present = shared.present_actors(c, room["id"])
+    players = [a for a in present if a["archetype_id"]]
+    ready = set(info.get("ready") or [])
+    before = set(info.get("roster") or [])
+    left = [a for a in c.execute("SELECT * FROM actors WHERE room_id=? AND presence='left' ORDER BY order_index",
+                                 (room["id"],)) if a["id"] in before]
+    return {"present": present, "players": players,
+            "pending": [] if info.get("forced") else [a for a in players if a["id"] not in ready],
+            "joined": [a for a in players if a["id"] not in before], "left": left}
+
+
+def regroup_card(c: sqlite3.Connection, room: sqlite3.Row, info: dict[str, Any], title: str) -> Any:
+    people = regroup_people(c, room, info)
+    pending = {a["id"] for a in people["pending"]}
+    joined = {a["id"] for a in people["joined"]}
+    names = {a["id"]: a["name"] for a in shared.world(room)["pack"]["archetypes"]}
+    rows = []
+    for a in people["present"]:
+        state = "未建卡" if not a["archetype_id"] else "未准备" if a["id"] in pending else "已准备"
+        rows.append((shared.actor_label(a), names.get(a["archetype_id"], ""), state, a["id"] in joined))
+    left = max(0, int((datetime.fromisoformat(info["deadline"]) - datetime.now(UTC)).total_seconds()))
+    return messages.regroup_card(title, rows, [shared.actor_label(a) for a in people["left"]],
+                                 0 if info.get("forced") else -(-left // 60), bool(people["players"]) and not pending)
 
 
 async def resume(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller, "paused")
     shared.require_host(app, caller, room)
+    info = regroup(room)
+    title = "准备大厅"
+    if info is None:
+        with app.store.tx() as c:
+            data = loads(room["data_json"], {})
+            roster = data.get("pause_roster")
+            if roster is None:
+                roster = [a["id"] for a in shared.present_actors(c, room["id"]) if a["archetype_id"]]
+            info = {"opened_at": now(), "ready": [], "roster": roster,
+                    "deadline": (datetime.now(UTC) + timedelta(seconds=REGROUP_SECONDS)).isoformat(timespec="seconds")}
+            _set_data(c, room["id"], regroup=info)
+            app.store.bump_room(c, room["id"])
+            app.store.add_event(c, room["id"], "system", f"{caller.user_name} 打开了准备大厅")
+        title = "准备大厅已开启"
+    with app.store.read() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+        return Reply().say(regroup_card(c, room, info, title))
+
+
+def _open_regroup(app: "LiteApp", caller: Caller) -> tuple[sqlite3.Row, dict[str, Any]]:
+    room = shared.require_room(app, caller, "paused")
+    info = regroup(room)
+    if info is None:
+        raise UserError("故事正在暂停。主持人发送 /团 恢复 打开准备大厅后才能准备。")
+    return room, info
+
+
+async def get_ready(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    room, info = _open_regroup(app, caller)
+    actor = shared.require_actor(app, caller, room)
+    if actor["presence"] != "present":
+        raise UserError("你现在不在队列里，先发送 /团 返回。" if actor["presence"] == "away" else "你已经离座，先发送 /团 加入。")
+    if not actor["archetype_id"]:
+        raise UserError("先建好角色再准备：/团 职业 看职业，/团 选职业 序号 角色名。")
+    cancel = args.strip() in ("取消", "不", "撤回")
+    label = shared.actor_label(actor)
     with app.store.tx() as c:
-        c.execute("UPDATE rooms SET state='running' WHERE id=?", (room["id"],))
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+        info = regroup(room) or info
+        ready = [i for i in info.get("ready") or [] if i != actor["id"]] + ([] if cancel else [actor["id"]])
+        info = {**info, "ready": ready}
+        _set_data(c, room["id"], regroup=info)
         app.store.bump_room(c, room["id"])
-        app.store.add_event(c, room["id"], "system", f"{caller.user_name} 恢复了故事")
-    reply = Reply().say(messages.notice("故事继续", "回合计时重新开始。"))
-    return reply.extend(await app.hooks.emit("room_resumed", room_id=room["id"]))
+        card = regroup_card(c, room, info, f"{label} 取消了准备" if cancel else f"{label} 已准备")
+    return Reply().say(card)
+
+
+async def force_ready(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    room, info = _open_regroup(app, caller)
+    shared.require_host(app, caller, room)
+    with app.store.tx() as c:
+        info = {**info, "forced": True}
+        _set_data(c, room["id"], regroup=info)
+        app.store.add_event(c, room["id"], "system", f"{caller.user_name} 让全员准备")
+        card = regroup_card(c, room, info, "主持人让全员准备")
+    return Reply().say(card)
+
+
+async def regroup_tick(app: "LiteApp") -> Reply:
+    """When a lobby's time is up, everyone seated with a card counts as ready."""
+    stamp = datetime.now(UTC).isoformat(timespec="seconds")
+    with app.store.read() as c:
+        due = [r["id"] for r in c.execute(
+            "SELECT id FROM rooms WHERE state='paused' AND json_extract(data_json,'$.regroup.deadline')<=? "
+            "AND json_extract(data_json,'$.regroup.forced') IS NULL", (stamp,))]
+    for room_id in due:
+        with app.store.tx() as c:
+            room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+            info = regroup(room)
+            if room["state"] != "paused" or info is None or info.get("forced"):
+                continue
+            info = {**info, "forced": True}
+            _set_data(c, room_id, regroup=info)
+            app.store.add_event(c, room_id, "system", "准备时间到，全员视为已准备")
+            card = regroup_card(c, room, info, "准备时间到，全员视为已准备")
+        await app.notifier.send(room["umo"], card)
+    return Reply()
+
+
+async def continue_story(app: "LiteApp", caller: Caller, room: sqlite3.Row) -> Reply:
+    """/团 开演 in the lobby: status first, then the story so far, a world pulse for roster changes, then the turn."""
+    info = regroup(room)
+    if info is None:
+        raise UserError("故事正在暂停。先发送 /团 恢复 打开准备大厅，等大家准备好再开演。")
+    with app.store.read() as c:
+        people = regroup_people(c, room, info)
+    if not people["players"]:
+        raise UserError("没有已建卡的在场玩家，还不能开演。")
+    if people["pending"]:
+        raise UserError("还有玩家没准备：" + "、".join(shared.actor_label(a) for a in people["pending"])
+                        + "。等他们发送 /团 准备，或主持人发送 /团 主持 全员准备。")
+    with app.store.tx() as c:
+        if c.execute("UPDATE rooms SET state='running',updated_at=? WHERE id=? AND state='paused'",
+                     (now(), room["id"])).rowcount != 1:
+            raise UserError("团桌状态刚刚变化，请再试一次。")
+        _set_data(c, room["id"], regroup=None, pause_roster=None)
+        app.store.bump_room(c, room["id"])
+        app.store.add_event(c, room["id"], "system", f"{caller.user_name} 开演，故事继续")
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+    await caller.send(await status_message(app, room, None))
+    return await app.hooks.emit("room_resumed", room_id=room["id"], joined=[a["id"] for a in people["joined"]],
+                                left=[a["id"] for a in people["left"]], send=caller.send)
 
 
 async def complete_story(app: "LiteApp", room_id: str, ending: dict[str, Any] | None, *, by: str) -> Reply:
@@ -469,11 +648,17 @@ async def close(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 async def status(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller)
+    with app.store.read() as c:
+        actor = shared.actor_for(c, room["id"], caller.user_id)
+    return Reply().say(await status_message(app, room, actor))
+
+
+async def status_message(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row | None) -> Any:
+    """The table status card; actor adds that player's own resources."""
     scene = loads(room["scene_json"], {})
     act = next((a for a in act_list(room) if a["number"] == room["act"]), None)
     started = room["state"] != "lobby"
     with app.store.read() as c:
-        actor = shared.actor_for(c, room["id"], caller.user_id)
         round_row = c.execute("SELECT MAX(round) FROM turns WHERE room_id=?", (room["id"],)).fetchone()
         party, npcs = _party(c, room) if started else ([], [])
     me = None
@@ -481,11 +666,12 @@ async def status(app: "LiteApp", caller: Caller, args: str) -> Reply:
         data = card_data(room, actor)
         me = {"name": data["name"], "archetype": data["archetype"], "resources": data["resources"]}
     extra = await app.hooks.emit("status_lines", room_id=room["id"])
-    return Reply().say(messages.status_card(
-        room["title"], STATE_LABELS[room["state"]], (room["act"], acts_total(room), act["title"]) if act and started else None,
+    state = "准备大厅" if room["state"] == "paused" and regroup(room) is not None else STATE_LABELS[room["state"]]
+    return messages.status_card(
+        room["title"], state, (room["act"], acts_total(room), act["title"]) if act and started else None,
         round_row[0] if started else None, clock_text(room) if started else "",
         scene.get("title", "") if started else "", room["goal"] if started else "", me, [str(m) for m in extra.messages],
-        world=room["world_id"], party=party, npcs=npcs))
+        world=room["world_id"], party=party, npcs=npcs)
 
 
 def _party(c: sqlite3.Connection, room: sqlite3.Row) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -574,10 +760,12 @@ async def load_save(app: "LiteApp", caller: Caller, args: str) -> Reply:
     async with app.lock(room["id"]):
         with app.store.tx() as c:
             restore_snapshot(c, room["id"], loads(row["data_json"]))
+            remember_roster(c, room["id"])
             app.store.bump_room(c, room["id"])
             app.store.add_event(c, room["id"], "system", f"读档：{row['name']}")
             app.store.audit(c, caller.user_id, "room.load", room["id"], {"save": row["id"]})
-    reply = Reply().say(messages.notice(f"已读取存档「{row['name']}」", "故事回到存档时的位置，目前处于暂停状态。", "主持人发送 /团 恢复 继续"))
+    reply = Reply().say(messages.notice(f"已读取存档「{row['name']}」", "故事回到存档时的位置，目前处于暂停状态。",
+                                        "主持人发送 /团 恢复 打开准备大厅，大家准备好后再开演"))
     return reply.extend(await app.hooks.emit("room_restored", room_id=room["id"]))
 
 
@@ -586,7 +774,7 @@ def install(app: "LiteApp") -> None:
     r = app.router
     r.register(("世界", "世界列表"), list_worlds, summary="查看可开的世界", topic="开团")
     r.register("世界观", show_worldview, summary="阅读本桌世界的完整设定", topic="开团", private="self")
-    r.register("开启", open_room, summary="开一桌（管理员）", usage="/团 开启 [世界序号或名称]", topic="开团", admin=True)
+    r.register("开启", open_room, summary="列出世界并开一桌（管理员）", usage="/团 开启 → 选世界 → /团 开启 序号或名称", topic="开团", admin=True)
     r.register(("加入", "入座"), join, summary="入座", topic="开团")
     r.register("职业", archetypes, summary="查看职业", topic="开团", private="self")
     r.register("选职业", choose_archetype, summary="选择职业并命名角色", usage="/团 选职业 <序号> <角色名>", topic="开团", private="self")
@@ -595,10 +783,16 @@ def install(app: "LiteApp") -> None:
     r.register("退出", leave, summary="离开这一桌", topic="开团", private="room")
     r.register("暂离", away, summary="暂时离开行动队列", topic="开团", private="room")
     r.register(("返回", "返回队列"), back, summary="回到行动队列", topic="开团", private="room")
-    r.register("开演", start, summary="开始故事（主持人）", topic="主持")
+    r.register("准备", get_ready, summary="在准备大厅里准备好（写“取消”撤回）", usage="/团 准备 [取消]", topic="开团")
+    r.register("开演", start, summary="开始故事，或在准备大厅里继续故事（主持人）", topic="主持")
     r.register("人数", seat_cap, summary="设置席位上限（主持人）", usage="/团 人数 <n>", topic="主持")
     r.register("暂停", pause, summary="暂停故事（主持人）", topic="主持")
-    r.register(("恢复", "继续"), resume, summary="继续故事（主持人）", topic="主持")
+    r.register(("恢复", "继续"), resume, summary="打开准备大厅，准备好后开演继续（主持人）", topic="主持")
+    r.register(("主持 全员准备", "主持 强制准备"), force_ready, summary="让准备大厅里的玩家全部准备", topic="主持")
+
+    async def tick(**_: Any) -> Reply:
+        return await regroup_tick(app)
+    app.hooks.on("tick", tick)
     r.register("完结", finish, summary="直接完结故事（主持人）", usage="/团 完结 [结局名]", topic="主持")
     r.register("关闭", close, summary="收桌（主持人）", topic="主持")
     r.register("存档", save, summary="存档（主持人）", usage="/团 存档 [名称]", topic="主持")

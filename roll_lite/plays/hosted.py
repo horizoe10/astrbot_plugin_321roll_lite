@@ -7,8 +7,11 @@ narration; if narration fails the receipt stays and the host can retry.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+
+from astrbot.api import logger
 
 from .. import adjust, loadout, narration, personas, quota, shared
 from .. import messages
@@ -27,6 +30,8 @@ if TYPE_CHECKING:
 LABELS = "ABCD"
 DIFFICULTY_LABELS = {"easy": "简单", "standard": "标准", "hard": "困难", "exceptional": "极难"}
 NARRATION_KINDS = ("narration", "action", "check", "play", "vote", "host", "chapter")
+# The engine keeps only the last six recent events: five turns of story, then one line of table notes.
+HISTORY_TURNS = 5
 
 
 # ---------------------------------------------------------------- reading
@@ -97,21 +102,64 @@ def actor_view(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
     return view
 
 
-def recent_events(c: sqlite3.Connection, room: sqlite3.Row) -> list[str]:
-    rows = c.execute(f"SELECT text FROM events WHERE room_id=? AND kind IN ({','.join('?' * len(NARRATION_KINDS))}) "
-                     "ORDER BY id DESC LIMIT 6", (room["id"], *NARRATION_KINDS)).fetchall()
-    result = [row["text"][:3000] for row in reversed(rows)]
+def story_turns(c: sqlite3.Connection, room: sqlite3.Row) -> list[str]:
+    """The last few turns, one string each: who did what and the dice, then the narration that answered them.
+
+    A turn still being narrated (its action and check already logged) comes last, unfinished.
+    """
+    rows = c.execute(f"SELECT kind,text FROM events WHERE room_id=? AND kind IN ({','.join('?' * len(NARRATION_KINDS))}) "
+                     "ORDER BY id DESC LIMIT 40", (room["id"], *NARRATION_KINDS)).fetchall()
+    turns: list[list[str]] = [[]]
+    for row in reversed(rows):
+        turns[-1].append(row["text"])
+        if row["kind"] == "narration":
+            turns.append([])
+    turns = [t for t in turns if t][-HISTORY_TURNS:]
+    # The latest turn is kept whole; earlier narration is cut shorter so five turns fit the model's budget.
+    return ["\n".join(text[:3000 if i == len(turns) - 1 else 1200] for text in turn) for i, turn in enumerate(turns)]
+
+
+NARRATOR_KINDS = ("host_advance", "world_pulse")     # receipts of a turn no player acted in
+
+
+def party_line(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, narrator: bool = False) -> str:
+    """Who sits at the table, so the model keeps each player's character apart from the one acting now."""
+    others = []
+    for a in eligible_actors(c, room["id"]):
+        if a["id"] == actor["id"] and not narrator:
+            continue
+        persona = personas.active(room, a) or {}
+        archetype = next((t["name"] for t in shared.world(room)["pack"]["archetypes"] if t["id"] == a["archetype_id"]), "")
+        intro = (persona.get("intro") or "")[:80]
+        others.append(shared.actor_label(a) + "（" + "，".join(filter(None, [archetype, "在本世界中：" + intro if intro else ""])) + "）")
+    if narrator:
+        return ("本轮没有玩家行动，由主持推进剧情；写完后轮到 " + shared.actor_label(actor) + " 行动。同桌玩家角色："
+                + "、".join(others) + "。他们由真人扮演：可以写他们在场、被看见或被搭话，但不替他们说话、行动、做决定或描写内心。")
+    line = f"本轮行动者：{shared.actor_label(actor)}。"
+    if others:
+        line += ("同桌其他玩家角色：" + "、".join(others) + "。他们由其他真人扮演，只作为在场同伴出现："
+                 "不替他们说话、行动、做决定或描写内心；actor 的人设只属于本轮行动者，不安到别人身上；"
+                 "最近几轮里别人做过的事仍归别人，不挪给本轮行动者。")
+    return line
+
+
+def table_notes(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | None, note: str = "",
+                narrator: bool = False) -> str:
+    """Everything about the table that is not story, as one recent event so it never pushes story turns out."""
+    lines = ["【本桌备注，不是剧情】"] + ([party_line(c, room, actor, narrator)] if actor is not None else [])
     heading = lifecycle.act_heading(room)
     if heading:
-        result.append("当前幕：" + heading.replace("\n", "——"))
+        lines.append("当前幕：" + heading.replace("\n", "——"))
     when = lifecycle.clock_text(room)
     if when:
-        result.append("当前时间：" + when)
-    result += narration.prompt_lines(room)
+        lines.append("当前时间：" + when)
+    lines += narration.prompt_lines(room)
     directive = hosted_data(room).get("directive")
     if directive and not narration.is_legacy_directive(directive):    # an old table's world style is read as its improv
-        result.append("主持人指引（优先遵循）：" + directive)
-    return result
+        lines.append("主持人指引（优先遵循）：" + directive)
+    if note:
+        lines.append("主持人审稿意见（本次重写必须遵循）：" + note[:500])
+    return "\n".join(lines)
 
 
 def narrative_policy(room: sqlite3.Row) -> dict[str, Any] | None:
@@ -127,9 +175,7 @@ def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, 
     npcs = [{"npc_ref": r["npc_ref"], "name": r["name"], "description": r["description"], "motivation": r["motivation"]}
             for r in c.execute("SELECT * FROM npcs WHERE room_id=? ORDER BY updated_at", (room["id"],))]
     scene = loads(room["scene_json"], {})
-    events = recent_events(c, room)
-    if note:
-        events.append("主持人审稿意见（本次重写必须遵循）：" + note[:500])
+    events = story_turns(c, room) + [table_notes(c, room, actor, note, (receipt or {}).get("kind") in NARRATOR_KINDS)]
     context = {"brief": world_brief(shared.world(room), lifecycle.current_act(room)),
                "scene": {"title": scene.get("title") or "当前场景",
                                                                  "description": scene.get("description") or ""},
@@ -382,7 +428,8 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
                                                                        or turn["actor_id"],)).fetchone()
         app.store.bump_room(c, room_id)
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
-        new_turn = open_turn(app, c, room, following, choices, round_number) if room["state"] == "running" else None
+        # Paused while the story was being written: the next turn still opens (and waits) so its options survive.
+        new_turn = open_turn(app, c, room, following, choices, round_number) if room["state"] in ("running", "paused") else None
         if new_turn is None and room["state"] == "running":
             app.store.add_event(c, room_id, "system", "没有在场的玩家，故事停在这里。")
     scene_title = loads(room["scene_json"], {}).get("title", "")
@@ -392,7 +439,9 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
     reply = Reply().say(story)
     if adjusted:
         reply.say(messages.adjustments_applied(adjusted))
-    if new_turn is not None:
+    if new_turn is not None and room["state"] == "paused":
+        reply.say(f"故事正在暂停：下一轮由 {shared.actor_label(following)} 行动，主持人发送 /团 恢复 打开准备大厅后继续。")
+    elif new_turn is not None:
         reply.say(turn_prompt(room, new_turn, following))
         if advance and round_number != turn["round"]:
             from . import collaboration
@@ -401,8 +450,13 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
 
 
 async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, intent: dict[str, Any] | None,
-                  *, announce: str = "", prepared: list[dict[str, Any]] | None = None) -> Reply:
-    """Resolve the awaiting turn: intent (model unless given) → dice → narration."""
+                  *, announce: str = "", prepared: list[dict[str, Any]] | None = None,
+                  early: Callable[[Any], Awaitable[Any]] | None = None) -> Reply:
+    """Resolve the awaiting turn: intent (model unless given) → dice → narration.
+
+    With early, the dice and status go out as soon as they are committed and the reply carries
+    only what follows the narration call, so players see the roll while the story is written.
+    """
     async with app.lock(room_id):
         with app.store.tx() as c:
             turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
@@ -449,7 +503,16 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
             with app.store.tx() as c:
                 c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE id=? AND state='resolving'", (now(), turn_id))
             raise
-        reply = Reply().say(status_message(room, actor, turn["round"], action, receipt, announce))
+        status = status_message(room, actor, turn["round"], action, receipt, announce)
+        reply = Reply()
+        if early is None:
+            reply.say(status)
+        else:
+            try:
+                await early(status)
+            except Exception:
+                logger.exception("321Roll Lite could not send the roll before the narration")
+                reply.say(status)
         return reply.extend(await narrate(app, room_id, turn_id))
 
 
@@ -514,24 +577,105 @@ async def on_roster_changed(room_id: str, actor_id: str, change: str, *, app: "L
     return Reply()
 
 
-async def on_room_resumed(room_id: str, *, app: "LiteApp") -> Reply:
+def reopen_turn(app: "LiteApp", c: sqlite3.Connection, room: sqlite3.Row) -> sqlite3.Row | None:
+    """A table with no open turn (paused while a story was being written by an older version): open the turn
+    that should have followed the last story, with that story's options and round."""
+    last = c.execute("SELECT * FROM turns WHERE room_id=? AND state='done' ORDER BY created_at DESC LIMIT 1",
+                     (room["id"],)).fetchone()
+    if last is None:
+        actor, _ = next_actor(c, room["id"], None)
+        return open_turn(app, c, room, actor, [], 1) if actor is not None else None
+    proposal = loads(last["narrative_json"], {}) or {}
+    choices = make_choices(proposal.get("suggestions") or [], proposal.get("suggestion_checks"))
+    resume = loads(last["data_json"], {}).get("resume_actor")
+    previous = c.execute("SELECT * FROM actors WHERE id=?", (resume or last["actor_id"],)).fetchone()
+    if resume and previous["presence"] == "present" and previous["archetype_id"]:
+        following, wrapped = previous, False
+    else:
+        following, wrapped = next_actor(c, room["id"], previous)
+    if following is None:
+        return None
+    return open_turn(app, c, room, following, choices, last["round"] + (1 if wrapped else 0))
+
+
+async def on_room_resumed(room_id: str, joined: list[str] | None = None, left: list[str] | None = None,
+                          send: Callable[[Any], Awaitable[Any]] | None = None, *, app: "LiteApp") -> Reply:
+    """After the lobby: the story so far, a world pulse when people came or went, then the paused player's turn.
+
+    With send, everything before the pulse goes out first so the group reads it while the pulse is written.
+    """
     with app.store.tx() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         turn = current_turn(c, room_id)
         if turn is None:
-            actor, _ = next_actor(c, room_id, None)
-            turn = open_turn(app, c, room, actor, [], 1) if actor is not None else None
+            turn = reopen_turn(app, c, room)
         elif turn["state"] == "awaiting":
-            c.execute("UPDATE turns SET deadline_at=? WHERE id=?", (_deadline(app, room), turn["id"]))
-            turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
-        if turn is None or turn["state"] != "awaiting":
-            return Reply()
-        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+            holder = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+            if holder["presence"] != "present" or not holder["archetype_id"]:
+                following, wrapped = next_actor(c, room_id, holder)
+                turn = open_turn(app, c, room, following, loads(turn["choices_json"], []), turn["round"] + (1 if wrapped else 0))
+            else:
+                c.execute("UPDATE turns SET deadline_at=? WHERE id=?", (_deadline(app, room), turn["id"]))
+                turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
+        last = c.execute("SELECT text FROM events WHERE room_id=? AND kind='narration' ORDER BY id DESC LIMIT 1",
+                         (room_id,)).fetchone()
+        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone() if turn is not None else None
     reply = Reply()
     recap = await story_recap.on_resume(app, room_id)
     if recap is not None:
         reply.say(recap)
+    if last is not None:
+        scene = loads(room["scene_json"], {}).get("title", "")
+        reply.say(messages.narration(last["text"], "上一轮的故事" + (" · " + scene if scene else "")))
+    if turn is None:
+        return reply.say("没有在场的玩家，故事停在这里。")
+    if turn["state"] != "awaiting":
+        return reply.say(messages.notice(f"这一回合{TURN_STATES.get(turn['state'], turn['state'])}",
+                                         hint="主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过"))
+    if joined or left:
+        if send is not None:
+            for item in reply.messages:
+                await send(item)
+            reply = Reply()
+        return reply.extend(await world_pulse(app, room_id, turn, joined or [], left or [], send))
     return reply.say(turn_prompt(room, turn, actor))
+
+
+async def world_pulse(app: "LiteApp", room_id: str, turn: sqlite3.Row, joined: list[str], left: list[str],
+                      send: Callable[[Any], Awaitable[Any]] | None = None) -> Reply:
+    """Write the people who joined or left during the pause into the story, then give the waiting player new options."""
+    with app.store.tx() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        names = {a["id"]: a["name"] for a in shared.world(room)["pack"]["archetypes"]}
+        came, went = [], []
+        for actor_id in joined:
+            a = c.execute("SELECT * FROM actors WHERE id=?", (actor_id,)).fetchone()
+            intro = ((personas.active(room, a) or {}).get("intro") or "")[:80]
+            came.append(shared.actor_label(a) + "（" + "，".join(filter(None, [names.get(a["archetype_id"], ""),
+                                                                             "在本世界中：" + intro if intro else ""])) + "）")
+        went = [shared.actor_label(c.execute("SELECT * FROM actors WHERE id=?", (i,)).fetchone()) for i in left]
+        holder = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        summary = "；".join(filter(None, ["新加入：" + "、".join(came) if came else "", "离开：" + "、".join(went) if went else ""]))
+        action = ("（世界脉冲）队伍的人员有了变动——" + summary + "。把这些变动写成一段符合世界观的剧情："
+                  "新来的角色以合理的方式来到队伍身边、与大家照面；离开的角色以合理的方式暂别，不写死、不写伤。"
+                  f"最后把场面交还给 {shared.actor_label(holder)}，选项写 {shared.actor_label(holder)} 接下来可以做的事。")
+        lifecycle.auto_snapshot(c, room_id, f"第 {turn['round']} 轮 · 世界脉冲前")
+        c.execute("UPDATE turns SET state='superseded',updated_at=? WHERE id=?", (now(), turn["id"]))
+        pulse = new_id("turn")
+        c.execute("INSERT INTO turns(id,room_id,round,actor_id,state,choices_json,action_text,receipt_json,data_json,created_at,updated_at) "
+                  "VALUES(?,?,?,?,'resolving','[]',?,?,?,?,?)",
+                  (pulse, room_id, turn["round"], turn["actor_id"], action,
+                   dumps({"receipt_ref": new_id("receipt"), "kind": "world_pulse"}), dumps({"resume_actor": turn["actor_id"]}),
+                   now(), now()))
+        app.store.add_event(c, room_id, "host", "世界脉冲：" + summary)
+    notice = messages.notice("世界脉冲", summary.replace("；", "\n") + "\nAI 正在把这些变动写进故事。")
+    reply = Reply()
+    if send is not None:
+        await send(notice)
+    else:
+        reply.say(notice)
+    async with app.lock(room_id):
+        return reply.extend(await narrate(app, room_id, pulse, advance=False))
 
 
 async def on_room_restored(room_id: str, *, app: "LiteApp") -> Reply:
@@ -607,7 +751,8 @@ async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
         pass
     try:
         reply = await resolve(app, room_id, turn_id, chosen["text"], intent_from_choice(chosen),
-                              announce=f"{label} 超时，自动选择 {chosen['label']}。")
+                              announce=f"{label} 超时，自动选择 {chosen['label']}。",
+                              early=lambda item: app.notifier.send(room["umo"], item))
     except UserError:
         return
     await app.notifier.send(room["umo"], reply.messages)
@@ -654,7 +799,7 @@ async def choose(app: "LiteApp", caller: Caller, args: str) -> Reply:
     with app.store.read() as c:
         quota.require_round(app, c, room["umo"])
     await story_recap.before_action(app, caller, room["id"])
-    return await resolve(app, room["id"], turn["id"], action, intent_from_choice(choice), prepared=prepared)
+    return await resolve(app, room["id"], turn["id"], action, intent_from_choice(choice), prepared=prepared, early=caller.send)
 
 
 async def act(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -669,7 +814,7 @@ async def act(app: "LiteApp", caller: Caller, args: str) -> Reply:
         quota.require_round(app, c, room["umo"])        # before "正在结算" goes out
     await story_recap.before_action(app, caller, room["id"])
     await caller.send("正在结算……")
-    return await resolve(app, room["id"], turn["id"], text, None, prepared=prepared)
+    return await resolve(app, room["id"], turn["id"], text, None, prepared=prepared, early=caller.send)
 
 
 async def skip(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -946,7 +1091,7 @@ async def host_rewind(app: "LiteApp", caller: Caller, args: str) -> Reply:
             app.store.bump_room(c, room["id"])
     reply = Reply().say(messages.notice(f"已回退到「{snapshot['name']}」",
                                         "这一步的骰子、资源变化、正文和玩法记录都已撤回。" + (f"还可以再回退 {left} 步。" if left else "这是能回退的最早一步。"),
-                                        "" if restored["state"] == "running" else "故事处于暂停状态，主持人发送 /团 恢复 继续"))
+                                        "" if restored["state"] == "running" else "故事处于暂停状态，主持人发送 /团 恢复 打开准备大厅"))
     if holder is not None and restored["state"] == "running":
         reply.say(turn_prompt(restored, turn, holder))
     return reply

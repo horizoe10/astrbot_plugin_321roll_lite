@@ -91,7 +91,11 @@ def localize_schema(schema: dict[str, Any], rules: dict[str, Any] | None, omit: 
 
 NPC_VISIBILITY_RULE = ("\nnpcs 的 description 与 motivation 会显示给玩家：只写玩家已经知道的表象和当前公开立场，"
                        "不写主持者上下文里的秘密或隐藏设定；人物立场改变时改写 motivation。")
+# The engine's schema allows one to four; the table always offers A–D.
+FOUR_CHOICES = ("\nsuggestions 写满 4 项，供下一位行动者选择，方向实质不同（目标、方法或代价至少一项不同），"
+                "不得改写同一句话凑数；suggestion_checks 与之逐项对应，也是 4 项。")
 HOSTING_RULES = (NPC_VISIBILITY_RULE
+                 + FOUR_CHOICES
                  + "\nfacts 只记关键节点：真相揭示、关键证据、人物转向、当众承诺与条款、行动进度、玩家对自己角色的声明；"
                    "主持指引规定了标签时，text 以该标签开头；其余情节不写成 facts。"
                    "\n某个预设结局的条件已经满足时，在选项里提出这个结局，并使用结局条件里的名称。")
@@ -121,6 +125,7 @@ def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omi
         text += ("\nnpcs 每项只写 name、description、motivation；characters 每项只写 member_ref、display_name、"
                  "description、template_ref，member_ref 原样取自输入。")
         text += NPC_VISIBILITY_RULE
+        text += FOUR_CHOICES
     if schema is not None:
         text += "\n输出必须符合以下 JSON Schema：\n" + json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
     return text

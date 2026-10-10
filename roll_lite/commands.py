@@ -214,24 +214,16 @@ class Router:
         return f"没有“{words[0]}”这个指令。发送 /团 帮助 查看可用指令。"
 
     def help_text(self, topic: str = "", *, is_admin: bool = False) -> Any:
-        from . import messages
-        visible = [c for c in self.commands.values() if is_admin or not c.admin]
-        topics: dict[str, list[Command]] = {}
-        for command in visible:
-            topics.setdefault(command.topic, []).append(command)
-        if topic and topic in topics:
-            seen: dict[Any, Command] = {}
-            for c in topics[topic]:
-                seen.setdefault(c.handler, c)
-            return messages.help_topic(topic, [(c.usage, c.summary) for c in seen.values()])
-        return messages.help_index(list(topics))
+        from .help import render_help
+        return render_help(self, topic, is_admin)
 
 
 def register_core(router: Router) -> None:
     async def help_command(app: "LiteApp", caller: Caller, args: str) -> Reply:
         return Reply().say(app.router.help_text(args.strip(), is_admin=caller.is_admin))
 
-    router.register("帮助", help_command, summary="查看指令", usage="/团 帮助 [分类]", topic="基础", group_only=False)
+    router.register("帮助", help_command, summary="查看指令：目录 → 大项 → 小组 → 单条指令",
+                    usage="/团 帮助 [大项|小组|指令名]", topic="基础", group_only=False)
 
 
 def parse_check(args: str, attributes: dict[str, str], difficulties: dict[str, Any]) -> tuple[str, dict[str, str] | None]:

@@ -29,13 +29,13 @@ export async function render(root, ctx) {
   const group = (title, items, opts) => items.length ? '<section class="sec">' + section(title, { count: items.length, ...opts }) + '<div class="cards">' + items.map(card).join("") + "</div></section>" : "";
   root.innerHTML = hero({
     eyebrow: "世界 · WORLDS", title: "世界",
-    lead: "插件自带灰冠之下：祖约的文本版，其余预设世界和它的图文版都在世界市场里安装，也能安装别人发布的世界。想写自己的世界，就用“新建世界”从空白开始；停用的世界不会出现在 /团 世界 里。",
+    lead: "插件自带灰冠之下：祖约的进阶版（P1），装好就能开团；其余世界以核心版（C1）放在世界市场，一键安装，也能安装别人发布的世界。想写自己的世界，就用“新建世界”从空白开始；停用的世界不会出现在 /团 开启 的列表里。",
     figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(installed.length, "市场安装", "plain") + figure(custom.length, "自定义", "plain") + "</div>",
     actions: '<a class="btn" href="#/worlds/import">' + icon("upload", 15) + '导入世界文件</a><a class="btn primary" href="#/worlds/import?start=1">' + icon("plus", 15) + "新建世界</a>",
   }) + tabs("") +
     group("我的世界", custom, { meta: "自定义世界可以随时编辑、复制、导出" }) +
     group("市场世界", installed, { meta: "从世界市场安装 · 只读；在世界市场里更新或卸载" }) +
-    group("预设世界", presets, { meta: "插件自带的文本版 · 只读", link: ["#/worlds/market", "安装图文版"] });
+    group("自带世界", presets, { meta: "随插件安装的进阶版 · 只读", link: ["#/worlds/market", "去世界市场"] });
   root.querySelectorAll("[data-toggle]").forEach((input) => input.addEventListener("change", async () => {
     input.disabled = true;
     try {
@@ -161,7 +161,7 @@ async function detail(root, ctx, id) {
   const origin = !m ? "" : m.source === "upload" ? "上传的安装包" : m.source === "url" ? "网址安装 · " + host(m.file) : host(m.source) + " 索引";
   root.innerHTML = '<a class="crumb" href="#/worlds">' + icon("arrow", 14, "flip") + "世界</a>" +
     '<header class="band tone-' + esc(w.cover.tone) + '" data-mark="' + esc(w.cover.mark) + '"' + (w.art ? ' data-art="' + esc(id) + '" data-rev="' + esc(m.sha256) + '"' : "") + '><div class="band-top"><div style="min-width:0">' +
-      '<div class="eyebrow">' + (custom ? "自定义世界 · " + esc(w.label) : fromMarket ? "市场世界 · " + esc(w.label) + (w.art ? " · 图文" : "") : "预设世界 · 文本版 " + esc(w.label)) + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
+      '<div class="eyebrow">' + (custom ? "自定义世界 · " + esc(w.label) : fromMarket ? "市场世界 · " + esc(w.label) + (w.art ? " · 图文" : "") : "自带世界 · 进阶版 " + esc(w.label)) + " · " + esc(p.id) + "</div><h1>" + esc(shortTitle(p.title)) + '</h1><div class="sub">' + esc(subTitle(p.title)) + "</div>" +
       '<div class="band-meta">' + dot(w.enabled ? "ok" : "off", w.enabled ? "已启用" : "已停用") + "<span>" + icon("users", 13) + " " + p.rules.recommendedMin + "–" + p.rules.recommendedMax + " 人</span><span>" +
       (core ? "核心版 · 预设 1 幕 · 结局即兴" : (pres.acts || []).length + " 幕 · " + (pres.endings || []).length + " 个结局") + "</span><span>" + p.entries.length + " 条设定</span></div></div>" +
       '<div class="btns" style="flex:none">' + actions + "</div></div>" +
@@ -189,7 +189,7 @@ async function detail(root, ctx, id) {
         "<dt>安装包</dt><dd>" + esc(m.label) + " · " + size(m.size) + " · " + m.images + " 张场景图</dd>" +
         '<dt>sha256</dt><dd class="mono" title="' + esc(m.sha256) + '">' + esc(String(m.sha256).slice(0, 16)) + "…</dd>" +
         "<dt>安装时间</dt><dd>" + esc(when(m.installed_at)) + "</dd>" +
-        (w.builtin_revision ? "<dt>文本版</dt><dd>插件自带 " + esc(w.builtin_label) + "，卸载后恢复</dd>" : "") + "</dl></section>" : "") +
+        (w.builtin_revision ? "<dt>插件自带</dt><dd>" + esc(w.builtin_label) + "，卸载后恢复</dd>" : "") + "</dl></section>" : "") +
       "<section>" + section("规则") + rulesBlock(p, attrs) + "</section>" +
       (endings.length ? "<section>" + section("结局", { count: endings.length }) +
         spoiler("endings", "共 " + endings.length + " 个结局。结局的名字和达成条件只在故事走到那里时出现。", '<div class="rows">' + endings.map((e, i) => '<div class="ri"><span class="opt-num">' +
@@ -230,7 +230,7 @@ async function detail(root, ctx, id) {
     } catch (error) { ctx.toast(error.message, "error"); }
   });
   root.querySelector("[data-uninstall]")?.addEventListener("click", async (e) => {
-    const after = w.builtin_revision ? "卸载后恢复插件自带的文本版。" : "卸载后这个世界会从列表里移除。";
+    const after = w.builtin_revision ? "卸载后恢复插件自带的版本。" : "卸载后这个世界会从列表里移除。";
     if (!window.confirm("确定卸载「" + shortTitle(p.title) + "」吗？" + after + "已开的团桌不受影响。")) return;
     try {
       await busy(e.currentTarget, () => ctx.api.post("market/uninstall", { id }));
@@ -288,7 +288,7 @@ async function importer(root, ctx) {
       saveBtn.disabled = !r.ok || r.existing === "builtin" || r.existing === "market";
       saveBtn.lastChild.textContent = r.existing === "custom" ? "覆盖导入" : "导入";
       out.innerHTML = r.ok
-        ? (r.existing === "builtin" ? dot("err", "编号与预设世界相同，不能导入") : r.existing === "market" ? dot("err", "编号与市场安装的世界相同，不能导入") : r.existing === "custom" ? dot("warn", "将覆盖已有的同编号世界，版本号自动递增") : dot("ok", "可以导入")) +
+        ? (r.existing === "builtin" ? dot("err", "编号与自带世界相同，不能导入") : r.existing === "market" ? dot("err", "编号与市场安装的世界相同，不能导入") : r.existing === "custom" ? dot("warn", "将覆盖已有的同编号世界，版本号自动递增") : dot("ok", "可以导入")) +
           '<div class="serif" style="font-size:20px;font-weight:600;margin:16px 0 4px">' + esc(shortTitle(r.summary.title)) + '</div><div class="hint num">' + esc(r.summary.id) + "</div>" +
           '<div class="figures" style="margin-top:18px;gap:24px">' + figure(r.summary.attributes, "项属性", "small") + figure(r.summary.archetypes, "个职业", "small") + figure(r.summary.entries, "条设定", "small") +
           figure(r.summary.acts, "幕", "small") + figure(r.summary.endings, "个结局", "small") + "</div>"
@@ -309,7 +309,7 @@ async function importer(root, ctx) {
 // ---------------------------------------------------------------- world market
 const STATES = {
   available: { action: "安装" },
-  upgrade: { label: "已附带文本版", action: "安装图文版" },
+  upgrade: { label: "插件已自带", action: "安装市场版" },
   installed: { label: "已安装", gold: true, note: () => "已是最新版本" },
   update: { label: "可更新", gold: true, action: (w) => "更新到 " + w.label, note: (w) => "已安装 " + w.installed_label },
   // Same revision, other file (e.g. an old r1 install against the index's P1): offer to replace it.
@@ -348,9 +348,9 @@ function marketCard(w, source) {
     cover(w.cover || { mark: shortTitle(title).slice(0, 1), tone: "ink" }, "poster", title, art) +
     (st.label ? '<span class="tag state' + (st.gold ? " gold" : "") + '">' + esc(st.label) + "</span>" : "") +
     // Pro packs may carry weather, ambience and other effects of the full version that Lite skips.
-    (w.full_effects ? '<span class="tag extra" title="天气、氛围音等效果只在 321Roll 全量版显示">含专业版效果（Lite 中不显示）</span>' : "") + "</div>" +
+    (w.full_effects ? '<span class="tag extra" title="天气、氛围音等效果只在 321Roll 全量版显示">含进阶版效果（Lite 中不显示）</span>' : "") + "</div>" +
     '<div class="body"><div class="style">' + esc(w.summary || "") + "</div>" +
-    '<div class="facts"><span class="num" title="版本档与修订号：C 为核心版（世界卡），P 为专业版（世界包），M 为旗舰版（世界模组）">' + esc(w.label) + "</span>" +
+    '<div class="facts"><span class="num" title="版本档与修订号：C 为核心版（世界卡），P 为进阶版（世界包），M 为旗舰版（世界模组）">' + esc(w.label) + "</span>" +
       (core ? '<span class="tag gold" title="预设剧情只写到第一幕，之后由 AI 即兴续写">核心版 · 第一幕后即兴</span>' : "") + "<span>" +
       (w.images ? '<span class="num">' + w.images + "</span> 张场景图" : "纯文本") + '</span><span class="num">' + size(w.size) + "</span></div>" +
     '<div class="foot"><span class="note' + (st.warn ? " warn" : "") + '">' + esc(pick(st.note)) + '</span><span class="row" style="gap:14px">' +
@@ -438,7 +438,7 @@ function draw(root, ctx, data) {
     await again();
   });
   act("[data-uninstall]", async (btn) => {
-    const after = btn.dataset.builtin ? "卸载后恢复插件自带的文本版。" : "卸载后这个世界会从列表里移除。";
+    const after = btn.dataset.builtin ? "卸载后恢复插件自带的版本。" : "卸载后这个世界会从列表里移除。";
     if (!window.confirm("确定卸载「" + btn.dataset.title + "」吗？" + after + "已开的团桌不受影响。")) return;
     await busy(btn, () => ctx.api.post("market/uninstall", { id: btn.dataset.uninstall }));
     ctx.toast("已卸载 " + btn.dataset.title);

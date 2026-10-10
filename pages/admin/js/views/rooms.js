@@ -24,7 +24,8 @@ const HOST = [
     ["主持 换幕", "换幕", "book", "幕号（不填则下一幕）", false], ["主持 限时", "回合限时", "clock", "每回合分钟数；0 为不限时；写“默认”跟随全局设置", true],
     ["主持 检定", "要求检定", "dice", "角色 属性 难度 [受伤] [理由]，例如：林晓 观察 困难 听见楼上的脚步", true],
     ["主持 集体事件", "集体事件", "sparkle"], ["主持 结束表决", "结束表决", "vote"], ["主持 表决时限", "表决时限", "hourglass", "分钟数（1–30）；写“默认”恢复 2 分钟", true]]],
-  ["桌务", [["暂停", "暂停", "pause"], ["恢复", "恢复", "play"], ["存档", "存档", "save", "存档名（可不填）", false], ["读档", "读档", "folder", "存档序号或名称", true],
+  ["桌务", [["暂停", "暂停", "pause"], ["恢复", "打开准备大厅", "users"], ["主持 全员准备", "全员准备", "check"], ["开演", "开演继续", "play"],
+    ["存档", "存档", "save", "存档名（可不填）", false], ["读档", "读档", "folder", "存档序号或名称", true],
     ["人数", "席位上限", "users", "人数", true], ["主持 顺序", "行动顺序", "list", "按新顺序写角色名，用空格隔开；没写到的人排在后面", true],
     ["主持 入座", "入座开关", "door", "写“关”暂停新玩家入座，写“开”恢复", true], ["主持 放行", "放行玩家", "key", "被请离玩家的昵称", true],
     ["主持 人设", "人设开关", "user", "写“关”只按职业来、AI 不再参考玩家人设；写“开”恢复", true],
@@ -364,7 +365,8 @@ function timelineSection(r) {
 
 function hostSection(r) {
   const s = r.settings;
-  const hidden = { 暂停: r.state !== "running", 恢复: r.state !== "paused", "主持 发布": true, "主持 重写": true };
+  const hidden = { 暂停: r.state !== "running", 恢复: r.state !== "paused", "主持 全员准备": r.state !== "paused", 开演: r.state !== "paused",
+    "主持 发布": true, "主持 重写": true };
   const notes = [["eye", "审稿 " + (s.review ? "开启" : "关闭")], ["door", "入座 " + (s.seating_locked ? "已关闭" : "开放")], ["hourglass", "表决 " + s.vote_minutes + " 分钟"],
     ["refresh", "可回退 " + s.rewinds + " 步"], ["user", "人设卡 " + (s.personas_off ? "已关闭" : "开放")]].concat(s.handover ? [["key", "等待 " + s.handover + " 接棒"]] : [])
     .concat(s.removed.length ? [["user", "已请离 " + s.removed.join("、")]] : []);
