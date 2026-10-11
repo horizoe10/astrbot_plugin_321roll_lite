@@ -10,7 +10,7 @@
 | 霓虹典当行（核心版） · 今夜有人当掉了整座城的昨天 | C1 | [neon-pawnshop-core-C1.zip](packs/neon-pawnshop-core-C1.zip) |
 | 第七个不思议（核心版） · 钟楼在放学后多敲了一下 | C1 | [seventh-mystery-core-C1.zip](packs/seventh-mystery-core-C1.zip) |
 | 狩火（核心版） · 群兽迁徙之年 | C1 | [wildfire-hunt-core-C1.zip](packs/wildfire-hunt-core-C1.zip) |
-| 花信风：四时有信（核心版） · 九月相逢，来年盛夏 | C1 | [chenglan-academy-core-C1.zip](packs/chenglan-academy-core-C1.zip) |
+| 花信风：四时有信（核心版） · 九月相逢，来年盛夏 | C1 | [chenglan-academy-core-C1.zip](packs/lite-0.6.0/chenglan-academy-core-C1.zip) |
 
 ## 版本档
 
@@ -24,7 +24,7 @@
 
 本分支默认提供核心版，以后也可能投放部分专业版。原有六个核心版默认的叙事风格为"奔放"，开团后主持人可以随时查看、修改或清除。
 
-《花信风：四时有信》默认灵动，保留人物与世界设定，开篇后自由续写；C1 包含 28 张基准场景图，最低 Lite 0.5.2。含十二个月日历、可选素材、后日谈与 163 张场景图的 [P1 专业版](https://github.com/horizoe10/321Roll/tree/worlds-pro) 在专业版市场，最低 Lite 0.5.3。
+《花信风：四时有信》默认灵动，保留人物与世界设定，开篇后自由续写；C1 包含 28 张基准场景图，最低 Lite 0.6.0。含十二个月日历、可选素材、后日谈与 163 张场景图的 [P1 专业版](https://github.com/horizoe10/321Roll/tree/worlds-pro) 在专业版市场，最低 Lite 0.6.0。
 
 原先的 r1 世界包已从本分支撤下；已经安装的照常可用。
 
@@ -51,3 +51,5 @@
 ## 许可
 
 本分支的世界安装包与预览图以 [CC BY-NC-ND 4.0](LICENSE) 发布：可以署名转载和分享，不可商用，不可改编后发布。
+
+花信风 C1／P1 的最低 Lite 版本统一为 0.6.0。索引指向 `packs/lite-0.6.0/` 下的新包；版本号、剧情和图片保持，旧路径仅保留历史归档。

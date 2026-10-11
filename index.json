@@ -127,10 +127,10 @@
         "tone": "jade"
       },
       "images": 28,
-      "min_plugin": "0.5.2",
-      "file": "packs/chenglan-academy-core-C1.zip",
-      "size": 4950598,
-      "sha256": "3247eec7bea5afffe92dd70fb1b5efac030bf3549898c7a9a15642c125bce9c7",
+      "min_plugin": "0.6.0",
+      "file": "packs/lite-0.6.0/chenglan-academy-core-C1.zip",
+      "size": 4950597,
+      "sha256": "46203847c701c4c7263d8724b4dbdaaf626fa6c842a6ebab2c57b8b35e04dab8",
       "content_digest": "46f46bbb6deaedebfe2391f97c307eef9977bb85e8f1e284f9d55a02281f01c4",
       "immersive": false,
       "preview": "previews/chenglan-academy-core-C1.webp"
