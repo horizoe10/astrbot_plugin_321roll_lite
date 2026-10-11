@@ -115,6 +115,25 @@
       "content_digest": "03f2f02c8dcaebe505333dc73d754f60d9220754122fb27e6db2769a3b410296",
       "immersive": true,
       "preview": "previews/wildfire-hunt-core-C1.webp"
+    },
+    {
+      "id": "chenglan-academy-core",
+      "revision": 1,
+      "edition": "core",
+      "title": "花信风：四时有信（核心版） · 九月相逢，来年盛夏",
+      "summary": "九月的早高峰，小区门口的早餐店正在出第二笼包子。你低头核对新学校的路线，书包侧袋忽然被塞进一盒温热的豆浆。",
+      "cover": {
+        "mark": "风",
+        "tone": "jade"
+      },
+      "images": 28,
+      "min_plugin": "0.5.2",
+      "file": "packs/chenglan-academy-core-C1.zip",
+      "size": 4950598,
+      "sha256": "3247eec7bea5afffe92dd70fb1b5efac030bf3549898c7a9a15642c125bce9c7",
+      "content_digest": "46f46bbb6deaedebfe2391f97c307eef9977bb85e8f1e284f9d55a02281f01c4",
+      "immersive": false,
+      "preview": "previews/chenglan-academy-core-C1.webp"
     }
   ]
 }
