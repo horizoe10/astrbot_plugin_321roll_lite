@@ -43,7 +43,9 @@ QQ_AT_SINCE = (4, 29, 0, 1, 1)
 # QQ shows a mention as a blue @ only in text and Markdown messages; beside a picture it prints the raw tag,
 # so a card that mentions someone is followed by this short line carrying the mention.
 CARD_MENTION_NOTE = "请看上图 ↑"
-SEGMENTS = ("status", "narration", "choices", "moment", "sheet", "receipt", "room", "daily")
+SEGMENTS = ("status", "narration", "choices", "sheet", "build", "banter", "ties", "economy", "pacing", "moment", "receipt", "room", "daily")
+# Segments split off in 0.7.1: a saved setting without one follows the switch it used to be part of.
+SPLIT_FROM = {"build": "sheet", "banter": "receipt", "ties": "receipt", "economy": "receipt", "pacing": "receipt"}
 PREF_KEYS = ("format", *(f"image_{s}" for s in SEGMENTS), "scene_images", "card_theme", "interval", "merge")
 # Undelivered messages handed over with one incoming message; the rest wait for the next one.
 PENDING_BATCH = 10
@@ -65,8 +67,13 @@ class MessagePrefs:
     image_status: bool = False
     image_narration: bool = False
     image_choices: bool = False
-    image_moment: bool = False
     image_sheet: bool = False
+    image_build: bool = False
+    image_banter: bool = False
+    image_ties: bool = False
+    image_economy: bool = False
+    image_pacing: bool = False
+    image_moment: bool = False
     image_receipt: bool = False
     image_room: bool = False
     image_daily: bool = False
@@ -87,6 +94,10 @@ def load_prefs(app: "LiteApp") -> MessagePrefs:
     with app.store.read() as c:
         value = app.store.get_setting(c, "global", "message.prefs", {}) or {}
         blocked = app.store.get_setting(c, "global", "message.markdown_blocked", []) or []
+    value = dict(value)
+    for segment, parent in SPLIT_FROM.items():
+        if f"image_{segment}" not in value and f"image_{parent}" in value:
+            value[f"image_{segment}"] = value[f"image_{parent}"]
     return MessagePrefs(**{k: value[k] for k in PREF_KEYS if k in value}, blocked=tuple(blocked))
 
 

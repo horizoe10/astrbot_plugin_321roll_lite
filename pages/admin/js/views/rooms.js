@@ -14,24 +14,6 @@ const TITLE_KEYS = ["title", "topic", "subject", "question", "stake", "speaker",
 const RECORD_ICON = { clue: "search", hypothesis: "sparkle", testimony: "quote", negotiation: "scroll", relation: "users", companion_goal: "flag", deadline: "clock",
   project: "grid", contest: "bolt", joint: "shield", plan: "map", oracle: "eye", transformation: "wand", fortune: "dice", branch: "flag", ending: "book" };
 
-// [command, label, icon, input placeholder or "", input required, confirm text]
-const HOST = [
-  ["叙事", [["主持 直述", "直述剧情", "feather", "要公开叙述的剧情，2–1000 字", true], ["主持 指引", "私下指引", "eyeOff", "给叙事模型的指引；写“清除”清空", true],
-    ["主持 选项", "改写选项", "list", "选项一｜选项二｜选项三", true], ["主持 审稿", "审稿模式", "eye", "写“开”或“关”；开启后正文先私发主持人", true],
-    ["主持 发布", "发布草稿", "send"], ["主持 重写", "重写草稿", "refresh", "重写意见（可不填）", false]]],
-  ["节奏", [["主持 推进", "推进剧情", "wand", "推进说明（可不填）", false], ["主持 跳过", "跳过回合", "skip"], ["主持 重试", "重试正文", "refresh"],
-    ["主持 回退", "回退一步", "hourglass", "", false, "撤回最近一步行动？骰子、资源、正文和玩法记录都会回到行动前。"],
-    ["主持 换幕", "换幕", "book", "幕号（不填则下一幕）", false], ["主持 限时", "回合限时", "clock", "每回合分钟数；0 为不限时；写“默认”跟随全局设置", true],
-    ["主持 检定", "要求检定", "dice", "角色 属性 难度 [受伤] [理由]，例如：林晓 观察 困难 听见楼上的脚步", true],
-    ["主持 集体事件", "集体事件", "sparkle"], ["主持 结束表决", "结束表决", "vote"], ["主持 表决时限", "表决时限", "hourglass", "分钟数（1–30）；写“默认”恢复 2 分钟", true]]],
-  ["桌务", [["暂停", "暂停", "pause"], ["恢复", "打开准备大厅", "users"], ["主持 全员准备", "全员准备", "check"], ["开演", "开演继续", "play"],
-    ["存档", "存档", "save", "存档名（可不填）", false], ["读档", "读档", "folder", "存档序号或名称", true],
-    ["人数", "席位上限", "users", "人数", true], ["主持 顺序", "行动顺序", "list", "按新顺序写角色名，用空格隔开；没写到的人排在后面", true],
-    ["主持 入座", "入座开关", "door", "写“关”暂停新玩家入座，写“开”恢复", true], ["主持 放行", "放行玩家", "key", "被请离玩家的昵称", true],
-    ["主持 人设", "人设开关", "user", "写“关”只按职业来、AI 不再参考玩家人设；写“开”恢复", true],
-    ["完结", "完结故事", "flag", "结局名（可不填）", false, "确定直接完结这个故事吗？"],
-    ["关闭", "收桌", "door", "", false, "确定收桌吗？收桌后这一桌不再接受指令。"]]],
-];
 // Per-seat host actions on the seat cards: [command, label, confirm text]
 const SEAT_ACTIONS = [["主持 轮到", "轮到他"], ["主持 暂离", "设为暂离"], ["主持 返回", "回到队列"], ["主持 退回", "退回重建", "收回这个角色，请玩家重新建卡？"],
   ["主持 人设 清除", "清除人设", "清除这位玩家带的人设？从下一段正文起 AI 只按职业来写这个角色。"],
@@ -130,7 +112,7 @@ async function detail(root, ctx, id) {
       (r.acts.length ? '<div class="band-acts">' + acts(veiled(noted, reached), reached) + "</div>" : "") + "</header>" +
     statsSection(r) +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' + nowSection(r, actLine, leadLines) + storySection(story) + recordsSection(r, present.length) + timelineSection(r) + "</div>" +
-    '<div class="stack" style="gap:52px">' + (live ? hostSection(r) + pacingSection(r) + narrationSection(r) + creationSection(r) + adjustSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
+    '<div class="stack" style="gap:52px">' + (live ? consoleSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
     '<div class="sec">' + seatsSection(r, present) + "</div>";
 
   root.querySelector("[data-export-story]")?.addEventListener("click", async (e) => {
@@ -146,7 +128,7 @@ async function detail(root, ctx, id) {
       if (slot) slot.innerHTML = ring(remaining(r.turn.deadline_at), r.turn_timeout_seconds, "剩余");
     });
   }
-  if (live) { bindHost(root, ctx, r); bindPacing(root, ctx, r); bindNarration(root, ctx, r); bindCreation(root, ctx, r); bindAdjust(root, ctx, r); }
+  if (live) bindConsole(root, ctx, r);
 }
 
 /** A small ring for a share, with the figure in the middle. */
@@ -198,8 +180,8 @@ function nowSection(r, actLine, leadLines) {
       html += '<div class="card draft" style="margin-top:16px"><div class="panel-head"><h3 class="panel-title">' + icon("eye", 16) + ' 正文草稿 · 待审阅</h3><span class="hint">玩家还看不到这段</span></div>' +
         '<div class="prose serif">' + t.draft.paragraphs.map((p) => "<p>" + esc(p) + "</p>").join("") + "</div>" +
         (t.draft.suggestions.length ? '<div class="choices">' + t.draft.suggestions.map((s, i) => '<div class="choice"><b>' + "ABCD"[i] + "</b><span>" + esc(s) + "</span></div>").join("") + "</div>" : "") +
-        '<div class="row" style="margin-top:14px"><button class="btn primary" type="button" data-cmd="主持 发布">' + icon("send", 14) + '发布到群里</button>' +
-        '<button class="btn" type="button" data-cmd="主持 重写">' + icon("refresh", 14) + "按意见重写</button></div></div>";
+        '<form class="narr-style" data-rewrite style="margin-top:14px"><button class="btn primary" type="button" data-publish>' + icon("send", 14) + "发布到群里</button>" +
+        '<input class="input" name="note" maxlength="300" placeholder="不满意？写下重写意见（可不填）" /><button class="btn" type="submit">' + icon("refresh", 14) + "重写</button></form></div>";
     }
   }
   if (v) {
@@ -245,7 +227,7 @@ function adjustSection(r) {
   const o = r.adjust_options;
   const pending = r.adjustments.filter((a) => a.state === "pending"), done = r.adjustments.filter((a) => a.state !== "pending").slice(0, 5);
   const opts = (list) => list.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
-  return '<section>' + section("主持调整", { meta: "提交后不会立刻生效，要等模型写完下一回合的正文后才生效，并在群里公布" }) + '<div class="card">' +
+  return '<div class="pane-block">' + paneHead("主持调整", { meta: "提交后不会立刻生效，要等模型写完下一回合的正文后才生效，并在群里公布" }) + '<div class="card">' +
     '<form data-adjust class="adjust-form"><div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">' +
     '<label class="field"><span class="label">调整什么</span><select class="select" name="kind"><option value="resource">资源</option><option value="item">物品数量</option>' + (o.money ? '<option value="money">钱（' + esc(r.economy.currency) + '）</option>' : "") +
       '<option value="skill">技能（习得/失去）</option><option value="uses">剩余次数</option><option value="attitude">人物态度</option></select></label>' +
@@ -265,7 +247,7 @@ function adjustSection(r) {
     (pending.length ? '<div class="label" style="margin-top:18px">待生效 ' + pending.length + "</div>" + pending.map((a) => '<div class="ri" style="padding:10px 0">' + roundIcon("hourglass", "warn") + '<div style="min-width:0"><div class="ri-title" style="white-space:normal;font-weight:500">' +
       esc(a.lines.join("；")) + '</div><div class="ri-meta">' + esc(when(a.created_at)) + " 提交 · 下一回合正文写完后生效</div></div>" + '<button class="btn text small" data-cancel-adjust="' + esc(a.id) + '">撤销</button></div>').join("") : "") +
     (done.length ? '<details style="margin-top:12px"><summary>已处理 ' + done.length + " 条</summary>" + done.map((a) => '<div class="hint" style="margin-top:6px">' + (a.state === "applied" ? "已生效" : "已撤销") + "：" + esc(a.lines.join("；")) + "</div>").join("") + "</details>" : "") +
-    "</div></section>";
+    "</div></div>";
 }
 
 // Narration settings: each one follows the world value copied when the table opened, or is set for this table.
@@ -306,7 +288,7 @@ function pacingSection(r) {
       '<form class="narr-style" data-pace-close><input class="input" maxlength="24" name="ending" value="' + esc(p.offer?.title || "") + '" placeholder="结局名（可不填，由故事决定）" /><button class="btn primary" type="submit">开始收尾</button>' +
       (p.offer ? '<button class="btn" type="button" data-pace-cmd="主持 收尾 取消">驳回提议</button>' : "") + "</form>";
   }
-  return "<section>" + section("节奏与收尾", { meta: "按轮计：在座的人各行动一次算一轮；结果发往群聊" }) + '<div class="card narr">' +
+  return '<div class="pane-block">' + paneHead("节奏与收尾", { meta: "按轮计：在座的人各行动一次算一轮；结果发往群聊" }) + '<div class="card narr">' +
     '<div class="pace-tracks">' + tracks + "</div>" +
     (p.state ? '<div class="pace-stage soft"><b>' + icon("hourglass", 15) + esc(p.state.label) + "</b><span>" + esc(p.state.detail) + "</span></div>" : "") +
     '<div class="narr-row"><div class="narr-head"><b>整体节奏</b><span class="now">' + esc(p.preset) + "档" + (p.off ? " · 自动推进已关闭" : "") + '</span><span class="spacer"></span><span class="narr-src">' + esc(p.source) + "</span></div>" + notchHtml +
@@ -318,7 +300,7 @@ function pacingSection(r) {
     '<button class="btn small" type="button" data-pace-cmd="主持 节奏 ' + (p.off ? "开" : "关") + '">' + (p.off ? "开启自动推进" : "关闭自动推进") + "</button>" +
     (p.source === "主持人调整" ? '<button class="btn small" type="button" data-pace-cmd="主持 节奏 默认">' + icon("refresh", 14) + "恢复世界设置</button>" : "") + "</div></div>" +
     '<div class="narr-row"><div class="narr-head"><b>收尾</b><span class="spacer"></span><span class="narr-src">' + (p.ending ? "收尾提议开启" : "世界关闭了自动收尾提议") + "</span></div>" + closing + "</div>" +
-    "</div></section>";
+    "</div></div>";
 }
 
 function bindPacing(root, ctx, r) {
@@ -369,11 +351,11 @@ function narrationSection(r) {
       notch(field, d.value, { disabled: !d.own }) + '<p class="narr-hint">' + esc(hint) + "</p></div>";
   };
   const world = r.settings.world_style;
-  return "<section>" + section("叙事设置", { meta: "改动从下一段正文开始生效" }) + '<div class="card narr">' + ["improv", "dialogue", "length"].map(row).join("") +
+  return '<div class="pane-block">' + paneHead("叙事设置", { meta: "改动从下一段正文开始生效" }) + '<div class="card narr">' + ["improv", "dialogue", "length"].map(row).join("") +
     '<div class="narr-row"><div class="narr-head"><b>文笔与基调</b><span class="spacer"></span><span class="narr-src">' + (n.style ? "本桌有补充" : "世界默认") + "</span></div>" +
     (world ? '<div class="narr-sub">世界设定</div><div class="narr-text">' + esc(world) + "</div>" : "") +
     '<div class="narr-sub">本桌补充</div><form class="narr-style" data-style-form><input class="input" data-style-words maxlength="300" value="' + esc(n.style) +
-    '" placeholder="例如：多写环境声，少用比喻；留空保存即清除" /><button class="btn primary" type="submit">保存</button></form></div></div></section>';
+    '" placeholder="例如：多写环境声，少用比喻；留空保存即清除" /><button class="btn primary" type="submit">保存</button></form></div></div></div>';
 }
 
 function bindNarration(root, ctx, r) {
@@ -432,7 +414,7 @@ function creationSection(r) {
   const reach = '<div data-reach-box>' + reachHtml(c.archetypes, c.move) + "</div>";
   const own = Boolean(c.cap) || c.move_own || c.swap_own;
   const forgeNote = c.modes.some((m) => m.key === "forge") && !c.open.includes("forge") && c.cap !== "quick" && c.cap !== "custom" ? "故事已经开始，精雕暂时关闭。" : "";
-  return "<section>" + section("建卡设置", { meta: "只能在世界上限内调低；只影响之后建卡或重建的人，结果会发到群里" }) + '<div class="card narr">' +
+  return '<div class="pane-block">' + paneHead("建卡设置", { meta: "只能在世界上限内调低；只影响之后建卡或重建的人，结果会发到群里" }) + '<div class="card narr">' +
     row("模式最深", (c.modes.find((m) => m.key === deepest) || {}).label + (c.cap ? "" : "（不限）"), Boolean(c.cap), ladder("mode", c.modes.map((m) => [m.key, m.label]), modeIndex),
       "这个世界开放 " + c.modes.map((m) => m.label).join("、") + "。" + forgeNote) +
     (c.world_move ? row("属性最多挪", c.move + " 点", c.move_own, ladder("move", counts(c.world_move, "点"), c.move) + (c.move ? reach : ""),
@@ -442,7 +424,7 @@ function creationSection(r) {
       c.swap ? "定制可以把职业自带的技能换成技能池里的另一项；精雕不受这项限制。" : "调到 0 时定制跳过“换技能”这一步；精雕仍可从技能池任选。")
       : row("定制最多换技能", "0 项", false, "", "这个世界不允许定制换技能。")) +
     (own ? '<div class="row" style="padding-top:16px"><button class="btn small" type="button" data-create="reset">' + icon("refresh", 14) + "恢复世界设置</button></div>" : "") +
-    "</div></section>";
+    "</div></div>";
 }
 
 function bindCreation(root, ctx, r) {
@@ -532,70 +514,316 @@ function timelineSection(r) {
       : empty("暂无事件")) + "</section>";
 }
 
-function hostSection(r) {
-  const s = r.settings;
-  const hidden = { 暂停: r.state !== "running", 恢复: r.state !== "paused", "主持 全员准备": r.state !== "paused", 开演: r.state !== "paused",
-    "主持 发布": true, "主持 重写": true };
-  const notes = [["eye", "审稿 " + (s.review ? "开启" : "关闭")], ["door", "入座 " + (s.seating_locked ? "已关闭" : "开放")], ["hourglass", "表决 " + s.vote_minutes + " 分钟"],
-    ["refresh", "可回退 " + s.rewinds + " 步"], ["user", "人设卡 " + (s.personas_off ? "已关闭" : "开放")]].concat(s.rush ? [["bolt", "快团 开启"]] : []).concat(s.xcards ? [["shield", "X 卡 " + s.xcards + " 次"]] : []).concat(s.handover ? [["key", "等待 " + s.handover + " 接棒"]] : [])
-    .concat(s.removed.length ? [["user", "已请离 " + s.removed.join("、")]] : []);
-  return '<section>' + section("主持操作", { meta: "以管理员身份执行，结果发往群聊" }) + '<div class="card">' +
-    HOST.map(([group, items]) => '<div class="host-group">' + group + '</div><div class="host-actions">' + items.filter(([cmd]) => !hidden[cmd]).map(([cmd, label, ic]) =>
-      '<button type="button" data-cmd="' + esc(cmd) + '">' + icon(ic, 18) + esc(label) + "</button>").join("") + "</div>").join("") +
-    '<form data-host-form hidden style="margin-top:18px"><div class="field"><label data-host-label></label><textarea class="input" name="arg" rows="3"></textarea></div>' +
-    '<div class="row"><button class="btn primary" type="submit">' + icon("send", 14) + '执行</button><button class="btn text" type="button" data-cancel>取消</button></div></form>' +
-    '<div class="host-notes">' + notes.map(([ic, text]) => "<span>" + icon(ic, 13) + esc(text) + "</span>").join("") + "</div>" +
-    (r.directive ? '<div class="hint" style="margin-top:16px">' + icon("eyeOff", 13) + " 当前指引：" + esc(r.directive) + "</div>" : "") +
-    (r.saves.length ? '<div class="hint" style="margin-top:6px">' + icon("save", 13) + " 存档：" + r.saves.map((s, i) => (i + 1) + ". " + esc(s.name)).join("　") + "</div>" : "") +
-    (lastLog && lastLog.id === r.id ? '<div class="sent-log"><div class="label" style="margin-bottom:6px">已发往群聊 · ' + esc(lastLog.command) + "</div>" + esc(lastLog.messages.join("\n\n")) + "</div>" : "") + "</div></section>";
+// ---------------------------------------------------------------- host console
+// Five panes; the open pane and tool survive the refresh that follows each command on the same table.
+const CONSOLE_TABS = [["play", "进行", "play"], ["pace", "节奏", "hourglass"], ["table", "桌务", "users"], ["config", "设置", "sliders"], ["adjust", "调整", "wand"]];
+let consoleView = { id: null, tab: "play", tool: null };
+// Story tools open a form under the tiles; [key, label, icon]
+const PLAY_TOOLS = [["advance", "推进剧情", "wand"], ["narrate", "直述剧情", "feather"], ["check", "要求检定", "dice"],
+  ["choices", "改写选项", "list"], ["directive", "私下指引", "eyeOff"], ["act", "换幕", "book"]];
+// Turn commands run on a click; [command, label, icon, confirm text]
+const PLAY_DIRECT = [["主持 跳过", "跳过回合", "skip"], ["主持 重试", "重试正文", "refresh"],
+  ["主持 回退", "回退一步", "hourglass", "撤回最近一步行动？骰子、资源、正文和玩法记录都会回到行动前。"], ["主持 集体事件", "集体事件", "sparkle"], ["主持 结束表决", "结束表决", "vote"]];
+const TURN_LIMITS = [["默认", "跟随全局"], ["0", "不限时"], ["2", "2 分"], ["5", "5 分"], ["10", "10 分"], ["30", "30 分"]];
+const VOTE_LIMITS = [1, 2, 3, 5, 10];
+
+function paneHead(title, { meta = "", extra = "" } = {}) {
+  return '<div class="pane-head"><h3>' + esc(title) + "</h3>" + (meta ? "<span>" + meta + "</span>" : "") + extra + "</div>";
 }
 
-function bindHost(root, ctx, r) {
-  const form = root.querySelector("[data-host-form]");
-  const specs = Object.fromEntries(HOST.flatMap(([, items]) => items.map((it) => [it[0], it])));
-  let current = null;
-  const run = async (button, command) => {
-    try {
-      const result = await busy(button, () => ctx.api.post("room/command", { id: r.id, command }));
-      lastLog = { id: r.id, command, messages: result.messages };
-      ctx.toast("已执行：" + command.split(" ").slice(0, 2).join(" "));
-      ctx.refresh();
-    } catch (error) {
-      ctx.toast(error.message, "error");
-    }
-  };
-  root.querySelectorAll("[data-cmd]").forEach((button) => button.addEventListener("click", () => {
-    const [cmd, label, , placeholder, , confirmText] = specs[button.dataset.cmd];
-    root.querySelectorAll("[data-cmd]").forEach((b) => b.setAttribute("aria-pressed", String(b === button && Boolean(placeholder))));
-    if (!placeholder) {
-      form.hidden = true;
-      if (confirmText && !window.confirm(confirmText)) return;
-      return run(button, cmd);
-    }
-    current = cmd;
-    form.hidden = false;
-    form.querySelector("[data-host-label]").textContent = label + " · " + placeholder;
-    form.arg.value = "";
-    form.arg.focus();
+function consoleSection(r) {
+  if (consoleView.id !== r.id) consoleView = { id: r.id, tab: "play", tool: null };
+  const s = r.settings, tab = consoleView.tab;
+  const notes = [["eye", "审稿 " + (s.review ? "开启" : "关闭")], ["door", "入座 " + (s.seating_locked ? "已关闭" : "开放")], ["clock", "回合 " + limitText(r.turn_timeout_seconds)],
+    ["hourglass", "表决 " + s.vote_minutes + " 分钟"], ["refresh", "可回退 " + s.rewinds + " 步"], ["user", "人设卡 " + (s.personas_off ? "已关闭" : "开放")]]
+    .concat(s.rush ? [["bolt", "快团 开启"]] : []).concat(s.xcards ? [["shield", "X 卡 " + s.xcards + " 次"]] : [])
+    .concat(s.handover ? [["key", "等待 " + s.handover + " 接棒"]] : []).concat(s.removed.length ? [["user", "已请离 " + s.removed.join("、")]] : []);
+  const pane = (key, html) => '<div class="console-pane" data-pane="' + key + '"' + (key === tab ? "" : " hidden") + ">" + html + "</div>";
+  return '<section class="console">' + section("主持台", { meta: "以管理员身份执行，结果发往群聊" }) +
+    '<div class="host-notes console-notes">' + notes.map(([ic, text]) => "<span>" + icon(ic, 13) + esc(text) + "</span>").join("") + "</div>" +
+    '<nav class="tabs console-tabs">' + CONSOLE_TABS.map(([key, label, ic]) => '<button type="button" data-tab="' + key + '" aria-pressed="' + (key === tab) + '">' + icon(ic, 14) + label +
+      (key === "adjust" && r.adjustments.some((a) => a.state === "pending") ? '<i class="tab-dot"></i>' : "") + "</button>").join("") + "</nav>" +
+    pane("play", playPane(r)) +
+    pane("pace", pacingSection(r) || '<div class="card">' + empty("还没开演", "开演后这里显示场景、幕和全程的轮数，以及收尾") + "</div>") +
+    pane("table", tablePane(r)) + pane("config", configPane(r) + narrationSection(r) + creationSection(r)) + pane("adjust", adjustSection(r)) +
+    (lastLog && lastLog.id === r.id ? '<div class="sent-log"><div class="label" style="margin-bottom:6px">已发往群聊 · ' + esc(lastLog.command) + "</div>" + esc(lastLog.messages.join("\n\n")) + "</div>" : "") +
+    "</section>";
+}
+
+async function hostRun(ctx, r, button, command, { actors = null, label = "" } = {}) {
+  try {
+    const result = await busy(button, () => ctx.api.post("room/command", { id: r.id, command, ...(actors ? { actors } : {}) }));
+    const name = label || command.split(" ").slice(0, 2).join(" ");
+    lastLog = { id: r.id, command: name, messages: result.messages };
+    consoleView.tool = null;
+    ctx.toast("已执行：" + name);
+    ctx.refresh();
+  } catch (error) { ctx.toast(error.message, "error"); }
+}
+
+// ---- 进行
+function playPane(r) {
+  const running = r.state === "running", tool = consoleView.tool;
+  const usable = (key) => key === "directive" || running;
+  const tile = (attrs, ic, label, on, off, mark) => "<button type=\"button\" " + attrs + ' aria-pressed="' + on + '"' + (off ? " disabled" : "") + ">" + icon(ic, 18) + esc(label) +
+    (mark ? '<i class="tile-dot" title="' + esc(mark) + '"></i>' : "") + "</button>";
+  const tools = PLAY_TOOLS.map(([key, label, ic]) => tile('data-tool="' + key + '"', ic, label, tool === key, !usable(key), key === "directive" && r.directive ? "已有指引" : "")).join("");
+  const direct = PLAY_DIRECT.filter(([cmd]) => cmd !== "主持 结束表决" || r.vote).map(([cmd, label, ic, confirm]) =>
+    tile('data-run="' + esc(cmd) + '"' + (confirm ? ' data-confirm="' + esc(confirm) + '"' : ""), ic, label + (cmd === "主持 回退" && r.settings.rewinds ? " · " + r.settings.rewinds : ""), false,
+      !running || (cmd === "主持 回退" && !r.settings.rewinds), "")).join("");
+  return '<div class="pane-block">' + paneHead("一轮之中", { meta: running ? "需要填写的操作会在下方展开" : "开演后才能推进、检定和换幕；私下指引随时可写" }) +
+    '<div class="card"><div class="host-group">剧情</div><div class="host-actions">' + tools + '</div><div class="host-group">回合</div><div class="host-actions">' + direct + "</div>" +
+    (tool && usable(tool) ? '<div class="tool-pane">' + TOOL_FORMS[tool](r) + "</div>" : "") + "</div></div>";
+}
+
+function toolForm(key, body, submit, ic, hint) {
+  return '<form class="tool-form" data-tool-form="' + key + '">' + body + '<div class="tool-foot"><span class="hint">' + esc(hint) + '</span><span class="spacer"></span>' +
+    '<button class="btn text small" type="button" data-tool-close>收起</button><button class="btn primary" type="submit">' + icon(ic, 14) + esc(submit) + "</button></div></form>";
+}
+const toolNote = (text) => '<p class="tool-note">' + esc(text) + '</p><div class="tool-foot"><span class="spacer"></span><button class="btn text small" type="button" data-tool-close>收起</button></div>';
+
+const TOOL_FORMS = {
+  advance: () => toolForm("advance", '<label class="field"><span class="label">推进说明（可不填）</span><textarea class="input" name="text" rows="2" maxlength="300" placeholder="想让局势往哪里走，例如：巡逻队提前换岗"></textarea></label>',
+    "推进剧情", "wand", "以主持人的名义写一段正文，写完回到原来的行动者。"),
+  narrate: () => toolForm("narrate", '<label class="field"><span class="label">公开剧情<span class="count"><b data-count>0</b>/1000</span></span><textarea class="input" name="text" rows="4" maxlength="1000" data-counted placeholder="会原样发到群里，并记成剧情事实"></textarea></label>',
+    "公开发出", "send", "2–1000 字，之后的正文都以它为准。"),
+  directive: (r) => (r.directive ? '<div class="tool-current"><div><span class="label">当前指引</span><p>' + esc(r.directive) + '</p></div><button type="button" class="btn small" data-clear-directive>' + icon("x", 13) + "清除</button></div>" : "") +
+    toolForm("directive", '<label class="field"><span class="label">' + (r.directive ? "替换为" : "给叙事模型的指引") + '</span><textarea class="input" name="text" rows="3" maxlength="600" placeholder="只有叙事模型看得到，例如：让管家显得心虚，但先别揭穿"></textarea></label>',
+      r.directive ? "替换指引" : "保存指引", "eyeOff", "不会发到群里；一桌只保留一条指引。"),
+  choices: (r) => {
+    const t = r.turn;
+    if (!t || t.state !== "awaiting") return toolNote("现在没有等待行动的回合，轮到下一位时再改选项。");
+    return toolForm("choices", '<div class="opt-list">' + [0, 1, 2, 3].map((i) => '<label class="opt-row"><b>' + "ABCD"[i] + '</b><input class="input" name="opt' + i + '" maxlength="80" value="' +
+      esc(t.choices[i]?.text || "") + '" placeholder="' + (i ? "可留空" : "至少写一项") + '" /></label>').join("") + "</div>", "替换选项", "list", "给 " + t.actor + " 的新选项，留空的不出现。");
+  },
+  check: (r) => {
+    const o = r.check_options, actors = r.actors.filter((a) => a.presence !== "left" && a.archetype);
+    if (!actors.length) return toolNote("还没有建好卡的角色。");
+    const mid = Math.floor((o.difficulties.length - 1) / 2);
+    const now = actors.find((a) => (a.name || a.user_name) === r.turn?.actor);
+    return toolForm("check", '<div class="tool-grid"><label class="field"><span class="label">角色</span><select class="select" name="actor">' + actors.map((a) => '<option value="' + esc(a.id) + '"' +
+      (a === now ? " selected" : "") + ">" + esc(a.name || a.user_name) + "</option>").join("") + "</select></label>" +
+      '<label class="field"><span class="label">属性</span><select class="select" name="attr">' + o.attributes.map((a) => '<option value="' + esc(a.ref) + '">' + esc(a.name) + "</option>").join("") + "</select></label></div>" +
+      '<div class="field"><span class="label">难度</span><div class="seg diff-seg" data-diff>' + o.difficulties.map((d, i) => '<button type="button" data-value="' + esc(d.key) + '" aria-pressed="' + (i === mid) + '">' +
+        esc(d.label) + '<small class="num">' + d.dc + "</small></button>").join("") + "</div></div>" +
+      (o.harm ? '<label class="tool-switch"><span class="switch small"><input type="checkbox" name="harm" /><span></span></span>失败要付代价：按世界规则扣资源，下一段正文后生效</label>' : "") +
+      '<label class="field"><span class="label">理由（可不填）</span><input class="input" name="reason" maxlength="200" placeholder="例如：听见楼上的脚步" /></label>',
+    "掷骰", "dice", "结果立刻公布并记入剧情，下一段正文据此叙述。");
+  },
+  act: (r) => {
+    const later = r.acts.filter((a) => a.number > r.act);
+    const next = Math.max(r.act, ...r.acts.map((a) => a.number)) + 1;
+    const opts = later.length ? later.map((a) => [a.number, actName(a.number) + "　" + a.title]) : [[next, actName(next) + "（即兴续写）"]];
+    return toolForm("act", '<label class="field"><span class="label">进入</span><select class="select" name="target">' + opts.map(([n, l]) => '<option value="' + n + '">' + esc(l) + "</option>").join("") + "</select></label>" +
+      (later.length ? "" : '<label class="field"><span class="label">幕名与引子（可不填）</span><input class="input" name="named" maxlength="120" placeholder="例如：潮落：守夜人交出了钥匙" /></label>'),
+    "换幕", "book", later.length ? "发出新一幕的开场，节奏从新一幕重新计算。" : "预设的幕已经演完。核心版可以即兴续写下一幕；想结束请到“节奏”开始收尾。");
+  },
+};
+
+function toolCommand(key, form) {
+  const text = (name) => (form.elements.namedItem(name)?.value || "").trim();
+  if (key === "advance") return { command: ("主持 推进 " + text("text")).trim(), label: "推进剧情" };
+  if (key === "narrate") {
+    if (text("text").length < 2) throw new Error("公开剧情至少写 2 个字");
+    return { command: "主持 直述 " + text("text"), label: "直述剧情" };
+  }
+  if (key === "directive") {
+    if (!text("text")) throw new Error("请先写指引内容");
+    return { command: "主持 指引 " + text("text"), label: "私下指引" };
+  }
+  if (key === "choices") {
+    const list = [0, 1, 2, 3].map((i) => text("opt" + i).replace(/[|｜]/g, "/")).filter(Boolean);
+    if (!list.length) throw new Error("至少写一个选项");
+    return { command: "主持 选项 " + list.join("｜"), label: "改写选项" };
+  }
+  if (key === "check") {
+    const diff = form.querySelector("[data-diff] [aria-pressed=true]").dataset.value;
+    const harm = form.elements.namedItem("harm")?.checked;
+    const reason = text("reason").replace(/^(受伤|伤害)(\s|$)/, "$1：$2");
+    return { command: ["主持 检定", form.attr.value, diff, harm ? "受伤" : "", reason].filter(Boolean).join(" "), actors: [form.actor.value], label: "要求检定" };
+  }
+  if (key === "act") return { command: ("主持 换幕 " + form.target.value + " " + text("named")).trim(), label: "换幕" };
+}
+
+function bindPlay(root, ctx, r) {
+  const pane = root.querySelector('[data-pane="play"]');
+  const redraw = () => { pane.innerHTML = playPane(r); bindPlay(root, ctx, r); };
+  pane.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => {
+    consoleView.tool = consoleView.tool === b.dataset.tool ? null : b.dataset.tool;
+    redraw();
+    pane.querySelector(".tool-form textarea, .tool-form input:not([type=checkbox])")?.focus();
   }));
-  form.querySelector("[data-cancel]").addEventListener("click", () => {
-    form.hidden = true;
-    root.querySelectorAll("[data-cmd]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  pane.querySelectorAll("[data-tool-close]").forEach((b) => b.addEventListener("click", () => { consoleView.tool = null; redraw(); }));
+  pane.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.confirm && !window.confirm(b.dataset.confirm)) return;
+    hostRun(ctx, r, b, b.dataset.run);
+  }));
+  pane.querySelector("[data-clear-directive]")?.addEventListener("click", (e) => hostRun(ctx, r, e.currentTarget, "主持 指引 清除", { label: "清除指引" }));
+  pane.querySelectorAll("[data-diff] button").forEach((b) => b.addEventListener("click", () =>
+    b.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)))));
+  const counted = pane.querySelector("[data-counted]");
+  counted?.addEventListener("input", () => {
+    const n = counted.value.trim().length, out = pane.querySelector("[data-count]");
+    out.textContent = n;
+    out.className = n && n < 2 ? "over" : "";
+  });
+  const form = pane.querySelector("[data-tool-form]");
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    let spec;
+    try { spec = toolCommand(form.dataset.toolForm, form); } catch (error) { return ctx.toast(error.message, "error"); }
+    hostRun(ctx, r, form.querySelector("[type=submit]"), spec.command, spec);
+  });
+}
+
+// ---- 桌务
+function tablePane(r) {
+  const s = r.settings, st = r.state;
+  const present = r.actors.filter((a) => a.presence !== "left");
+  const flow = [["暂停", "暂停", "pause", st === "running", "故事停在这一轮，玩家的行动指令暂不受理"], ["恢复", "打开准备大厅", "users", st === "paused", "让大家重新准备，可以调整人员和角色"],
+    ["主持 全员准备", "全员准备", "check", st === "paused", "替还没准备的人点准备"], ["开演", st === "lobby" ? "开演" : "开演继续", "play", st === "lobby" || st === "paused", st === "lobby" ? "从第一幕开场" : "从暂停的地方继续"]]
+    .filter((f) => f[3]);
+  const endings = (r.endings || []).map((e) => e.name).filter(Boolean);
+  const order = present.map((a, i) => '<li data-actor="' + esc(a.id) + '"><span class="order-no num">' + (i + 1) + "</span>" + avatar(a.name || a.user_name, a.presence === "away" ? "away" : "") +
+    '<span class="order-name"><b>' + esc(a.name || a.user_name) + "</b>" + (a.name && a.name !== a.user_name ? '<span class="hint">' + esc(a.user_name) + "</span>" : "") +
+    (a.presence === "away" ? '<span class="tag">暂离</span>' : "") + '</span><button type="button" class="btn text small" data-move="-1" title="上移">' + icon("chevron", 15, "flip-y") +
+    '</button><button type="button" class="btn text small" data-move="1" title="下移">' + icon("chevron", 15) + "</button></li>").join("");
+  const low = Math.max(1, present.length);
+  return '<div class="pane-block">' + paneHead("桌面状态", { meta: "现在：" + esc(r.state_label) }) + '<div class="card">' +
+    (flow.length ? '<div class="flow-list">' + flow.map(([cmd, label, ic, , note]) => '<button type="button" class="flow-btn" data-run-table="' + esc(cmd) + '">' + icon(ic, 18) +
+      "<span><b>" + esc(label) + "</b><small>" + esc(note) + "</small></span></button>").join("") + "</div>" : "") +
+    '<div class="rule-row tight"><div><b>完结故事</b><p>直接写下结局，跳过收尾和尾声</p></div></div>' +
+    '<form class="narr-style" data-finish><input class="input" name="ending" maxlength="40" list="ending-names" placeholder="结局名（可不填，可选世界里的结局）" />' +
+    '<datalist id="ending-names">' + endings.map((n) => '<option value="' + esc(n) + '"></option>').join("") + '</datalist><button class="btn" type="submit">' + icon("flag", 14) + "完结</button></form>" +
+    '<div class="rule-row danger-row"><div><b>收桌</b><p>收桌后这一桌不再接受指令，群里可以重新开一桌</p></div><button type="button" class="btn small danger" data-close-table>' + icon("door", 14) + "收桌</button></div>" +
+    "</div></div>" +
+
+    '<div class="pane-block">' + paneHead("存档", { meta: "读档后故事回到存档时的位置，并处于暂停" }) + '<div class="card">' +
+    '<form class="narr-style" data-save><input class="input" name="name" maxlength="40" placeholder="存档名（可不填）" /><button class="btn primary" type="submit">' + icon("save", 14) + "存档</button></form>" +
+    (r.saves.length ? '<div class="save-list">' + r.saves.map((x, i) => '<div class="save-row"><span class="order-no num">' + (i + 1) + '</span><span class="order-name"><b>' + esc(x.name) + '</b><span class="hint">' +
+      esc(when(x.created_at)) + '</span></span><button type="button" class="btn small" data-load="' + (i + 1) + '" data-name="' + esc(x.name) + '">' + icon("folder", 14) + "读档</button></div>").reverse().join("") + "</div>"
+      : '<p class="tool-note">还没有手动存档。</p>') + "</div></div>" +
+
+    '<div class="pane-block">' + paneHead("席位与顺序", { meta: present.length + " 人在座 · 上限 " + r.seat_cap }) + '<div class="card">' +
+    '<div class="rule-row"><div><b>席位上限</b><p>' + (low >= r.seat_limit ? "已经坐满可设的上限" : "最少 " + low + "（已入座人数），最多 " + r.seat_limit) + '</p></div>' +
+    '<div class="num-step" data-cap data-low="' + low + '" data-high="' + r.seat_limit + '" data-now="' + r.seat_cap + '"><button type="button" data-step="-1" aria-label="减少">−</button><b class="num">' + r.seat_cap +
+    '</b><button type="button" data-step="1" aria-label="增加">+</button></div><button type="button" class="btn small" data-cap-apply disabled>应用</button></div>' +
+    (present.length > 1 ? '<div class="rule-row" style="border-bottom:0;padding-bottom:6px"><div><b>行动顺序</b><p>上下移动后应用，从下一次轮转开始生效</p></div><button type="button" class="btn small primary" data-order-apply disabled>应用顺序</button></div>' +
+      '<ol class="order-list" data-order>' + order + "</ol>" : "") +
+    (s.removed.length ? '<div class="rule-row" style="border-bottom:0"><div><b>已请离</b><p>放行后可以重新入座</p></div><div class="chips">' +
+      s.removed.map((n) => '<button type="button" class="chip" data-release="' + esc(n) + '">' + esc(n) + " · 放行</button>").join("") + "</div></div>" : "") +
+    "</div></div>";
+}
+
+function bindTable(root, ctx, r) {
+  const pane = root.querySelector('[data-pane="table"]');
+  pane.querySelectorAll("[data-run-table]").forEach((b) => b.addEventListener("click", () => hostRun(ctx, r, b, b.dataset.runTable)));
+  const finish = pane.querySelector("[data-finish]");
+  finish.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = finish.ending.value.trim();
+    if (!window.confirm("确定直接完结这个故事吗？" + (name ? "结局：" + name : ""))) return;
+    hostRun(ctx, r, finish.querySelector("[type=submit]"), ("完结 " + name).trim(), { label: "完结故事" });
+  });
+  pane.querySelector("[data-close-table]").addEventListener("click", (e) => {
+    if (window.confirm("确定收桌吗？收桌后这一桌不再接受指令。")) hostRun(ctx, r, e.currentTarget, "关闭", { label: "收桌" });
+  });
+  const save = pane.querySelector("[data-save]");
+  save.addEventListener("submit", (e) => { e.preventDefault(); hostRun(ctx, r, save.querySelector("[type=submit]"), ("存档 " + save.name.value.trim()).trim(), { label: "存档" }); });
+  pane.querySelectorAll("[data-load]").forEach((b) => b.addEventListener("click", () => {
+    if (window.confirm("读取存档「" + b.dataset.name + "」？之后的进度会被覆盖，故事回到存档时的位置并暂停。")) hostRun(ctx, r, b, "读档 " + b.dataset.load, { label: "读档" });
+  }));
+  const cap = pane.querySelector("[data-cap]"), capApply = pane.querySelector("[data-cap-apply]");
+  let seats = r.seat_cap;
+  cap.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
+    seats = Math.min(Number(cap.dataset.high), Math.max(Number(cap.dataset.low), seats + Number(b.dataset.step)));
+    cap.querySelector("b").textContent = seats;
+    capApply.disabled = seats === r.seat_cap;
+  }));
+  capApply.addEventListener("click", () => hostRun(ctx, r, capApply, "人数 " + seats, { label: "席位上限" }));
+  const list = pane.querySelector("[data-order]"), orderApply = pane.querySelector("[data-order-apply]");
+  if (list) {
+    const start = [...list.children].map((li) => li.dataset.actor).join();
+    list.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-move]");
+      if (!b) return;
+      const li = b.closest("li"), to = b.dataset.move === "-1" ? li.previousElementSibling : li.nextElementSibling;
+      if (!to) return;
+      if (b.dataset.move === "-1") list.insertBefore(li, to); else list.insertBefore(to, li);
+      [...list.children].forEach((x, i) => { x.querySelector(".order-no").textContent = i + 1; });
+      li.classList.remove("moved"); void li.offsetWidth; li.classList.add("moved");
+      orderApply.disabled = [...list.children].map((x) => x.dataset.actor).join() === start;
+    });
+    orderApply.addEventListener("click", () => hostRun(ctx, r, orderApply, "主持 顺序", { actors: [...list.children].map((x) => x.dataset.actor), label: "行动顺序" }));
+  }
+  pane.querySelectorAll("[data-release]").forEach((b) => b.addEventListener("click", () => hostRun(ctx, r, b, "主持 放行 " + b.dataset.release, { label: "放行" })));
+}
+
+// ---- 设置
+function configPane(r) {
+  const s = r.settings;
+  const toggle = (cmd, on, title, text) => '<div class="rule-row"><div><b>' + title + "</b><p>" + text + '</p></div><span class="switch"><input type="checkbox" data-toggle="' + cmd + '"' +
+    (on ? " checked" : "") + ' aria-label="' + title + '" /><span></span></span></div>';
+  const secs = r.turn_timeout_seconds, own = r.turn_timeout_own;
+  const turnKey = !own ? "默认" : secs === 0 ? "0" : String(secs / 60);
+  const turnCustom = own && !TURN_LIMITS.some(([k]) => k === turnKey);
+  const voteCustom = !VOTE_LIMITS.includes(s.vote_minutes);
+  const seg = (cmd, items, now) => '<div class="seg limit-seg">' + items.map(([k, l]) => '<button type="button" data-limit="' + cmd + '" data-value="' + k + '" aria-pressed="' + (k === now) + '">' + l + "</button>").join("") + "</div>";
+  const custom = (cmd, value, top, on) => '<form class="limit-custom' + (on ? " on" : "") + '" data-limit-form="' + cmd + '"><span>自定义</span><input class="input num" type="number" min="1" max="' + top + '" name="minutes" value="' + (on ? value : "") +
+    '" placeholder="1–' + top + '" /><span>分钟</span><button class="btn small" type="submit">设定</button></form>';
+  return '<div class="pane-block">' + paneHead("桌面规则", { meta: "开关立即生效，结果发到群里" }) + '<div class="card">' +
+    toggle("主持 审稿", s.review, "审稿模式", "正文先私发给主持人，确认后再发到群里") +
+    toggle("主持 入座", !s.seating_locked, "开放入座", "关闭后新玩家不能加入，已在座的人不受影响") +
+    toggle("主持 人设", !s.personas_off, "参考玩家人设", "关闭后 AI 只按职业写角色，不看玩家自带的人设卡") +
+    toggle("主持 快团", s.rush, "快团", "全队同时交行动，一轮合写一段正文；关闭后按座位轮流") + "</div></div>" +
+    '<div class="pane-block">' + paneHead("时限", { meta: "到时没有行动，自动选择风险最低的选项" }) + '<div class="card">' +
+    '<div class="limit-row"><div class="narr-head"><b>回合限时</b><span class="now">' + esc(limitText(secs)) + '</span><span class="spacer"></span><span class="narr-src">' + (own ? "本桌设置" : "跟随全局") + "</span></div>" +
+    seg("主持 限时", TURN_LIMITS, turnCustom ? "" : turnKey) + custom("主持 限时", secs / 60, 1440, turnCustom) +
+    '<p class="narr-hint">全局设置是' + esc(limitText(r.turn_timeout_default)) + "。改动后，正在等待的那一回合重新计时。</p></div>" +
+    '<div class="limit-row"><div class="narr-head"><b>表决时限</b><span class="now">' + s.vote_minutes + ' 分钟</span><span class="spacer"></span>' +
+    '<button type="button" class="btn text small" data-limit="主持 表决时限" data-value="默认">恢复默认</button></div>' +
+    seg("主持 表决时限", VOTE_LIMITS.map((m) => [String(m), m + " 分"]), voteCustom ? "" : String(s.vote_minutes)) + custom("主持 表决时限", s.vote_minutes, 30, voteCustom) +
+    '<p class="narr-hint">默认 2 分钟，可设 1–30 分钟；从下一次表决开始生效。</p></div>' + "</div></div>";
+}
+
+function bindConfig(root, ctx, r) {
+  const pane = root.querySelector('[data-pane="config"]');
+  pane.querySelectorAll("[data-toggle]").forEach((box) => box.addEventListener("change", () =>
+    hostRun(ctx, r, box, box.dataset.toggle + (box.checked ? " 开" : " 关"))));
+  pane.querySelectorAll("[data-limit]").forEach((b) => b.addEventListener("click", () => {
+    if (b.getAttribute("aria-pressed") === "true") return;
+    hostRun(ctx, r, b, b.dataset.limit + " " + b.dataset.value);
+  }));
+  pane.querySelectorAll("[data-limit-form]").forEach((form) => form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const n = Number(form.minutes.value);
+    if (!Number.isInteger(n) || n < Number(form.minutes.min) || n > Number(form.minutes.max)) return ctx.toast("请填 " + form.minutes.min + "–" + form.minutes.max + " 的整数分钟", "error");
+    hostRun(ctx, r, form.querySelector("[type=submit]"), form.dataset.limitForm + " " + n);
+  }));
+}
+
+function bindConsole(root, ctx, r) {
+  root.querySelectorAll(".console-tabs [data-tab]").forEach((b) => b.addEventListener("click", () => {
+    consoleView.tab = b.dataset.tab;
+    root.querySelectorAll(".console-tabs [data-tab]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    root.querySelectorAll(".console-pane").forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
+  }));
+  bindPlay(root, ctx, r); bindTable(root, ctx, r); bindConfig(root, ctx, r);
+  bindPacing(root, ctx, r); bindNarration(root, ctx, r); bindCreation(root, ctx, r); bindAdjust(root, ctx, r);
+  // The review draft under "此刻" and the per-seat actions on the seat cards.
+  root.querySelector("[data-publish]")?.addEventListener("click", (e) => hostRun(ctx, r, e.currentTarget, "主持 发布", { label: "发布草稿" }));
+  const rewrite = root.querySelector("[data-rewrite]");
+  rewrite?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    hostRun(ctx, r, rewrite.querySelector("[type=submit]"), ("主持 重写 " + rewrite.note.value.trim()).trim(), { label: "重写草稿" });
   });
   root.querySelectorAll("[data-seat-cmd]").forEach((button) => button.addEventListener("click", () => {
     const spec = SEAT_ACTIONS.find(([cmd]) => cmd === button.dataset.seatCmd);
     if (spec[2] && !window.confirm(button.dataset.name + "：" + spec[2])) return;
-    run(button, spec[0] + " " + button.dataset.user);
+    hostRun(ctx, r, button, spec[0] + " " + button.dataset.user, { label: spec[1] + " · " + button.dataset.name });
   }));
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const [cmd, , , , required, confirmText] = specs[current];
-    const arg = form.arg.value.trim();
-    if (required && !arg) return ctx.toast("请先填写内容", "error");
-    if (confirmText && !window.confirm(confirmText)) return;
-    run(form.querySelector('[type="submit"]'), (cmd + " " + arg).trim());
-  });
 }
+
 
 function seatsSection(r, actors) {
   const presence = { present: ["ok", "在场"], away: ["warn", "暂离"] };

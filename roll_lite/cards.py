@@ -2134,14 +2134,17 @@ def _party_row(p: dict[str, Any], mine: bool) -> str:
 
 
 LAYOUTS = {"status": _status, "choices": _choices, "sheet": _sheet, "receipt": _receipt, "room": _room, "moment": _moment, "daily": _daily}
+# Segments that have their own image switch but keep the card of the segment they were split from.
+CARD_OF = {"build": "sheet", "banter": "receipt", "ties": "receipt", "economy": "receipt", "pacing": "receipt"}
 
 
 def card_html(msg: Msg, theme: str = "light", art: dict[str, Any] | None = None) -> str:
     """A full HTML page for one message; art is the resolved banner ({'image' or 'mark'/'tone', 'tag'})."""
-    body, right = LAYOUTS.get(msg.segment, _narration)(msg, art)
+    kind = CARD_OF.get(msg.segment, msg.segment)
+    body, right = LAYOUTS.get(kind, _narration)(msg, art)
     theme = theme if theme in THEMES else "light"
     return (f'<!doctype html><html lang="zh"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" />'
-            f"<style>{CSS}</style></head><body class=\"{theme} seg-{e(msg.segment or 'other')}\"><main class=\"card\">"
+            f"<style>{CSS}</style></head><body class=\"{theme} seg-{e(kind or 'other')}\"><main class=\"card\">"
             f'<div class="content">{body}</div>{_foot(right)}</main></body></html>')
 
 

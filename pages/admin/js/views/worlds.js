@@ -29,7 +29,7 @@ export async function render(root, ctx) {
   const group = (title, items, opts) => items.length ? '<section class="sec">' + section(title, { count: items.length, ...opts }) + '<div class="cards">' + items.map(card).join("") + "</div></section>" : "";
   root.innerHTML = hero({
     eyebrow: "世界 · WORLDS", title: "世界",
-    lead: "插件自带灰冠之下：祖约的进阶版（P1），装好就能开团；其余世界以核心版（C1）放在世界市场，一键安装，也能安装别人发布的世界。想写自己的世界，就用“新建世界”从空白开始；停用的世界不会出现在 /团 开启 的列表里。",
+    lead: "插件自带灰冠之下：祖约的进阶版，装好就能开团；其余世界以核心版放在世界市场，同一个世界的核心版和进阶版可以分别安装，也能安装别人发布的世界。想写自己的世界，就用“新建世界”从空白开始；停用的世界不会出现在 /团 开启 的列表里。",
     figures: '<div class="figures">' + figure(list.filter((w) => w.enabled).length + "/" + list.length, "可开的世界") + figure(installed.length, "市场安装", "plain") + figure(custom.length, "自定义", "plain") + "</div>",
     actions: '<a class="btn" href="#/worlds/import">' + icon("upload", 15) + '导入世界文件</a><a class="btn primary" href="#/worlds/import?start=1">' + icon("plus", 15) + "新建世界</a>",
   }) + tabs("") +
@@ -417,7 +417,40 @@ async function market(root, ctx, refresh = false) {
   if (mine === marketSeq) draw(root, ctx, data);
 }
 
+// Core and Pro of one world share an id apart from the "-core" suffix; the market shows them as one card with a switch.
+const EDITION_NAME = { core: "核心版", pro: "进阶版", max: "旗舰版" };
+const EDITION_ORDER = ["core", "pro", "max"];
+const familyKey = (w) => String(w.id).replace(/-core$/, "");
+const editionCode = (w) => String(w.label || "").split(" ").pop();
+
+function families(worlds) {
+  const groups = new Map();
+  for (const w of worlds) {
+    const key = familyKey(w), group = groups.get(key);
+    if (!group) groups.set(key, [w]);
+    else if (group.some((x) => x.edition === w.edition)) groups.set(key + " " + w.id, [w]);
+    else group.push(w);
+  }
+  return [...groups.values()].map((g) => g.sort((a, b) => EDITION_ORDER.indexOf(a.edition) - EDITION_ORDER.indexOf(b.edition)));
+}
+
 function marketCard(w, source) {
+  return '<article class="world-card market-card">' + marketFace(w, source) + "</article>";
+}
+
+// Opens on the edition that needs attention: an update first, then the one installed, then the one the plugin ships, else Core.
+function pairedCard(group, source) {
+  const rank = (w) => ({ update: 3, changed: 3, installed: 2, upgrade: 1 }[w.status] || 0);
+  const shown = group.reduce((best, w) => (rank(w) > rank(best) ? w : best), group[0]);
+  const dot = (w) => (w.status === "update" || w.status === "changed" ? '<i class="ed-dot up" title="可更新"></i>' : w.installed_revision ? '<i class="ed-dot" title="已安装"></i>' : "");
+  const switcher = (current) => '<div class="ed-row"><div class="seg mini ed-switch" role="group" aria-label="版本档">' + group.map((w) => '<button type="button" data-edition="' + esc(w.id) +
+    '" aria-pressed="' + (w === current) + '">' + esc(EDITION_NAME[w.edition] || w.edition) + '<span class="num">' + esc(editionCode(w)) + "</span>" + dot(w) + "</button>").join("") + "</div>" +
+    '<span class="ed-hint">' + group.length + " 档可分别安装</span></div>";
+  return '<article class="world-card market-card paired">' + group.map((w) => '<div class="ed-pane" data-edition-of="' + esc(w.id) + '"' + (w === shown ? "" : " hidden") + ">" +
+    marketFace(w, source, switcher(w)) + "</div>").join("") + "</article>";
+}
+
+function marketFace(w, source, switcher = "") {
   const st = STATES[w.status] || STATES.available;
   const pick = (v) => (typeof v === "function" ? v(w) : v || "");
   const action = pick(st.action);
@@ -426,12 +459,12 @@ function marketCard(w, source) {
   // A Core edition's title ends in （核心版）; the poster keeps the world's name and the facts row says which edition it is.
   const core = w.edition === "core";
   const title = core ? String(w.title).replace("（核心版）", "") : w.title;
-  return '<article class="world-card market-card"><div class="poster-wrap">' +
+  return '<div class="poster-wrap">' +
     cover(w.cover || { mark: shortTitle(title).slice(0, 1), tone: "ink" }, "poster", title, art) +
     (st.label ? '<span class="tag state' + (st.gold ? " gold" : "") + '">' + esc(st.label) + "</span>" : "") +
     // Pro packs may carry weather, ambience and other effects of the full version that Lite skips.
-    (w.full_effects ? '<span class="tag extra" title="天气、氛围音等效果只在 321Roll 全量版显示">含进阶版效果（Lite 中不显示）</span>' : "") + "</div>" +
-    '<div class="body"><div class="style">' + esc(w.summary || "") + "</div>" +
+    (w.full_effects ? '<span class="tag extra" title="天气、氛围音等效果只在 321Roll 全量版显示">含全量版效果（Lite 中不显示）</span>' : "") + "</div>" +
+    '<div class="body">' + switcher + '<div class="style">' + esc(w.summary || "") + "</div>" +
     '<div class="facts"><span class="num" title="版本档与修订号：C 为核心版（世界卡），P 为进阶版（世界包），M 为旗舰版（世界模组）">' + esc(w.label) + "</span>" +
       (core ? '<span class="tag gold" title="预设剧情只写到第一幕，之后由 AI 即兴续写">核心版 · 第一幕后即兴</span>' : "") + "<span>" +
       (w.images ? '<span class="num">' + w.images + "</span> 张场景图" : "纯文本") + '</span><span class="num">' + size(w.size) + "</span></div>" +
@@ -439,7 +472,7 @@ function marketCard(w, source) {
       (installed ? '<a class="link" href="#/worlds/' + encodeURIComponent(w.id) + '">查看' + icon("arrow", 14) + "</a>" +
         '<button class="btn text small danger" data-uninstall="' + esc(w.id) + '" data-title="' + esc(shortTitle(w.title)) + '" data-builtin="' + (w.builtin_revision ? "1" : "") + '">卸载</button>' : "") +
       (action ? '<button class="btn primary small" data-install="' + esc(w.id) + '" data-source="' + esc(source) + '">' + icon("download", 14) + esc(action) + "</button>" : "") +
-    "</span></div></div></article>";
+    "</span></div></div>";
 }
 
 function sourceBlock(s) {
@@ -451,7 +484,7 @@ function sourceBlock(s) {
       "<p>索引所在的 GitHub 仓库需要公开；国内网络可以在右侧换成 jsDelivr 或代理前缀。也可以先下载安装包，再从右侧上传。</p></div></div></section>";
   }
   if (!s.worlds.length) return "<section>" + head + empty("这个索引里还没有世界") + "</section>";
-  return "<section>" + head + '<div class="cards">' + s.worlds.map((w) => marketCard(w, s.url)).join("") + "</div></section>";
+  return "<section>" + head + '<div class="cards">' + families(s.worlds).map((g) => (g.length > 1 ? pairedCard(g, s.url) : marketCard(g[0], s.url))).join("") + "</div></section>";
 }
 
 function side(data) {
@@ -514,6 +547,9 @@ function draw(root, ctx, data) {
     try { await handler(e.currentTarget); } catch (error) { ctx.toast(error.message, "error"); }
   }));
   act("[data-refresh]", async (btn) => { await busy(btn, () => again(true)); });
+  root.querySelectorAll("[data-edition]").forEach((btn) => btn.addEventListener("click", () => {
+    btn.closest(".paired").querySelectorAll("[data-edition-of]").forEach((pane) => { pane.hidden = pane.dataset.editionOf !== btn.dataset.edition; });
+  }));
   act("[data-install]", async (btn) => {
     const r = await busy(btn, () => ctx.api.post("market/install", { source: btn.dataset.source, id: btn.dataset.install }));
     ctx.toast("已安装「" + shortTitle(r.title) + "」" + r.label + (r.previous ? "（原 " + r.previous_label + "）" : ""));

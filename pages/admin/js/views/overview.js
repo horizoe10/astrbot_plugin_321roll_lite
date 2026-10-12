@@ -109,8 +109,10 @@ export async function render(root, ctx) {
     '<span class="link">' + esc(a.action) + icon("arrow", 14) + "</span></a>").join("") + "</div>"
     : '<div class="rows"><div class="ri">' + roundIcon("check", "ok") + '<div><div class="ri-title">一切顺利</div><div class="ri-meta">没有失败的正文、待重发的消息或进行中的表决</div></div><span></span></div></div>';
 
-  const imageSegs = [["image_status", "状态"], ["image_narration", "正文"], ["image_choices", "选项"], ["image_moment", "大场面"],
-    ["image_sheet", "角色卡"], ["image_receipt", "回执"], ["image_room", "团桌"], ["image_daily", "日常"]];
+  const imageSegs = [["image_status", "状态"], ["image_narration", "正文"], ["image_choices", "选项"], ["image_sheet", "角色卡"], ["image_build", "建卡"],
+    ["image_banter", "台词起哄"], ["image_ties", "密信羁绊"], ["image_economy", "钱包"], ["image_pacing", "节奏"], ["image_moment", "大场面"],
+    ["image_receipt", "回执"], ["image_room", "团桌"], ["image_daily", "日常"]];
+  const imagesOn = imageSegs.filter(([k]) => msg[k]);
   const ready = [
     [d.ready.admins > 0, "插件管理员", d.ready.admins ? d.ready.admins + " 位" : "未设置"],
     [true, "群白名单", d.ready.whitelist ? "已启用 · " + d.ready.allowed_groups + " 个群" : "未启用，所有群可用"],
@@ -140,7 +142,7 @@ export async function render(root, ctx) {
       '<div class="row between" style="margin-top:14px"><a class="link" href="#/ops/usage">模型用量' + icon("arrow", 14) + "</a>" +
       (tokens ? '<span class="faint" style="font-size:12px">' + fmt(tokens) + " tokens</span>" : m.latency ? '<span class="faint" style="font-size:12px">最慢 ' + m.latency.max + " 秒</span>" : "") + "</div></div>" +
     '<div><h3 class="sub-title">消息推送</h3><dl class="kv"><dt>格式</dt><dd>' + (msg.format === "markdown" ? "Markdown（不支持的平台自动纯文本）" : "纯文本") + "</dd>" +
-      "<dt>转为图片</dt><dd>" + imageSegs.map(([k, l]) => dot(msg[k] ? "gold" : "off", l)).join("　") + "</dd>" +
+      "<dt>转为图片</dt><dd>" + (imagesOn.length ? imagesOn.length + "/" + imageSegs.length + " 类 · " + imagesOn.map(([, l]) => esc(l)).join("、") : "全部发文字") + "</dd>" +
       "<dt>分段</dt><dd>" + (msg.merge ? "合并为一条" : "间隔 " + Number(msg.interval).toFixed(1) + " 秒") + "</dd>" +
       "<dt>降级平台</dt><dd>" + (msg.blocked.length ? esc(msg.blocked.join("、")) : "无") + "</dd><dt>待重发</dt><dd>" + d.outbox_pending + " 条</dd></dl>" +
       '<div style="margin-top:18px"><a class="link" href="#/messages">消息样式' + icon("arrow", 14) + "</a></div></div>" +

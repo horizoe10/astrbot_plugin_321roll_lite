@@ -150,7 +150,8 @@ BLOCK_LEVEL = frozenset({"banner", "heading", "quote", "choices", "list", "peopl
 class Msg:
     sections: list[list[Block]] = field(default_factory=list)
     mentions: list[tuple[str, str]] = field(default_factory=list)   # (user_id, display name), put before the text
-    # 'status' | 'narration' | 'choices' | 'moment' | 'sheet' | 'receipt' | 'room' | 'daily' | '': kinds the admin may send as images.
+    # One of delivery.SEGMENTS (status, narration, choices, sheet, build, banter, ties, economy, pacing, moment, receipt,
+    # room, daily) or '': kinds the admin may send as images, each with its own switch.
     segment: str = ""
     # Scene banner for the image card: {'world': id, 'key': 'act:2', 'tag': '…'}; set at opening, act or scene change.
     art: dict[str, str] | None = None

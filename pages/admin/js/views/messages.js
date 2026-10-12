@@ -1,14 +1,23 @@
 import { busy, esc, figure, hero, icon, md, plain } from "../ui.js";
 
-const IMAGE_ROWS = [["image_status", "个人状态", "检定、骰点与资源变化"], ["image_narration", "故事正文", "模型生成的剧情段落"],
-  ["image_choices", "行动选项", "轮到谁、可选行动与表决"], ["image_moment", "大场面", "开团招募、换幕、表决结果、终章与战报"],
-  ["image_sheet", "角色卡", "角色卡与 /团 背包 的技能和物品"], ["image_receipt", "玩法回执", "玩法结果、记录详情与人物态度"],
-  ["image_room", "团桌状态", "/团 状态、/团 阵容 与约团"], ["image_daily", "日常", "今日一掷、掷骰、对决、骰运、金句、接龙与海龟汤"]];
-const SEG_INDEX = { status: "1", narration: "2", choices: "3", moment: "4", sheet: "5", receipt: "6", room: "7", daily: "8" };
-const GROUPS = { 0: "一轮行动", 3: "大场面", 4: "查询与回执", 7: "日常" };
+// Image switches by group; the segment names match delivery.SEGMENTS.
+const GROUPS = [
+  ["一轮行动", "每个回合都会发", [["status", "个人状态", "检定、骰点、资源变化与援手孤注"], ["narration", "故事正文", "模型写的剧情段落与开场场景"],
+    ["choices", "行动选项", "轮到谁、可选行动、集体表决与快团选项"]]],
+  ["角色", "建卡和查角色时发", [["sheet", "角色卡与背包", "角色卡、/团 背包 的技能和物品、人设卡"], ["build", "建卡流程", "建卡方式、定制与精雕的每一步、AI 起草"]]],
+  ["群聊互动", "玩家之间的小玩法", [["banter", "台词与起哄", "/团 说、起哄与采纳、援手、竞猜、快团进度与提醒"],
+    ["ties", "密信与羁绊", "密信与回执、X 卡、闪回、羁绊的提出与结成"]]],
+  ["钱包与节奏", "Lite 0.7 的经济与收尾", [["economy", "钱包与整备", "商店、整备、买卖与赠送、故事里的得失、账本与工钱"],
+    ["pacing", "节奏与收尾", "节奏卡、本幕将尽、收尾表决、世界推进与尾声"]]],
+  ["场面与查询", "", [["moment", "大场面", "开团招募、换幕、表决结果、纸条公开、关系图、终章与战报"], ["receipt", "玩法回执", "线索、假设、计划等玩法结果，记录详情与人物态度"],
+    ["room", "团桌状态", "/团 状态、/团 阵容 与约团"], ["daily", "日常", "今日一掷、掷骰、对决、骰运、金句、接龙、海龟汤与冒险"]]],
+];
+const IMAGE_ROWS = GROUPS.flatMap(([, , rows]) => rows);
+const SEG_INDEX = Object.fromEntries(IMAGE_ROWS.map(([seg], i) => [seg, String(i + 1)]));
+const GROUP_OF = Object.fromEntries(GROUPS.flatMap(([title, , rows]) => rows.map(([seg]) => [seg, title])));
 const PLATFORMS = [["qq_official", "QQ 官方机器人"], ["aiocqhttp", "OneBot（aiocqhttp）"]];
 const THEMES = [["light", "白金"], ["dark", "黑金"]];
-const IMAGE_KEYS = IMAGE_ROWS.map(([key]) => key);
+const IMAGE_KEYS = IMAGE_ROWS.map(([seg]) => "image_" + seg);
 const PREF_FIELDS = ["format", ...IMAGE_KEYS, "scene_images", "card_theme", "interval", "merge"];
 
 export async function render(root, ctx) {
@@ -36,9 +45,15 @@ export async function render(root, ctx) {
       [["markdown", "Markdown"], ["plain", "纯文本"]].map(([k, l]) => '<button data-format="' + k + '" aria-pressed="' + (form.format === k) + '">' + l + "</button>").join("") + "</div>" +
       '<p class="hint" style="margin:8px 0 0">支持 Markdown 的平台：' + esc(data.markdown_platforms.join("、")) + "。其余平台一律纯文本。</p>" +
       '<hr class="rule" /><div class="label">转为图片</div><p class="hint" style="margin:4px 0 4px">按插件自带的卡片版式，经 AstrBot 的渲染服务出图。开场、换幕和换场景时正文卡顶部会放世界横幅。渲染失败时先改用 AstrBot 默认文转图，再失败就发文字。</p>' +
-      IMAGE_ROWS.map(([key, label, note], i) => (GROUPS[i] ? '<div class="label" style="margin:' + (i ? 12 : 10) + 'px 0 2px">' + GROUPS[i] + "</div>" : "") +
-        '<label class="opt"><span class="opt-num">' + SEG_INDEX[key.replace("image_", "")] + '</span><span class="opt-text"><b>' + label + "</b><span>" + note +
-        '</span></span><span class="switch"><input type="checkbox" data-image="' + key + '" ' + (form[key] ? "checked" : "") + ' aria-label="' + label + '转为图片" /><span></span></span></label>').join("") +
+      GROUPS.map(([title, sub, rows], g) => {
+        const on = rows.filter(([seg]) => form["image_" + seg]).length;
+        return '<div class="img-group"><div class="img-group-head"><b>' + title + "</b>" + (sub ? "<span>" + sub + "</span>" : "") +
+          '<label class="img-all"><em>' + (on === rows.length ? "全部图片" : on ? on + "/" + rows.length + " 图片" : "全部文字") + "</em>" +
+          '<span class="switch small"><input type="checkbox" data-image-group="' + g + '" ' + (on === rows.length ? "checked" : "") + ' aria-label="' + title + '整组转为图片" /><span></span></span></label></div>' +
+          rows.map(([seg, label, note]) => '<label class="opt"><span class="opt-num">' + SEG_INDEX[seg] + '</span><span class="opt-text"><b>' + label + "</b><span>" + note +
+            '</span></span><span class="switch"><input type="checkbox" data-image="image_' + seg + '" ' + (form["image_" + seg] ? "checked" : "") + ' aria-label="' + label + '转为图片" /><span></span></span></label>').join("") +
+          "</div>";
+      }).join("") +
       '<label class="opt"><span class="opt-text"><b>场景图</b><span>文字正文前发送当前场景，终章发送结局图；图片卡横幅照常显示</span></span><span class="switch"><input type="checkbox" data-scene-images ' + (form.scene_images ? 'checked' : '') + ' aria-label="发送场景图" /><span></span></span></label>' +
       '<div class="label" style="margin:14px 0 8px">卡片配色</div><div class="seg" role="group" aria-label="卡片配色">' +
       THEMES.map(([k, l]) => '<button data-card-theme="' + k + '" aria-pressed="' + (form.card_theme === k) + '">' + l + "</button>").join("") + "</div>" +
@@ -54,6 +69,12 @@ export async function render(root, ctx) {
     formEl.querySelectorAll("[data-format]").forEach((b) => b.addEventListener("click", () => { form.format = b.dataset.format; update(); }));
     formEl.querySelectorAll("[data-card-theme]").forEach((b) => b.addEventListener("click", () => { form.card_theme = b.dataset.cardTheme; update(); }));
     formEl.querySelectorAll("[data-image]").forEach((i) => i.addEventListener("change", () => { form[i.dataset.image] = i.checked; update(); }));
+    formEl.querySelectorAll("[data-image-group]").forEach((i) => {
+      const rows = GROUPS[i.dataset.imageGroup][2];
+      const on = rows.filter(([seg]) => form["image_" + seg]).length;
+      i.indeterminate = on > 0 && on < rows.length;
+      i.addEventListener("change", () => { rows.forEach(([seg]) => { form["image_" + seg] = i.checked; }); update(); });
+    });
     formEl.querySelector("[data-scene-images]").addEventListener("change", (e) => { form.scene_images = e.target.checked; update(); });
     formEl.querySelector("[data-merge]").addEventListener("change", (e) => { form.merge = e.target.checked; update(); });
     formEl.querySelector("#interval").addEventListener("input", (e) => {
@@ -124,8 +145,15 @@ export async function render(root, ctx) {
     previewEl.innerHTML = '<section class="chat"><div class="chat-top"><div><div class="panel-title">一轮行动的推送</div><div class="hint">' + esc(formatNote) + "</div></div>" +
       '<div class="seg" role="group" aria-label="预览平台">' + PLATFORMS.map(([k, l]) => '<button data-platform="' + k + '" aria-pressed="' + (platform === k) + '">' + l + "</button>").join("") + "</div></div>" +
       chat(data.turn, asMarkdown, true) + "</section>" +
-      '<div class="ornament">其他消息</div><div class="grid cols-even">' + data.others.map((e) => '<section class="chat" style="padding:18px"><div class="label" style="margin-bottom:10px">' +
-        esc(e.label) + (imageOn(e.segment) ? " · 图片" : "") + "</div>" + bubble(e, asMarkdown) + "</section>").join("") + "</div>";
+      '<div class="ornament">其他消息</div>' + [...GROUPS.map(([title]) => title), ""].map((title) => {
+        const items = data.others.filter((e) => (GROUP_OF[e.segment] || "") === title);
+        if (!items.length) return "";
+        const pics = items.filter((e) => imageOn(e.segment)).length;
+        return '<div class="pv-group"><div class="pv-head"><b>' + (title || "只发文字") + "</b><span>" + items.length + " 条示例" + (pics ? " · " + pics + " 条为图片" : "") + "</span></div>" +
+          '<div class="grid cols-even">' + items.map((e) => '<section class="chat" style="padding:18px"><div class="label" style="margin-bottom:10px">' +
+            (SEG_INDEX[e.segment] ? '<span class="pv-num">' + SEG_INDEX[e.segment] + "</span>" : "") + esc(e.label) + (imageOn(e.segment) ? " · 图片" : "") + "</div>" +
+            bubble(e, asMarkdown) + "</section>").join("") + "</div></div>";
+      }).join("");
     previewEl.querySelectorAll("[data-platform]").forEach((b) => b.addEventListener("click", () => { platform = b.dataset.platform; drawPreview(); }));
     previewEl.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
       const entry = [...data.turn, ...data.others].find((x) => x.label === b.dataset.zoom);

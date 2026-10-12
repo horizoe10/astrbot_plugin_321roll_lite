@@ -43,7 +43,7 @@ ROOM_COMMANDS = ("暂停", "恢复", "开演", "主持 全员准备", "完结", 
                  "主持 选项", "主持 集体事件", "主持 结束表决", "主持 限时", "存档", "读档", "人数",
                  "主持 交棒", "主持 移出", "主持 放行", "主持 暂离", "主持 返回", "主持 入座", "主持 退回", "主持 顺序",
                  "主持 轮到", "主持 回退", "主持 篇幅", "主持 文风", "主持 即兴", "主持 检定", "主持 审稿", "主持 发布", "主持 重写",
-                 "主持 表决时限", "主持 人设", "主持 建卡", "主持 节奏", "主持 收尾")
+                 "主持 表决时限", "主持 人设", "主持 建卡", "主持 节奏", "主持 收尾", "主持 快团")
 BACKUP_TABLES = ("settings", "worlds", "rooms", "actors", "records", "turns", "events", "facts", "npcs", "votes", "saves",
                  "personas", "outbox", "audit")
 
@@ -375,6 +375,7 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
         pace = pacing.view(row, pacing.current_round(c, row["id"])) if row["state"] in ("running", "paused") else None
     names = {a["id"]: (a["name"] or a["user_name"]) for a in actors}
     pack = shared.world(row)["pack"]
+    rules = shared.rules(row)
     scene = loads(row["scene_json"], {})
     acts = lifecycle.act_list(row)
     hosting = hosted.hosted_data(row)
@@ -387,6 +388,12 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
             "stats": stats,
             "usage": {"calls": usage[0], "tokens": usage[1]}, "turn_timeout_seconds": hosted.turn_seconds(app, row),
             "turn_timeout_own": hosted.hosted_data(row).get("turn_seconds") is not None,
+            "turn_timeout_default": app.config.turn_timeout_seconds,
+            "seat_limit": min(app.config.max_seat_cap, pack["rules"]["seats"]),
+            "check_options": {"attributes": [{"ref": ref, "name": name} for ref, name in rules["attributes"].items()],
+                              "difficulties": [{"key": key, "label": hosted.DIFFICULTY_LABELS.get(key, key), "dc": dc}
+                                               for key, dc in sorted(rules["difficulties"].items(), key=lambda kv: kv[1])],
+                              "harm": bool((rules.get("failure_costs") or {}).get("harm"))},
             "settings": {"review": bool(hosting.get("review")),
                          "narration": narration.room_view(row), "world_style": shared.world(row)["pack"].get("style", ""),
                          "vote_minutes": collaboration.vote_seconds(row) // 60, "seating_locked": bool(table.get("seating_locked")),
@@ -574,6 +581,17 @@ async def room_command(app: "LiteApp", payload: dict[str, Any], username: str) -
     verb = next((v for v in sorted(ROOM_COMMANDS, key=len, reverse=True) if command == v or command.startswith(v + " ")), None)
     if verb is None:
         raise WebError("后台不支持这个操作")
+    # Characters picked in the WebUI travel as actor ids and reach the command as @mentions, in the given order,
+    # so names with spaces or symbols never have to be typed into the command text.
+    picked = [str(a) for a in payload.get("actors") or [] if a]
+    mentions: list[str] = []
+    if picked:
+        with app.store.read() as c:
+            users = {r["id"]: r["user_id"] for r in c.execute("SELECT id,user_id FROM actors WHERE room_id=? AND presence<>'left'", (row["id"],))}
+        missing = [a for a in picked if a not in users]
+        if missing:
+            raise WebError("所选角色已不在这一桌，请刷新后再试")
+        mentions = [users[a] for a in picked]
     sent: list[Any] = []
 
     async def send(item: Any) -> None:
@@ -581,11 +599,11 @@ async def room_command(app: "LiteApp", payload: dict[str, Any], username: str) -
         await app.notifier.send(row["umo"], item)
 
     caller = Caller(umo=row["umo"], platform_id=row["platform"], group_id=row["group_id"], user_id=f"webui:{username}",
-                    user_name=f"后台·{username}", is_admin=True, send=send)
+                    user_name=f"后台·{username}", is_admin=True, send=send, mentions=tuple(mentions))
     body = strip_command("团 " + command)
     reply = await app.router.dispatch(app, caller, body or "")
     with app.store.tx() as c:
-        app.store.audit(c, f"webui:{username}", "web.room_command", row["id"], {"command": command})
+        app.store.audit(c, f"webui:{username}", "web.room_command", row["id"], {"command": command, **({"actors": picked} if picked else {})})
     await app.notifier.send(row["umo"], reply.messages)
     return {"messages": [render(item, PLAIN) for item in sent + reply.messages]}
 

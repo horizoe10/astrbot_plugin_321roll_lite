@@ -112,8 +112,8 @@ def _building() -> list[tuple[str, str, Any]]:
              "question": {"key": "relation", "label": "开局关系", "title": "开局关系", "skip": True, "example": "/团 建卡 1 发小，欠他一条命",
                           "text": "和同桌的人定一层关系（确认后发出羁绊邀请，对方同意才生效），或者认一位旧识。",
                           "options": [{"name": "林晓", "note": "同桌，确认后发出羁绊邀请"}, {"name": "萨琳", "note": "旧识，只写进故事"}]}}
-    return [("sheet", "/团 建卡", modes), ("sheet", "建卡 · 定制中", messages.build_draft(custom)),
-            ("sheet", "建卡 · AI 起草", messages.build_draft(forge))]
+    return [("build", "/团 建卡", modes), ("build", "建卡 · 定制中", messages.build_draft(custom)),
+            ("build", "建卡 · AI 起草", messages.build_draft(forge))]
 
 
 def _ties() -> list[tuple[str, str, Any]]:
@@ -132,13 +132,13 @@ def _ties() -> list[tuple[str, str, Any]]:
         [("体力", 4, 5, None), ("理智", 2, 5, -1)])
     seers = [{"name": "猫猫", "right": 4, "total": 5}, {"name": "阿丁", "right": 3, "total": 5}, {"name": "老丹", "right": 1, "total": 4}]
     return [
-        ("receipt", "/团 闪回", messages.flashback_told("林晓", "我早就把备用钥匙藏在值班室的花盆底下", "理智", -1, 2, 5, 2)),
-        ("receipt", "/团 闪回 · 说明", messages.flashback_guide("这一幕你还能闪回一次。")),
-        ("receipt", "/团 羁绊 · 提出", messages.bond_proposed("林晓", "陈默", "发小，欠他一条命", "10002", "阿野")),
-        ("receipt", "/团 羁绊 同意", messages.bond_formed("林晓", "陈默", "发小，欠他一条命", 3)),
+        ("ties", "/团 闪回", messages.flashback_told("林晓", "我早就把备用钥匙藏在值班室的花盆底下", "理智", -1, 2, 5, 2)),
+        ("ties", "/团 闪回 · 说明", messages.flashback_guide("这一幕你还能闪回一次。")),
+        ("ties", "/团 羁绊 · 提出", messages.bond_proposed("林晓", "陈默", "发小，欠他一条命", "10002", "阿野")),
+        ("ties", "/团 羁绊 同意", messages.bond_formed("林晓", "陈默", "发小，欠他一条命", 3)),
         ("receipt", "/团 羁绊 · 关系图", messages.bond_map(cast, bonds[:2], [bonds[2]])),
         ("moment", "终章 · 人物关系", messages.bond_map(cast, bonds, [], finale=True)),
-        ("receipt", "/团 押", messages.wager_board("林晓", 5, [{"name": "猫猫", "pick": "success"}, {"name": "阿丁", "pick": "success"},
+        ("banter", "/团 押", messages.wager_board("林晓", 5, [{"name": "猫猫", "pick": "success"}, {"name": "阿丁", "pick": "success"},
                                                           {"name": "老丹", "pick": "failure"}], seers, note="老丹 押 林晓 检定失败")),
         ("status", "个人状态 · 闪回、羁绊援手与竞猜", status),
     ]
@@ -160,15 +160,15 @@ def _economy() -> list[tuple[str, str, Any]]:
     ledger = [{"who": "诺安", "kind": "money", "name": "铜轮", "delta": 6, "reason": "替泵房修好了阀门，工头当场结了工钱", "after": 23},
               {"who": "萨琳", "kind": "item", "name": "绷带卷", "delta": -1, "reason": "给受伤的矿工包扎", "after": 0}]
     return [
-        ("receipt", "/团 商店", messages.shop_card(shops, "铜轮", 25, place="卡隆镇 · 傍晚", outfit=True, sell=50, single=False)),
-        ("receipt", "/团 主持 整备", messages.outfit_card("整备开始", "卡隆镇 · 傍晚", ["卡隆商行"], members, 3, "铜轮")),
-        ("receipt", "/团 买", messages.trade_card("buy", "诺安", "卡隆商行", "麦饼", 2, -4, 21, "铜轮", held=5)),
-        ("receipt", "/团 给", messages.gift_card("萨琳", "诺安", "5 铜轮", 26, "铜轮")),
-        ("receipt", "整备汇总", messages.outfit_summary(rows, "铜轮", "卡隆镇 · 傍晚", "全员整备好了", ["萨琳 → 诺安：5 铜轮"])),
-        ("receipt", "故事里的得失", messages.ledger_card(ledger, "铜轮")),
-        ("receipt", "走进有店的地点", messages.shops_nearby(["卡隆商行", "老铁匠铺"], "卡隆镇 · 傍晚")),
-        ("receipt", "新的一幕 · 工钱", messages.wage_card(4, "铜轮", [{"name": "诺安", "after": 27}, {"name": "萨琳", "after": 35}])),
-        ("receipt", "/团 主持 记账", messages.ledger_draft(["诺安 铜轮 +6　替泵房修好了阀门", "萨琳 绷带卷 -1　给受伤的矿工包扎"],
+        ("economy", "/团 商店", messages.shop_card(shops, "铜轮", 25, place="卡隆镇 · 傍晚", outfit=True, sell=50, single=False)),
+        ("economy", "/团 主持 整备", messages.outfit_card("整备开始", "卡隆镇 · 傍晚", ["卡隆商行"], members, 3, "铜轮")),
+        ("economy", "/团 买", messages.trade_card("buy", "诺安", "卡隆商行", "麦饼", 2, -4, 21, "铜轮", held=5)),
+        ("economy", "/团 给", messages.gift_card("萨琳", "诺安", "5 铜轮", 26, "铜轮")),
+        ("economy", "整备汇总", messages.outfit_summary(rows, "铜轮", "卡隆镇 · 傍晚", "全员整备好了", ["萨琳 → 诺安：5 铜轮"])),
+        ("economy", "故事里的得失", messages.ledger_card(ledger, "铜轮")),
+        ("economy", "走进有店的地点", messages.shops_nearby(["卡隆商行", "老铁匠铺"], "卡隆镇 · 傍晚")),
+        ("economy", "新的一幕 · 工钱", messages.wage_card(4, "铜轮", [{"name": "诺安", "after": 27}, {"name": "萨琳", "after": 35}])),
+        ("economy", "/团 主持 记账", messages.ledger_draft(["诺安 铜轮 +6　替泵房修好了阀门", "萨琳 绷带卷 -1　给受伤的矿工包扎"],
                                                       "李逍遥 铜轮 +20　捡到一袋钱")),
     ]
 
@@ -184,29 +184,29 @@ def _pacing() -> list[tuple[str, str, Any]]:
                {"label": "C", "text": "翻看值班室的登记簿", "tag": "观察·简单", "chance": 75},
                {"label": "D", "text": "叫醒宿管阿姨", "tag": "", "chance": None}]
     return [
-        ("receipt", "/团 节奏", messages.pace_card(view, True)),
+        ("pacing", "/团 节奏", messages.pace_card(view, True)),
         ("choices", "收尾提议期间的行动卡", messages.turn_prompt("林晓", "林晓", "u1", 14, choices, "hybrid", 5,
                                                          pace=("收尾提议", "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩"))),
-        ("receipt", "/团 节奏 · 玩家看到的表决提示", messages.pace_card({**view, "stage": "offer", "state": {
+        ("pacing", "/团 节奏 · 玩家看到的表决提示", messages.pace_card({**view, "stage": "offer", "state": {
             "label": "收尾提议", "detail": "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩；2 轮内没过半就继续冒险"}}, False)),
-        ("receipt", "本幕将尽", messages.act_offer(3, "空着的座位", "第三排最左边的位子，一直没人坐。", 2, 8, False)),
-        ("receipt", "本幕将尽 · 核心版待命名", messages.act_offer(2, "", "", 2, 8, True)),
-        ("receipt", "收尾提议", messages.closing_offer("钟声归位", "有人选了收束选项", "option", ["林晓"], ["陈默"], ["苏晴"], 2, 2)),
-        ("receipt", "继续冒险", messages.closing_kept("钟声归位", ["陈默", "苏晴"])),
-        ("receipt", "继续冒险 · 表决到期", messages.closing_kept("钟声归位", [], expired=True)),
-        ("receipt", "进入收尾", messages.closing_start("钟声归位", 2, False, "有人选了收束选项")),
-        ("receipt", "世界推进", messages.world_push(6, "钟楼下的走廊", "陈默")),
-        ("receipt", "世界推进 · 快团", messages.world_push(6, "钟楼下的走廊", "全队", rush=True)),
-        ("receipt", "尾声", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。"),
+        ("pacing", "本幕将尽", messages.act_offer(3, "空着的座位", "第三排最左边的位子，一直没人坐。", 2, 8, False)),
+        ("pacing", "本幕将尽 · 核心版待命名", messages.act_offer(2, "", "", 2, 8, True)),
+        ("pacing", "收尾提议", messages.closing_offer("钟声归位", "有人选了收束选项", "option", ["林晓"], ["陈默"], ["苏晴"], 2, 2)),
+        ("pacing", "继续冒险", messages.closing_kept("钟声归位", ["陈默", "苏晴"])),
+        ("pacing", "继续冒险 · 表决到期", messages.closing_kept("钟声归位", [], expired=True)),
+        ("pacing", "进入收尾", messages.closing_start("钟声归位", 2, False, "有人选了收束选项")),
+        ("pacing", "世界推进", messages.world_push(6, "钟楼下的走廊", "陈默")),
+        ("pacing", "世界推进 · 快团", messages.world_push(6, "钟楼下的走廊", "全队", rush=True)),
+        ("pacing", "尾声", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。"),
                                                            ("陈默", "他把那张照片夹进了校刊的样稿里。")], ["苏晴"], 4)),
-        ("receipt", "尾声 · 跳过终章", messages.epilogue_call("钟声归位", [], ["林晓", "陈默", "苏晴"], 5,
+        ("pacing", "尾声 · 跳过终章", messages.epilogue_call("钟声归位", [], ["林晓", "陈默", "苏晴"], 5,
                                                              "终章没写出来，主持人跳过了它：故事停在上一段正文，直接写尾声。")),
-        ("receipt", "尾声 · 暂停后继续", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。")],
+        ("pacing", "尾声 · 暂停后继续", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。")],
                                                               ["陈默"], 2, "故事回来了，接着写尾声：计时从暂停的地方继续。")),
         ("choices", "快团 · 收尾提议期间", messages.rush_prompt(9, choices[:3], 3, "hybrid",
                                                          [("林晓", "小林", "u1", True), ("陈默", "阿野", "u2", False)],
                                                          pace=("收尾提议", "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩"))),
-        ("receipt", "/团 X · 尾声阶段", messages.xcard_raised("epilogue")),
+        ("ties", "/团 X · 尾声阶段", messages.xcard_raised("epilogue")),
     ]
 
 def _adventure() -> list[tuple[str, str, Any]]:
@@ -243,27 +243,27 @@ def _banter() -> list[tuple[str, str, Any]]:
          "outcome": "success", "all_in": True, "success": True, "aid": {"name": "陈默", "bonus": 2, "changes": {"体力": -1}}},
         [("体力", 3, 5, -1), ("理智", 3, 5, None)])
     return [
-        ("receipt", "开演 · 群聊玩法", messages.plays_intro()),
-        ("receipt", "/团 说", messages.line_said("林晓", "你们先走，我断后。门后那个声音，我认得。", "陈默：这门打不开")),
-        ("receipt", "/团 起哄", messages.heckle_board([(1, "让钟楼的灯突然灭掉", 4, "阿丁"), (2, "宿管阿姨端着一碗夜宵出现", 2, "老丹"),
+        ("banter", "开演 · 群聊玩法", messages.plays_intro()),
+        ("banter", "/团 说", messages.line_said("林晓", "你们先走，我断后。门后那个声音，我认得。", "陈默：这门打不开")),
+        ("banter", "/团 起哄", messages.heckle_board([(1, "让钟楼的灯突然灭掉", 4, "阿丁"), (2, "宿管阿姨端着一碗夜宵出现", 2, "老丹"),
                                                      (3, "登记簿自己翻到了下一页", 1, "猫猫")], 1, 2)),
-        ("receipt", "起哄采纳", messages.heckle_adopted("让钟楼的灯突然灭掉", 4)),
-        ("receipt", "/团 援手", messages.aid_offered("陈默", "林晓", "用肩膀顶住门，给她争取三秒", 2)),
+        ("banter", "起哄采纳", messages.heckle_adopted("让钟楼的灯突然灭掉", 4)),
+        ("banter", "/团 援手", messages.aid_offered("陈默", "林晓", "用肩膀顶住门，给她争取三秒", 2)),
         ("status", "个人状态 · 援手与孤注", status),
-        ("receipt", "密信 · 群里", messages.letter_passed("苏晴", "林晓", delivered=False, user_id="10001", user_name="小林")),
-        ("receipt", "密信 · 收信人私聊", messages.letter_received("苏晴", "林晓", note)),
-        ("receipt", "密信 · 递出回执", messages.letter_sent("林晓", True)),
-        ("receipt", "/团 密信", messages.letter_inbox("林晓", [("收到", "苏晴", note), ("递出", "陈默", letters[1][2])])),
+        ("ties", "密信 · 群里", messages.letter_passed("苏晴", "林晓", delivered=False, user_id="10001", user_name="小林")),
+        ("ties", "密信 · 收信人私聊", messages.letter_received("苏晴", "林晓", note)),
+        ("ties", "密信 · 递出回执", messages.letter_sent("林晓", True)),
+        ("ties", "/团 密信", messages.letter_inbox("林晓", [("收到", "苏晴", note), ("递出", "陈默", letters[1][2])])),
         ("moment", "终章 · 纸条公开", messages.letters_revealed(letters)),
-        ("receipt", "/团 X", messages.xcard_raised()),
+        ("ties", "/团 X", messages.xcard_raised()),
         ("moment", "快团开启", messages.rush_toggled(True, 3)),
         ("choices", "快团 · 选项", messages.rush_prompt(4, [
             {"label": "A", "text": "一起撞开钟楼的门", "tag": "敏捷·困难·失败受伤"},
             {"label": "B", "text": "分头找另一条上楼的路", "tag": "观察·标准"},
             {"label": "C", "text": "守在楼下，听门后的动静", "tag": "休整"}], 3, "hybrid", party,
             others=messages.others_guide("", seats=1, bets=False))),
-        ("receipt", "快团 · 进度", messages.rush_progress(board)),
-        ("receipt", "快团 · 剩 1 分钟", messages.rush_reminder([("陈默", "阿野", "10002")], board)),
+        ("banter", "快团 · 进度", messages.rush_progress(board)),
+        ("banter", "快团 · 剩 1 分钟", messages.rush_reminder([("陈默", "阿野", "10002")], board)),
     ]
 
 

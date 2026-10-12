@@ -163,7 +163,7 @@ def trait_line(t: dict[str, Any]) -> str:
 
 def build_modes(v: dict[str, Any]) -> Msg:
     """/团 建卡 with no draft: the three depths and the AI draft, with what each lets you change."""
-    m = Msg().title("建卡", f"{safe(v['world'])}　{v['facts']}").as_segment("sheet").with_data(v).gap()
+    m = Msg().title("建卡", f"{safe(v['world'])}　{v['facts']}").as_segment("build").with_data(v).gap()
     rows = []
     for i, r in enumerate(v["rows"], 1):
         head = f"**{i}. {r['label']}**　{r['desc']}　· {r['steps']} · 约 {r['time']}"
@@ -189,7 +189,7 @@ def build_draft(v: dict[str, Any]) -> Msg:
 
     head = v.get("head") or f"{v['mode_label']}建卡"
     m = Msg().title(head, f"第 {v['position']}/{v['total']} 步" + (f" · {v['question']['label']}" if v.get("question") else " · 可以确认了"))
-    m.as_segment("sheet").with_data(v)
+    m.as_segment("build").with_data(v)
     m.gap().text("　".join(f"{'✓' if s['state'] == 'done' else '▸' if s['state'] == 'now' else '·'}{s['label']}" for s in v["steps"]))
     ai = v.get("ai") or {}
     if ai.get("understood"):
@@ -479,7 +479,7 @@ def plays_intro() -> Msg:
     """Sent once when a story starts, while the opening is being written."""
     m = Msg().title("🎲 不轮到你时也能玩").gap().items([f"**{name}**　{cmd(command)}　{text}" for name, command, text in PLAYS_INTRO])
     m.hint(f"全部写法：{cmd('/团 帮助 互动')}")
-    return m.as_segment("receipt").with_data({"kind": "plays_intro", "rows": [list(r) for r in PLAYS_INTRO]})
+    return m.as_segment("banter").with_data({"kind": "plays_intro", "rows": [list(r) for r in PLAYS_INTRO]})
 
 
 def all_in_guide(left: str = "") -> Msg:
@@ -493,7 +493,7 @@ def all_in_guide(left: str = "") -> Msg:
 # ---------------------------------------------------------------- group-chat plays
 def line_said(actor: str, text: str, reply_to: str = "") -> Msg:
     m = Msg().text(f"💬 **{safe(actor)}**：“{safe(text)}”").hint("下一段正文里，在场的人会对这句话作出反应")
-    return m.as_segment("receipt").with_data({"kind": "line", "actor": actor, "text": text, "reply_to": reply_to})
+    return m.as_segment("banter").with_data({"kind": "line", "actor": actor, "text": text, "reply_to": reply_to})
 
 
 def heckle_board(rows: list[tuple[int, str, int, str]], left: int, cap: int = 2) -> Msg:
@@ -508,13 +508,13 @@ def heckle_board(rows: list[tuple[int, str, int, str]], left: int, cap: int = 2)
                note=f"每人每段各一次，这一幕还能采纳 {left} 条。")
     else:
         m.hint("换幕后名额恢复，再来起哄。")
-    return m.as_segment("receipt").with_data({"kind": "heckles", "left": left, "cap": cap, "rows": [
+    return m.as_segment("banter").with_data({"kind": "heckles", "left": left, "cap": cap, "rows": [
         {"index": r[0], "text": r[1], "votes": r[2], "by": r[3] if len(r) > 3 else ""} for r in rows]})
 
 
 def heckle_adopted(text: str, votes: int) -> Msg:
     m = Msg().text(f"🎭 本段采纳了围观群众的起哄：“{safe(text)}”（{votes} 人附和）")
-    return m.as_segment("receipt").with_data({"kind": "heckle_adopted", "text": text, "votes": votes})
+    return m.as_segment("banter").with_data({"kind": "heckle_adopted", "text": text, "votes": votes})
 
 
 def aid_offered(helper: str, target: str, text: str, bonus: int, bond: str = "") -> Msg:
@@ -524,7 +524,7 @@ def aid_offered(helper: str, target: str, text: str, bonus: int, bond: str = "")
     if bond:
         m.field("羁绊", f"{safe(bond)}（援手 +{bonus}）")
     m.hint(f"{safe(target)} 这次行动若要检定，修正 +{bonus}；失败时 {safe(helper)} 一起承担后果。每人每幕一次")
-    return m.as_segment("receipt").with_data({"kind": "aid", "helper": helper, "target": target, "text": text, "bonus": bonus,
+    return m.as_segment("banter").with_data({"kind": "aid", "helper": helper, "target": target, "text": text, "bonus": bonus,
                                               "bond": bond})
 
 
@@ -536,24 +536,24 @@ def letter_passed(sender: str, target: str, *, delivered: bool = True, user_id: 
     m.text(f"📜 {safe(sender)} 悄悄给 {safe(target)} 递了一张纸条。")
     if not delivered:
         m.hint(f"{safe(target)} 私聊我发送 {cmd('/团 密信')} 就能看到")
-    return m.as_segment("receipt").with_data({"kind": "letter_passed", "sender": sender, "target": target, "delivered": delivered})
+    return m.as_segment("ties").with_data({"kind": "letter_passed", "sender": sender, "target": target, "delivered": delivered})
 
 
 def letter_received(sender: str, target: str, text: str) -> Msg:
     m = Msg().title(f"📜 {safe(sender)} 递给 {safe(target)} 的纸条").gap().quote(text).hint(
         f"回信：{cmd('/团 密信 ' + sender + ' 内容')}；所有纸条会在终章公开")
-    return m.as_segment("receipt").with_data({"kind": "letter", "sender": sender, "target": target, "text": text})
+    return m.as_segment("ties").with_data({"kind": "letter", "sender": sender, "target": target, "text": text})
 
 
 def letter_sent(target: str, delivered: bool) -> Msg:
     detail = "已经私聊转给对方。" if delivered else f"对方还没私聊过我，TA 私聊发送 {cmd('/团 密信')} 就能看到。"
     m = Msg().title(f"纸条已递给 {safe(target)}").gap().text(detail).hint("群里只会看到你递了纸条；所有纸条会在终章公开")
-    return m.as_segment("receipt").with_data({"kind": "letter_sent", "target": target, "delivered": delivered})
+    return m.as_segment("ties").with_data({"kind": "letter_sent", "target": target, "delivered": delivered})
 
 
 def letter_inbox(actor: str, rows: list[tuple[str, str, str]]) -> Msg:
     m = Msg().title(f"{safe(actor)} 的纸条")
-    m.as_segment("receipt").with_data({"kind": "letters", "actor": actor,
+    m.as_segment("ties").with_data({"kind": "letters", "actor": actor,
                                        "rows": [{"way": way, "who": who, "text": text} for way, who, text in rows]})
     if not rows:
         return m.gap().text("还没有收到或递出纸条。").hint(f"写法：{cmd('/团 密信 角色名 内容')}")
@@ -574,7 +574,7 @@ XCARD_ENDING = {"finale": "终章已经在写，来不及改它；尾声和结�
 def xcard_raised(stage: str = "") -> Msg:
     m = Msg().title("🛑 有人举了 X 卡").gap().text(
         XCARD_ENDING.get(stage) or "接下来的故事会避开刚才的内容，不再提起，也不追问是谁。")
-    return m.as_segment("receipt").with_data({"kind": "xcard", "stage": stage})
+    return m.as_segment("ties").with_data({"kind": "xcard", "stage": stage})
 
 
 def xcard_ack(private: bool, seated: bool = True, stage: str = "") -> str:
@@ -589,7 +589,7 @@ def flashback_told(actor: str, text: str, resource: str, delta: int, current: in
     m = Msg().title(f"⏪ {safe(actor)} 的闪回", "每人每幕一次").gap().quote(text)
     m.gap().field("代价", f"{safe(resource)} {delta:+d}（剩 {current}/{maximum}）")
     m.hint(f"下一段正文会把这段往事写成真；{safe(actor)} 下一次检定 +{bonus}")
-    return m.as_segment("receipt").with_data({"kind": "flashback", "actor": actor, "text": text, "resource": resource,
+    return m.as_segment("ties").with_data({"kind": "flashback", "actor": actor, "text": text, "resource": resource,
                                               "delta": delta, "current": current, "maximum": maximum, "bonus": bonus})
 
 
@@ -604,20 +604,20 @@ def flashback_guide(left: str) -> Msg:
     if left:
         m.text(left)
     m.gap().hint(f"写法：{cmd('/团 闪回 我早就把备用钥匙藏在戏箱里')}；指定资源：{cmd('/团 闪回 理智 回忆内容')}")
-    return m.as_segment("receipt").with_data({"kind": "flashback_guide", "left": left, "steps": [list(s) for s in FLASHBACK_STEPS]})
+    return m.as_segment("ties").with_data({"kind": "flashback_guide", "left": left, "steps": [list(s) for s in FLASHBACK_STEPS]})
 
 
 def bond_proposed(a: str, b: str, text: str, user_id: str, user_name: str, renewing: bool = False) -> Msg:
     m = Msg().mention(user_id, user_name).title(f"🔗 {safe(a)} 想和 {safe(b)} " + ("改写羁绊" if renewing else "结下羁绊")).quote(text)
     m.hint(f"{safe(b)} 发送 {cmd('/团 羁绊 同意')} 接受，或 {cmd('/团 羁绊 拒绝')}")
-    return m.as_segment("receipt").with_data({"kind": "bond_proposed", "a": a, "b": b, "text": text, "renewing": renewing})
+    return m.as_segment("ties").with_data({"kind": "bond_proposed", "a": a, "b": b, "text": text, "renewing": renewing})
 
 
 def bond_formed(a: str, b: str, text: str, bonus: int) -> Msg:
     m = Msg().title(f"🔗 {safe(a)} 与 {safe(b)} 结下羁绊").quote(text)
     m.gap().items(["两人同场时，正文会带出这层关系", f"互相援手时检定 +{bonus}（平时 +2）", "终章时画进人物关系图"])
     m.hint(f"{cmd('/团 羁绊')} 看这一桌的关系图；{cmd('/团 羁绊 解除 角色名')} 解开")
-    return m.as_segment("receipt").with_data({"kind": "bond", "a": a, "b": b, "text": text, "bonus": bonus})
+    return m.as_segment("ties").with_data({"kind": "bond", "a": a, "b": b, "text": text, "bonus": bonus})
 
 
 def bond_map(cast: list[dict[str, str]], bonds: list[dict[str, Any]], pending: list[dict[str, Any]], *,
@@ -655,7 +655,7 @@ def wager_board(actor: str, round_number: int, rows: list[dict[str, str]], seers
         m.gap().caption("本局预言家").items([f"{safe(s['name'])}　猜对 {s['right']}/{s['total']}" for s in seers[:5]])
     if open:
         m.gap().hint(f"{cmd('/团 押 成')} 或 {cmd('/团 押 败')}，掷骰前可以改押；没入座也能玩，行动的人自己不能押")
-    return m.as_segment("receipt").with_data({"kind": "wager", "actor": actor, "round": round_number, "open": open, "note": note,
+    return m.as_segment("banter").with_data({"kind": "wager", "actor": actor, "round": round_number, "open": open, "note": note,
                                               "rows": rows, "seers": seers[:5], "mine": mine})
 
 
@@ -695,7 +695,7 @@ def rush_progress(members: list[tuple[str, bool]]) -> Msg:
     """members are (name, submitted) in seat order."""
     pending = [name for name, done in members if not done]
     m = Msg().text(f"快团已交 {len(members) - len(pending)}/{len(members)}，还等：" + "、".join(safe(n) for n in pending))
-    return m.as_segment("receipt").with_data({"kind": "rush_progress",
+    return m.as_segment("banter").with_data({"kind": "rush_progress",
                                               "members": [{"name": n, "done": d} for n, d in members]})
 
 
@@ -706,7 +706,7 @@ def rush_reminder(missing: list[tuple[str, str, str]], members: list[tuple[str, 
     m.title("⏳ 快团还剩 1 分钟", "还没交：" + "、".join(safe(n) for n, _, _ in missing)).hint(
         f"发送 {cmd('/团 A')} 或 {cmd('/团 行动 你的做法')}；时间到没交的人这一轮旁观")
     board = members if members is not None else [(n, False) for n, _, _ in missing]
-    return m.as_segment("receipt").with_data({"kind": "rush_remind", "members": [{"name": n, "done": d} for n, d in board]})
+    return m.as_segment("banter").with_data({"kind": "rush_remind", "members": [{"name": n, "done": d} for n, d in board]})
 
 
 def rush_toggled(on: bool, minutes: int) -> Msg:
@@ -1380,7 +1380,7 @@ def shop_card(shops: list[dict[str, Any]], unit: str, wallet: int | None, *, pla
             m.text(safe(s["text"]))
         m.items([f"**{safe(w['name'])}**　{w['price']} {safe(unit)}" + (f"　回收 {w['sell']}" if sell and w["sell"] else "")
                  + (f"　已有 ×{w['owned']}" if w["owned"] else "") for w in s["wares"]])
-    m.as_segment("receipt").with_data({"kind": "shops", "shops": shops, "unit": unit, "wallet": wallet, "place": place,
+    m.as_segment("economy").with_data({"kind": "shops", "shops": shops, "unit": unit, "wallet": wallet, "place": place,
                                        "outfit": outfit, "sell": sell, "single": single})
     if outfit:
         return m.gap().hint(f"整备中：{cmd('/团 买 物品 数量')} 买下，{cmd('/团 卖 物品')} 卖给店里，买好了发送 {cmd('/团 整备 好了')}",
@@ -1395,7 +1395,7 @@ def outfit_card(title: str, place: str, shops: list[str], members: list[dict[str
     m.text("回合暂停，计时停住。" + (f"这里能进的店：{'、'.join(safe(s) for s in shops)}。" if shops
                                      else "这里没有店，可以互相转交、换装备。"))
     m.items([f"**{safe(x['name'])}**　{BT}{'好了' if x['done'] else '采买中'}{BT}" for x in members])
-    m.as_segment("receipt").with_data({"kind": "outfit", "title": title, "place": place, "shops": shops, "members": members,
+    m.as_segment("economy").with_data({"kind": "outfit", "title": title, "place": place, "shops": shops, "members": members,
                                        "minutes": minutes, "unit": unit})
     return m.gap().hint(f"私聊我发送 {cmd('/团 商店')} 看货，{cmd('/团 买 物品 数量')} 买下，好了发送 {cmd('/团 整备 好了')}。"
                         f"全员好了或时间到就结束，主持人也可以 {cmd('/团 主持 整备 收起')}",
@@ -1417,7 +1417,7 @@ def outfit_summary(rows: list[dict[str, Any]], unit: str, place: str, why: str, 
     m.items(lines or ["没有人在座"])
     if gifts:
         m.gap().field("转交", "；".join(safe(g) for g in gifts))
-    m.as_segment("receipt").with_data({"kind": "outfit_summary", "rows": rows, "unit": unit, "place": place, "why": why,
+    m.as_segment("economy").with_data({"kind": "outfit_summary", "rows": rows, "unit": unit, "place": place, "why": why,
                                        "gifts": gifts})
     return m.gap().hint("这些采买会写进下一段正文；回合从暂停处继续")
 
@@ -1426,7 +1426,7 @@ def trade_card(kind: str, who: str, shop: str, item: str, count: int, delta: int
     buy = kind == "buy"
     m = Msg().title(f"{'🛒' if buy else '💰'} {safe(who)} 在{safe(shop)}{'买下' if buy else '卖掉'}「{safe(item)}」×{count}")
     m.text(f"{safe(unit)} **{delta:+d}**　现有 **{after}** {safe(unit)}　背包里 {safe(item)} ×{held}")
-    m.as_segment("receipt").with_data({"kind": "trade", "trade": kind, "who": who, "shop": shop, "item": item, "count": count,
+    m.as_segment("economy").with_data({"kind": "trade", "trade": kind, "who": who, "shop": shop, "item": item, "count": count,
                                        "delta": delta, "after": after, "unit": unit, "held": held})
     return m.gap().hint(f"接着挑：{cmd('/团 商店')}；买好了发送 {cmd('/团 整备 好了')}", cmds=[("看货", "/团 商店"), ("好了", "/团 整备 好了")])
 
@@ -1435,7 +1435,7 @@ def gift_card(sender: str, target: str, what: str, after: int | None, unit: str)
     m = Msg().title(f"🎁 {safe(sender)} 交给 {safe(target)}：{safe(what)}")
     if after is not None:
         m.text(f"{safe(sender)} 现有 {after} {safe(unit)}")
-    m.as_segment("receipt").with_data({"kind": "gift", "from": sender, "to": target, "what": what, "after": after, "unit": unit})
+    m.as_segment("economy").with_data({"kind": "gift", "from": sender, "to": target, "what": what, "after": after, "unit": unit})
     return m.gap().hint(f"{safe(target)} 发送 {cmd('/团 背包')} 就能看到", cmds=[("背包", "/团 背包")])
 
 
@@ -1444,7 +1444,7 @@ def ledger_card(entries: list[dict[str, Any]], unit: str) -> Msg:
     m = Msg().title("📜 故事里的得失")
     m.items([f"**{safe(x['who'])}**　{BT}{safe(x['name'])} {x['delta']:+d}{BT}　{safe(x['reason'])}　"
              + (f"（现有 {x['after']} {safe(unit)}）" if x["kind"] == "money" else f"（现有 ×{x['after']}）") for x in entries])
-    m.as_segment("receipt").with_data({"kind": "ledger", "entries": entries, "unit": unit})
+    m.as_segment("economy").with_data({"kind": "ledger", "entries": entries, "unit": unit})
     return m.gap().hint(f"钱包和物品都在 {cmd('/团 背包')} 里")
 
 
@@ -1453,7 +1453,7 @@ def ledger_draft(lines: list[str], removed: str = "") -> Msg:
     if removed:
         m.text(f"已撤回：{safe(removed)}")
     m.gap().items([f"**{i}.** {safe(line)}" for i, line in enumerate(lines, 1)] or ["没有钱物变化"])
-    m.as_segment("receipt").with_data({"kind": "ledger_draft", "lines": lines, "removed": removed})
+    m.as_segment("economy").with_data({"kind": "ledger_draft", "lines": lines, "removed": removed})
     return m.gap().hint(f"撤回一笔发送 {cmd('/团 主持 记账 撤回 序号')}；确认正文后发送 {cmd('/团 主持 发布')}",
                         cmds=[("撤回", "/团 主持 记账 撤回 序号"), ("发布", "/团 主持 发布")])
 
@@ -1462,7 +1462,7 @@ def shops_nearby(shops: list[str], place: str) -> Msg:
     """The story walked into a place with shops; the host decides whether to stop for 整备."""
     m = Msg().title("🏪 这里有店", safe(place))
     m.items([f"**{safe(s)}**" for s in shops])
-    m.as_segment("receipt").with_data({"kind": "shops_nearby", "shops": shops, "place": place})
+    m.as_segment("economy").with_data({"kind": "shops_nearby", "shops": shops, "place": place})
     return m.gap().hint(f"主持人发送 {cmd('/团 主持 整备')}，让大家私聊采买；不停也行，故事照常继续",
                         note="整备期间回合暂停；玩家私聊 /团 商店 看货", cmds=[("整备", "/团 主持 整备"), ("看货", "/团 商店")])
 
@@ -1471,7 +1471,7 @@ def wage_card(amount: int, unit: str, rows: list[dict[str, Any]]) -> Msg:
     """Each character's pay at a new act."""
     m = Msg().title(f"💰 新的一幕：每人领到 {amount} {safe(unit)}")
     m.items([f"**{safe(r['name'])}**　现有 {r['after']} {safe(unit)}" for r in rows])
-    m.as_segment("receipt").with_data({"kind": "wage", "amount": amount, "unit": unit, "rows": rows})
+    m.as_segment("economy").with_data({"kind": "wage", "amount": amount, "unit": unit, "rows": rows})
     return m.gap().hint(f"钱包在 {cmd('/团 背包')} 里；遇到有店的地点，主持人可以开整备采买", cmds=[("背包", "/团 背包")])
 
 
@@ -1491,7 +1491,7 @@ def pace_card(v: dict[str, Any], host: bool = False, said: str = "") -> Msg:
     m.gap().items(rows)
     if v.get("state"):
         m.gap().field(v["state"]["label"], safe(v["state"]["detail"]))
-    m.as_segment("receipt").with_data({"kind": "pacing", **v, "host": host, "said": said})
+    m.as_segment("pacing").with_data({"kind": "pacing", **v, "host": host, "said": said})
     note = (f"场景满 {scene['limit']} 轮起正文会让局面变化，再过 {v['grace']} 轮世界自己推进；" if scene["limit"] else "") \
         + (f"一幕满 {act['limit']} 轮提议换幕，{v['grace']} 轮后自动进入" if act["limit"] else "")
     if host:
@@ -1519,7 +1519,7 @@ def act_offer(number: int, title: str, lead: str, grace: int, done: int, core: b
     if lead:
         m.quote(lead)
     m.text("接下来的正文会把局面慢慢引向下一幕；还有想在这一幕做完的事，抓紧这几轮。")
-    m.as_segment("receipt").with_data({"kind": "act_offer", "number": number, "title": title, "lead": lead, "grace": grace,
+    m.as_segment("pacing").with_data({"kind": "act_offer", "number": number, "title": title, "lead": lead, "grace": grace,
                                        "done": done, "core": core})
     if core and not title:
         return m.gap().hint(f"主持人发送 {cmd('/团 主持 换幕 标题：引子')} 给新的一幕起名并现在进入；不起名的话 {grace} 轮后由故事自己接下去，"
@@ -1539,7 +1539,7 @@ def closing_offer(title: str, reason: str, source: str, yes: list[str], no: list
     m.gap().field("同意", "、".join(safe(n) for n in yes) or "—").field("再玩", "、".join(safe(n) for n in no) or "—")
     if waiting:
         m.field("还没表态", "、".join(safe(n) for n in waiting))
-    m.as_segment("receipt").with_data({"kind": "closing_offer", "title": title, "reason": reason, "source": source, "yes": yes,
+    m.as_segment("pacing").with_data({"kind": "closing_offer", "title": title, "reason": reason, "source": source, "yes": yes,
                                        "no": no, "waiting": waiting, "need": need, "left": left})
     return m.gap().hint(f"在座的人发送 {cmd('/团 收尾 同意')} 或 {cmd('/团 收尾 再玩')}，{need} 人同意即可；表决期间照常行动",
                         note=f"{need} 人同意就收尾；主持人可以 /团 主持 收尾 直接开始，或 /团 主持 收尾 取消",
@@ -1551,7 +1551,7 @@ def closing_kept(title: str, voters: list[str], expired: bool = False) -> Msg:
         "过半的人想再玩一会儿" + (f"：{'、'.join(safe(v) for v in voters)}" if voters else "")
     m = Msg().title("🧭 继续冒险", why)
     m.text(f"{'「' + safe(title) + '」' if title else '收尾'}先放一放，故事照常继续；过几轮还会再问一次。")
-    m.as_segment("receipt").with_data({"kind": "closing_kept", "title": title, "voters": voters, "expired": expired})
+    m.as_segment("pacing").with_data({"kind": "closing_kept", "title": title, "voters": voters, "expired": expired})
     return m.gap().hint(f"想收尾时，主持人可以随时发送 {cmd('/团 主持 收尾')}", cmds=[("节奏", "/团 节奏")])
 
 
@@ -1561,7 +1561,7 @@ def closing_start(title: str, rounds: int, forced: bool, reason: str = "") -> Ms
     m.items([f"再走 **{rounds} 轮**：不开新的支线，把伏笔、人物关系和未了的事交代清楚",
              "然后 AI 写终章，按已经发生的事给出结局",
              "终章后每人发送 " + cmd("/团 尾声 一句话") + "，写下自己角色的去向"])
-    m.as_segment("receipt").with_data({"kind": "closing_start", "title": title, "rounds": rounds, "forced": forced, "reason": reason})
+    m.as_segment("pacing").with_data({"kind": "closing_start", "title": title, "rounds": rounds, "forced": forced, "reason": reason})
     return m.gap().hint(f"主持人可以 {cmd('/团 主持 收尾 终章')} 立刻写终章，或 {cmd('/团 主持 收尾 取消')} 回到冒险",
                         cmds=[("立刻终章", "/团 主持 收尾 终章"), ("取消", "/团 主持 收尾 取消")])
 
@@ -1570,7 +1570,7 @@ def world_push(rounds: int, scene: str, actor: str, rush: bool = False) -> Msg:
     m = Msg().title("🌪️ 世界动了一步", f"{safe(scene) + ' · ' if scene else ''}这个场景已经停留 {rounds} 轮")
     m.text("局势不会一直等人：这一轮快团的正文会写进世界自己的变化，大家照常同时行动。" if rush else
            f"局势不会一直等人：AI 正在写一段世界自己的变化，写完后轮到 {safe(actor)} 行动。")
-    m.as_segment("receipt").with_data({"kind": "world_push", "rounds": rounds, "scene": scene, "actor": actor, "rush": rush})
+    m.as_segment("pacing").with_data({"kind": "world_push", "rounds": rounds, "scene": scene, "actor": actor, "rush": rush})
     return m.gap().hint(f"主持人想多留几轮，可以发送 {cmd('/团 主持 节奏 长')} 或 {cmd('/团 主持 节奏 场景 6')}",
                         cmds=[("看节奏", "/团 节奏")])
 
@@ -1584,7 +1584,7 @@ def epilogue_call(title: str, written: list[tuple[str, str]], waiting: list[str]
         m.gap().items([f"**{safe(n)}**　{safe(t)}" for n, t in written])
     if waiting:
         m.gap().field("还在等", "、".join(safe(n) for n in waiting))
-    m.as_segment("receipt").with_data({"kind": "epilogue", "title": title, "written": [list(x) for x in written],
+    m.as_segment("pacing").with_data({"kind": "epilogue", "title": title, "written": [list(x) for x in written],
                                        "waiting": waiting, "minutes": minutes, "note": note})
     return m.gap().hint(f"发送 {cmd('/团 尾声 一句话')}，例如 {cmd('/团 尾声 她把契约烧了，回到了地表')}；"
                         f"主持人可以 {cmd('/团 完结')} 直接落幕",
