@@ -9,7 +9,7 @@ const GROUPS = { 0: "一轮行动", 3: "大场面", 4: "查询与回执", 7: "�
 const PLATFORMS = [["qq_official", "QQ 官方机器人"], ["aiocqhttp", "OneBot（aiocqhttp）"]];
 const THEMES = [["light", "白金"], ["dark", "黑金"]];
 const IMAGE_KEYS = IMAGE_ROWS.map(([key]) => key);
-const PREF_FIELDS = ["format", ...IMAGE_KEYS, "card_theme", "interval", "merge"];
+const PREF_FIELDS = ["format", ...IMAGE_KEYS, "scene_images", "card_theme", "interval", "merge"];
 
 export async function render(root, ctx) {
   const data = await ctx.api.get("messages/preview");
@@ -39,6 +39,7 @@ export async function render(root, ctx) {
       IMAGE_ROWS.map(([key, label, note], i) => (GROUPS[i] ? '<div class="label" style="margin:' + (i ? 12 : 10) + 'px 0 2px">' + GROUPS[i] + "</div>" : "") +
         '<label class="opt"><span class="opt-num">' + SEG_INDEX[key.replace("image_", "")] + '</span><span class="opt-text"><b>' + label + "</b><span>" + note +
         '</span></span><span class="switch"><input type="checkbox" data-image="' + key + '" ' + (form[key] ? "checked" : "") + ' aria-label="' + label + '转为图片" /><span></span></span></label>').join("") +
+      '<label class="opt"><span class="opt-text"><b>场景图</b><span>文字正文前发送当前场景，终章发送结局图；图片卡横幅照常显示</span></span><span class="switch"><input type="checkbox" data-scene-images ' + (form.scene_images ? 'checked' : '') + ' aria-label="发送场景图" /><span></span></span></label>' +
       '<div class="label" style="margin:14px 0 8px">卡片配色</div><div class="seg" role="group" aria-label="卡片配色">' +
       THEMES.map(([k, l]) => '<button data-card-theme="' + k + '" aria-pressed="' + (form.card_theme === k) + '">' + l + "</button>").join("") + "</div>" +
       '<hr class="rule" /><div class="label">发送节奏</div>' +
@@ -53,6 +54,7 @@ export async function render(root, ctx) {
     formEl.querySelectorAll("[data-format]").forEach((b) => b.addEventListener("click", () => { form.format = b.dataset.format; update(); }));
     formEl.querySelectorAll("[data-card-theme]").forEach((b) => b.addEventListener("click", () => { form.card_theme = b.dataset.cardTheme; update(); }));
     formEl.querySelectorAll("[data-image]").forEach((i) => i.addEventListener("change", () => { form[i.dataset.image] = i.checked; update(); }));
+    formEl.querySelector("[data-scene-images]").addEventListener("change", (e) => { form.scene_images = e.target.checked; update(); });
     formEl.querySelector("[data-merge]").addEventListener("change", (e) => { form.merge = e.target.checked; update(); });
     formEl.querySelector("#interval").addEventListener("input", (e) => {
       form.interval = Number(e.target.value);

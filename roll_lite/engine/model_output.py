@@ -238,6 +238,17 @@ _PLAY_HOOK_SCHEMA = _closed_object({
     'fill': {'type':'object','maxProperties':8,'propertyNames':{'pattern':r'^[a-z][a-z_]{0,63}$'},'additionalProperties':{'type':'string','maxLength':400}}})
 _HOSTED_NARRATIVE_1_8_SCHEMA = deepcopy(_HOSTED_NARRATIVE_1_7_SCHEMA)
 _HOSTED_NARRATIVE_1_8_SCHEMA['properties']['play_hooks'] = {'type':'array','maxItems':4,'items':_PLAY_HOOK_SCHEMA}
+# hosting.ledger/1.0.0: the checked 1.6.0 narration plus the money and item changes the story itself caused.
+LEDGER_MODEL_CONTRACT = 'se-hosted-narrative-model-output/1.9.0'
+_LEDGER_SCHEMA = {'type':'array','maxItems':4,'items':_closed_object({
+    'actor_ref':{'type':'string','minLength':1,'maxLength':120},
+    'kind':{'type':'string','enum':['money','item']},
+    'item_ref':{'type':'string','maxLength':120},
+    'delta':{'type':'integer','minimum':-100000,'maximum':100000},
+    'reason':{'type':'string','minLength':1,'maxLength':120}})}
+_HOSTED_NARRATIVE_1_9_SCHEMA = deepcopy(_HOSTED_NARRATIVE_1_6_SCHEMA)
+_HOSTED_NARRATIVE_1_9_SCHEMA['properties']['ledger'] = _LEDGER_SCHEMA
+_HOSTED_NARRATIVE_1_9_SCHEMA['required'].append('ledger')
 
 _BRIEF_START_1_1_SCHEMA=_closed_object({**deepcopy(_BRIEF_START_SCHEMA['properties']),'suggestion_checks':deepcopy(_CHOICE_CHECKS_SCHEMA)})
 _BRIEF_START_1_1_SCHEMA['required'].remove('chapter_plan')
@@ -290,6 +301,7 @@ _MODEL_OUTPUT_SCHEMAS = {
     'se-hosted-narrative-model-output/1.6.0': _HOSTED_NARRATIVE_1_6_SCHEMA,
     'se-hosted-narrative-model-output/1.7.0': _HOSTED_NARRATIVE_1_7_SCHEMA,
     PLAY_HOOK_MODEL_CONTRACT: _HOSTED_NARRATIVE_1_8_SCHEMA,
+    LEDGER_MODEL_CONTRACT: _HOSTED_NARRATIVE_1_9_SCHEMA,
     COLLECTIVE_EVENT_CONTRACT: _COLLECTIVE_EVENT_SCHEMA,
     STATIC_VISUAL_CONTRACT: _STATIC_VISUAL_SCHEMA,
 }

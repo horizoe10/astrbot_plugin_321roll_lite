@@ -33,11 +33,11 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
 from .. import narration
-from ..storage import now
+from ..storage import loads, now
 from ..version import PLUGIN_VERSION
 from .catalog import COVER_TONES, WorldEntry, WorldInvalid
 from .package import (ASSET_FILE, ASSET_ID, DEFAULT_EDITION, EDITION, IMAGE_TYPES, INDEX_FORMAT, MAX_PACKAGE, MB, PackageInvalid,
-                      build_package, edition_of, label, read_asset, read_package, refusal, scenes, version_tuple)
+                      build_package, display_label, edition_of, file_name, label, read_asset, required_plugin, read_package, refusal, scenes, version_tuple)
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -197,7 +197,7 @@ def _index_row(base: str, row: Any) -> dict[str, Any]:
     mark = str(cover.get("mark") or "").strip()[:2] if isinstance(cover, dict) else ""
     # A row written out as Pro may carry effects (weather, ambience) that Lite does not show.
     full = "edition" in row and edition == "pro"
-    return {"id": row["id"], "revision": row["revision"], "edition": edition, "label": label(edition, row["revision"]),
+    return {"id": row["id"], "revision": row["revision"], "edition": edition, "label": display_label(str(row.get("min_plugin") or ""), edition, row["revision"]),
             "full_effects": full, "title": row["title"], "summary": str(row.get("summary") or "")[:200],
             "size": row["size"], "sha256": row["sha256"], "file_url": file_url, "preview": preview,
             "cover": {"mark": mark, "tone": cover["tone"]} if mark and cover.get("tone") in COVER_TONES else None,
@@ -306,6 +306,7 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
         except (WorldInvalid, ValueError) as exc:
             raise MarketError(f"不能安装：{exc}") from exc
         previous = catalog.stored(package.id)
+        _pin_legacy_rooms(app, previous)
         root = asset_root(app, package.id)
         name = f"r{package.revision}-{package.sha256[:8]}"
         existed = (root / name).exists()
@@ -315,6 +316,7 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
                   "summary": str(package.manifest.get("summary") or "")[:200], "images": package.images,
                   "banner": package.manifest.get("banner"), "scenes": scenes(package.raw_presentation, package.images),
                   "assets": package.assets, "randomness": package.randomness,
+                  "presentation": package.raw_presentation, "extensions": package.extensions,
                   "narration": narration.from_extensions(package.extensions)}
         try:
             catalog.save_market(package.pack, package.presentation, record)
@@ -322,16 +324,14 @@ async def install_bytes(app: "LiteApp", data: bytes, *, origin: dict[str, str], 
             if not existed:
                 shutil.rmtree(root / name, ignore_errors=True)
             raise
-        for child in root.iterdir():
-            if child.name != name:
-                shutil.rmtree(child, ignore_errors=True)
+        cleanup_assets(app, package.id, keep={name})
     _audit(app, username, "web.market_install", package.id,
            {"revision": package.revision, "edition": package.edition, "sha256": package.sha256, "source": origin["source"]})
     before = previous if previous is not None and previous.origin else None
     return {"id": package.id, "title": package.pack["title"], "revision": package.revision, "edition": package.edition,
             "label": package.label, "images": len(package.assets),
             "previous": before.pack["revision"] if before else None,
-            "previous_label": label(before.origin.get("edition"), before.pack["revision"]) if before else None}
+            "previous_label": display_label(required_plugin(before.pack), before.origin.get("edition"), before.pack["revision"]) if before else None}
 
 
 async def install_from_index(app: "LiteApp", source: str, world_id: str, username: str) -> dict[str, Any]:
@@ -376,12 +376,44 @@ async def uninstall(app: "LiteApp", world_id: str, username: str) -> dict[str, A
             removed = catalog.remove_market(world_id)
         except WorldInvalid as exc:
             raise MarketError(str(exc)) from exc
-        await asyncio.to_thread(shutil.rmtree, asset_root(app, world_id), True)
+        _pin_legacy_rooms(app, removed)
+        await asyncio.to_thread(cleanup_assets, app, world_id)
     _audit(app, username, "web.market_uninstall", world_id, {"revision": removed.pack["revision"]})
     return {"id": world_id, "title": removed.title, "builtin": catalog.builtin_revision(world_id) is not None}
 
 
 # ---------------------------------------------------------------- images and export
+def _pin_legacy_rooms(app: "LiteApp", entry: WorldEntry | None) -> None:
+    """A pre-0.6.0 table can pin current files only when its frozen author content matches."""
+    if entry is None or not entry.origin:
+        return
+    with app.store.tx() as c:
+        rows = c.execute("SELECT id,world_json FROM rooms WHERE world_id=?", (entry.id,)).fetchall()
+        for row in rows:
+            world = loads(row["world_json"], {})
+            if "origin" not in world and world.get("source") == "market" and world.get("pack") == entry.pack:
+                world["origin"] = entry.origin
+                c.execute("UPDATE rooms SET world_json=? WHERE id=?", (json.dumps(world, ensure_ascii=False), row["id"]))
+
+
+def cleanup_assets(app: "LiteApp", world_id: str, *, keep: set[str] | None = None) -> None:
+    """Retain revision files pinned by room snapshots, including paused/ended tables."""
+    retained = set(keep or ())
+    with app.store.read() as c:
+        for row in c.execute("SELECT world_json FROM rooms WHERE world_id=?", (world_id,)):
+            origin = (loads(row["world_json"], {}) or {}).get("origin") or {}
+            if origin.get("folder"):
+                retained.add(origin["folder"])
+    root = asset_root(app, world_id)
+    if not root.is_dir():
+        return
+    for child in root.iterdir():
+        if child.is_dir() and child.name not in retained:
+            shutil.rmtree(child)
+    if not any(root.iterdir()):
+        root.rmdir()
+
+
 def image(app: "LiteApp", entry: WorldEntry | None, key: str) -> dict[str, str]:
     """One installed scene image as a data URL (plugin pages cannot load files from the data folder)."""
     origin = entry.origin if entry is not None else None
@@ -403,7 +435,7 @@ def image(app: "LiteApp", entry: WorldEntry | None, key: str) -> dict[str, str]:
 def package_file(app: "LiteApp", entry: WorldEntry, cover: dict[str, str] | None) -> tuple[str, bytes]:
     """The installed zip for a market world (unchanged, same sha256); a text-only package otherwise."""
     edition = entry.edition
-    name = f"{entry.id}-{label(edition, entry.pack['revision'])}.zip".replace(":", "_")
+    name = file_name(entry.id, required_plugin(entry.pack), edition, entry.pack["revision"]).replace(":", "_")
     if entry.origin:
         stored = asset_root(app, entry.id) / str(entry.origin.get("folder") or "") / "package.zip"
         if stored.is_file():

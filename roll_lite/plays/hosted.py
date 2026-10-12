@@ -6,6 +6,8 @@ narration; if narration fails the receipt stays and the host can retry.
 """
 from __future__ import annotations
 
+import asyncio
+import re
 import sqlite3
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
@@ -13,16 +15,17 @@ from typing import TYPE_CHECKING, Any
 
 from astrbot.api import logger
 
-from .. import adjust, loadout, narration, personas, quota, shared
+from .. import adjust, economy, loadout, narration, personas, quota, shared
 from .. import messages
 from ..commands import Caller, Reply, UserError, split_title
 from ..dice import roll_check, success_chance
 from ..engine.gateway import EngineCallFailed, new_operation_ref
 from ..fun import luck
 from ..rooms import lifecycle
+from ..rooms.build import trait_bonus
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import brief as world_brief
-from . import story_recap
+from . import banter, pacing, story_recap, ties, wager
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -99,6 +102,10 @@ def actor_view(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
     persona = personas.model_line(room, actor)
     if persona:
         view["persona"] = persona
+    from ..rooms.build import model_line as background
+    told = background(actor)
+    if told:
+        view["background"] = told
     return view
 
 
@@ -119,7 +126,7 @@ def story_turns(c: sqlite3.Connection, room: sqlite3.Row) -> list[str]:
     return ["\n".join(text[:3000 if i == len(turns) - 1 else 1200] for text in turn) for i, turn in enumerate(turns)]
 
 
-NARRATOR_KINDS = ("host_advance", "world_pulse")     # receipts of a turn no player acted in
+NARRATOR_KINDS = ("host_advance", "world_pulse", "pace_push", "finale")     # receipts of a turn no player acted in
 
 
 def party_line(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, narrator: bool = False) -> str:
@@ -144,9 +151,9 @@ def party_line(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, nar
 
 
 def table_notes(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | None, note: str = "",
-                narrator: bool = False) -> str:
+                narrator: bool = False, extra: list[str] | None = None, party: str | None = None) -> str:
     """Everything about the table that is not story, as one recent event so it never pushes story turns out."""
-    lines = ["【本桌备注，不是剧情】"] + ([party_line(c, room, actor, narrator)] if actor is not None else [])
+    lines = ["【本桌备注，不是剧情】"] + ([party or party_line(c, room, actor, narrator)] if actor is not None else [])
     heading = lifecycle.act_heading(room)
     if heading:
         lines.append("当前幕：" + heading.replace("\n", "——"))
@@ -159,7 +166,32 @@ def table_notes(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | N
         lines.append("主持人指引（优先遵循）：" + directive)
     if note:
         lines.append("主持人审稿意见（本次重写必须遵循）：" + note[:500])
+    lines += extra or []
     return "\n".join(lines)
+
+
+def receipt_notes(receipt: dict[str, Any] | None) -> list[str]:
+    """A teammate's hand and an all-in bet change how a check reads; the narration has to say so."""
+    if not receipt or receipt.get("kind") != "check":
+        return []
+    lines = []
+    aid = receipt.get("aid")
+    if aid:
+        lines.append(f"援手：{aid['name']}" + (f"（{aid['text']}）" if aid.get("text") else "") + f"协助了这次检定，修正 {aid['bonus']:+d}；"
+                     + (f"两人的羁绊（{aid['bond']}）让这次配合格外默契；" if aid.get("bond") else "")
+                     + ("检定成功，写出两人配合的样子。" if receipt.get("success") else f"检定失败，{aid['name']}也被卷进了后果。"))
+    if receipt.get("all_in"):
+        lines.append("孤注一掷：" + ("成功，按大成功的效果来写，收获比平时更多。" if receipt.get("success")
+                                  else "失败，后果比平时更重，角色受了伤。"))
+    flash = receipt.get("flashback")
+    if flash:
+        lines.append(f"闪回兑现：之前补写的回忆（{flash['text']}）在这次检定里派上了用场，修正 {flash['bonus']:+d}；正文里点出这层准备。")
+    trait = receipt.get("trait")
+    if trait:
+        effect = "帮了忙" if trait["bonus"] > 0 else "拖了后腿" if trait["bonus"] < 0 else "有利有弊，正好抵消"
+        lines.append(f"特质：{trait['name']}" + (f"（{trait['text']}）" if trait.get("text") else "")
+                     + f"在这次检定里{effect}，修正 {trait['bonus']:+d}；正文里可以带一笔这个性格。")
+    return lines
 
 
 def narrative_policy(room: sqlite3.Row) -> dict[str, Any] | None:
@@ -168,14 +200,17 @@ def narrative_policy(room: sqlite3.Row) -> dict[str, Any] | None:
 
 
 def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, action: str,
-                  receipt: dict[str, Any] | None, note: str = "") -> dict[str, Any]:
+                  receipt: dict[str, Any] | None, note: str = "", extra: list[str] | None = None) -> dict[str, Any]:
     facts = [{"fact_ref": r["fact_ref"], "kind": r["kind"], "subject_ref": r["subject_ref"], "text": r["text"],
               "source_receipt_ref": r["source_receipt_ref"]}
              for r in c.execute("SELECT * FROM facts WHERE room_id=? ORDER BY created_at", (room["id"],))]
     npcs = [{"npc_ref": r["npc_ref"], "name": r["name"], "description": r["description"], "motivation": r["motivation"]}
             for r in c.execute("SELECT * FROM npcs WHERE room_id=? ORDER BY updated_at", (room["id"],))]
     scene = loads(room["scene_json"], {})
-    events = story_turns(c, room) + [table_notes(c, room, actor, note, (receipt or {}).get("kind") in NARRATOR_KINDS)]
+    from . import rush
+    party = rush.party_line(receipt) if receipt and receipt.get("rush") else None
+    events = story_turns(c, room) + [table_notes(c, room, actor, note, (receipt or {}).get("kind") in NARRATOR_KINDS,
+                                                 receipt_notes(receipt) + (extra or []), party)]
     context = {"brief": world_brief(shared.world(room), lifecycle.current_act(room)),
                "scene": {"title": scene.get("title") or "当前场景",
                                                                  "description": scene.get("description") or ""},
@@ -194,7 +229,11 @@ def make_choices(suggestions: list[str], checks: list[dict[str, Any]] | None) ->
     for index, text in enumerate(suggestions[:4]):
         check = (checks or [])[index] if checks and index < len(checks) else {"kind": "narrative", "attribute_ref": "",
                                                                                 "difficulty": "", "failure_cost": ""}
-        result.append({"label": LABELS[index], "text": text, "check": dict(check)})
+        text, closing = pacing.closing_name(text)
+        item = {"label": LABELS[index], "text": text, "check": dict(check)}
+        if closing:
+            item["closing"] = closing      # a "收束：…" option: picking it proposes winding the story down
+        result.append(item)
     return result
 
 
@@ -208,7 +247,10 @@ def check_label(rules: dict[str, Any], check: dict[str, Any]) -> str:
     return ""
 
 
-def turn_prompt(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row) -> Any:
+def turn_prompt(app: "LiteApp", room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row) -> Any:
+    from . import rush
+    if rush.is_round(turn):
+        return rush.prompt(app, room, turn)
     rules = shared.rules(room)
     scores, base = loads(actor["attributes_json"], {}), rules["modifier"]
 
@@ -217,16 +259,38 @@ def turn_prompt(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row) -> Any
         if check.get("kind") != "check" or check.get("difficulty") not in rules["difficulties"]:
             return None
         mod = (scores.get(check.get("attribute_ref"), base["baseline"]) - base["baseline"]) // base["divisor"]
+        trait = trait_bonus(room, actor, check.get("attribute_ref") or "", check["difficulty"])
+        mod += trait["bonus"] if trait else 0
         return success_chance(mod, rules["difficulties"][check["difficulty"]])
 
-    choices = [{"label": c["label"], "text": c["text"], "tag": messages.check_tag(rules, c["check"]), "chance": chance(c["check"])}
+    closing = pacing.closing_open(room)
+    choices = [{"label": c["label"], "text": c["text"], "tag": messages.check_tag(rules, c["check"]), "chance": chance(c["check"]),
+                **({"closing": c["closing"]} if closing and c.get("closing") else {})}
                for c in loads(turn["choices_json"], [])]
     minutes = None
     if turn["deadline_at"]:
         minutes = max(1, round((datetime.fromisoformat(turn["deadline_at"]) - datetime.now(UTC)).total_seconds() / 60))
     ready = [f"{e['name']} {loadout.effect_text(e)}" for e in loadout.entries(room, actor) if e["usable"]]
+    with app.store.read() as c:
+        following, _ = next_actor(c, room["id"], actor)
+        others = others_guide(c, room, actor, turn)
+    upcoming = shared.actor_label(following) if following is not None and following["id"] != actor["id"] else ""
     return messages.turn_prompt(shared.actor_label(actor), actor["user_name"], actor["user_id"], turn["round"], choices,
-                                rules.get("action_mode", "hybrid"), minutes, loadout=ready)
+                                rules.get("action_mode", "hybrid"), minutes, loadout=ready, upcoming=upcoming,
+                                tips=bool(loads(turn["data_json"], {}).get("tips")), others=others,
+                                pace=pacing.band(room, turn["round"]))
+
+
+def others_guide(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | None, turn: sqlite3.Row) -> dict[str, Any]:
+    """What teammates and the gallery can do during this turn, from the table as it stands."""
+    from . import rush
+    in_rush = rush.is_round(turn)
+    crew = not in_rush and actor is not None and any(a["id"] != actor["id"] for a in eligible_actors(c, room["id"]))
+    seated = c.execute("SELECT COUNT(*) FROM actors WHERE room_id=? AND presence<>'left'", (room["id"],)).fetchone()[0]
+    seats = 0 if shared.table_data(room).get("seating_locked") else max(0, room["seat_cap"] - seated)
+    aid = (loads(turn["data_json"], {}).get("aid") or {}).get("name", "")
+    return messages.others_guide(shared.actor_label(actor) if actor is not None else "", crew=crew, aid=aid, seats=seats,
+                                 heckles=banter._heckles_left(room) > 0, bets=not in_rush)
 
 
 def status_message(room: sqlite3.Row, actor: sqlite3.Row, round_number: int, action: str, receipt: dict[str, Any],
@@ -236,19 +300,25 @@ def status_message(room: sqlite3.Row, actor: sqlite3.Row, round_number: int, act
     changes = receipt.get("resource_changes") or {}
     after = receipt.get("resources_after") or {}
     meters = [(r["name"], after.get(r["name"], r["initial"]), r["max"], changes.get(r["name"])) for r in pack["resources"]]
-    return messages.action_status(shared.actor_label(actor), archetype, round_number, action, receipt, meters, announce=announce)
+    return messages.action_status(shared.actor_label(actor), archetype, round_number, action, receipt, meters, announce=announce,
+                                  wallet=economy.wallet_view(room, actor))
 
 
 def open_turn(app: "LiteApp", c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | None,
-              choices: list[dict[str, Any]], round_number: int) -> sqlite3.Row | None:
+              choices: list[dict[str, Any]], round_number: int, *, cheat_sheet: bool = True) -> sqlite3.Row | None:
     c.execute("UPDATE turns SET state='superseded',updated_at=? WHERE room_id=? AND state IN ('awaiting','narration_failed','review')",
               (now(), room["id"]))
     if actor is None:
         return None
     turn_id = new_id("turn")
-    c.execute("INSERT INTO turns(id,room_id,round,actor_id,state,choices_json,deadline_at,created_at,updated_at) "
-              "VALUES(?,?,?,?,'awaiting',?,?,?,?)", (turn_id, room["id"], round_number, actor["id"], dumps(choices),
-                                                    _deadline(app, room), now(), now()))
+    # The player's first turn at this table carries a short cheat sheet (read by turn_prompt, which never writes).
+    actor_data = loads(c.execute("SELECT data_json FROM actors WHERE id=?", (actor["id"],)).fetchone()["data_json"], {})
+    tips = cheat_sheet and not actor_data.get("tips_seen")
+    if tips:
+        c.execute("UPDATE actors SET data_json=? WHERE id=?", (dumps({**actor_data, "tips_seen": True}), actor["id"]))
+    c.execute("INSERT INTO turns(id,room_id,round,actor_id,state,choices_json,deadline_at,data_json,created_at,updated_at) "
+              "VALUES(?,?,?,?,'awaiting',?,?,?,?,?)", (turn_id, room["id"], round_number, actor["id"], dumps(choices),
+                                                      _deadline(app, room), dumps({"tips": True} if tips else {}), now(), now()))
     return c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
 
 
@@ -288,11 +358,12 @@ def apply_deltas(resources: dict[str, Any], deltas: dict[str, int]) -> dict[str,
     return applied
 
 
-def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], prepared: list[dict[str, Any]] | None = None
-              ) -> tuple[dict[str, Any], dict[str, Any]]:
+def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], prepared: list[dict[str, Any]] | None = None,
+              *, aid: dict[str, Any] | None = None, all_in: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     """Platform dice and costs for one intent → (receipt, new actor loadout document).
 
     A preparation is spent first (its modifiers join a check); failure costs and rest effects follow.
+    A teammate's aid adds its bonus to a check; an all-in bet makes a failed check cost harm.
     """
     rules = shared.rules(room)
     pack = shared.world(room)["pack"]
@@ -310,6 +381,18 @@ def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], pre
         attr = intent["attribute_ref"]
         score = loads(actor["attributes_json"], {}).get(attr, rules["modifier"]["baseline"])
         base = (score - rules["modifier"]["baseline"]) // rules["modifier"]["divisor"]
+        if aid:
+            bonus += aid["bonus"]
+            receipt["aid"] = dict(aid)
+        waiting = ties.flashback_bonus(actor)
+        if waiting:
+            bonus += int(waiting["bonus"])
+            receipt["flashback"] = dict(waiting)
+        trait = trait_bonus(room, actor, attr, intent["difficulty"], aid=bool(aid), all_in=all_in,
+                            resources={k: v["current"] for k, v in resources.items()})
+        if trait:
+            bonus += trait["bonus"]
+            receipt["trait"] = trait
         mod = base + bonus
         dc = rules["difficulties"][intent["difficulty"]]
         roll = roll_check(mod, dc)
@@ -317,6 +400,10 @@ def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], pre
                        face=roll.face, modifier=mod, attribute_modifier=base, total=roll.total,
                        outcome="critical" if roll.critical else "fumble" if roll.fumble else "success" if roll.success else "failure",
                        success=roll.success, failure_cost=intent.get("failure_cost") or "setback")
+        if all_in:
+            receipt["all_in"] = True
+            if not roll.success:
+                receipt["failure_cost"] = "harm"
         if not roll.success and receipt["failure_cost"] == "harm":
             deltas = dict(rules["failure_costs"].get("harm") or {})
     elif intent["kind"] == "recover":
@@ -324,6 +411,8 @@ def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], pre
         deltas = {**rest.get("cost", {})}
         for ref, value in rest.get("effect", {}).items():
             deltas[ref] = deltas.get(ref, 0) + value
+    if all_in and intent["kind"] != "check":
+        receipt["all_in_unused"] = True        # nothing was rolled: the bet stays for later this act
     apply_deltas(resources, deltas)
     applied = {k: v["current"] - before[k] for k, v in resources.items() if k in before and v["current"] != before[k]}
     names = {r["id"]: r["name"] for r in pack["resources"]}
@@ -343,6 +432,14 @@ def receipt_text(receipt: dict[str, Any]) -> str:
         parts.append("【休整】")
     if receipt.get("prepared"):
         parts.append("准备：" + "、".join(p["name"] for p in receipt["prepared"]))
+    if receipt.get("aid"):
+        parts.append(f"援手：{receipt['aid']['name']} {receipt['aid']['bonus']:+d}" + ("（羁绊）" if receipt["aid"].get("bond") else ""))
+    if receipt.get("flashback"):
+        parts.append(f"闪回 {receipt['flashback']['bonus']:+d}")
+    if receipt.get("trait"):
+        parts.append(f"特质 {receipt['trait']['name']} {receipt['trait']['bonus']:+d}")
+    if receipt.get("all_in"):
+        parts.append("孤注")
     changes = receipt.get("resource_changes") or {}
     if changes:
         parts.append("　".join(f"{k} {v:+d}" for k, v in changes.items()))
@@ -362,32 +459,60 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-        context = build_context(c, room, actor, turn["action_text"], loads(turn["receipt_json"]), note)
+        # Lines, heckles, the X card and secret notes left since the last narration go with this one.
+        extra, mark = banter.story_notes(room)
+        extra += economy.story_notes(room)      # what the last 整备 bought, sold and handed over
+        extra += pacing.story_notes(room, turn["round"])
+        context = build_context(c, room, actor, turn["action_text"], loads(turn["receipt_json"]), note, extra)
+        ledger_options = economy.ledger_options(c, room)
+        if ledger_options is not None:
+            context["economy_options"] = ledger_options
+        names = {a["id"]: shared.actor_label(a) for a in c.execute("SELECT * FROM actors WHERE room_id=?", (room_id,))}
         reviewer = shared.private_umo(c, room["platform"], room["host_user_id"]) if hosted_data(room).get("review") else None
+    with app.store.tx() as c:
+        data = loads(c.execute("SELECT data_json FROM turns WHERE id=?", (turn_id,)).fetchone()["data_json"], {})
+        c.execute("UPDATE turns SET data_json=? WHERE id=?", (dumps({**data, "banter_mark": mark}), turn_id))
+        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
     # Group actions and host advances return the turn to the actor who was waiting.
     advance = advance and not loads(turn["data_json"], {}).get("resume_actor")
-    try:
-        result = await app.engine.call("narrate_committed", {"context": context}, room_id=room_id, umo=room["umo"],
-                                       rules=shared.rules(room))
-    except EngineCallFailed as exc:
-        with app.store.tx() as c:
-            c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=?", (now(), turn_id))
-        reason = "模型暂时连不上。" if exc.category == "provider_unavailable" else "模型几次回复都不合格式。"
-        return Reply().say(messages.notice("这一段正文没写出来", reason + "骰果和资源变化已经保存，故事停在这里等主持人处理。",
-                                           "主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 直接轮到下一位；"
-                                           "具体原因可在后台“运行”页查看"))
+    # One automatic second try: a network blip or one malformed reply should not stop the table.
+    for attempt in range(2):
+        try:
+            result = await app.engine.call("narrate_committed", {"context": context}, room_id=room_id, umo=room["umo"],
+                                           rules=shared.rules(room))
+            break
+        except EngineCallFailed as exc:
+            if attempt == 0:
+                logger.warning("321Roll Lite: narration for turn %s failed (%s); trying once more", turn_id, exc.category)
+                await asyncio.sleep(AUTO_RETRY_DELAY)
+                continue
+            with app.store.tx() as c:
+                c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=?", (now(), turn_id))
+            reason = "模型暂时连不上。" if exc.category == "provider_unavailable" else "模型几次回复都不合格式。"
+            kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
+            if kind == "finale":
+                return Reply().say(messages.notice(
+                    "终章没写出来", reason + "已经自动重试过一次，故事停在终章前。",
+                    f"主持人发送 /团 主持 重试 重新写终章，或 /团 主持 跳过 不写终章、直接请大家写尾声；主持人 "
+                    f"{PLAYER_RETRY_AFTER_MINUTES} 分钟内没处理的话，在座的玩家也可以发送 /团 重试"))
+            skip = ("不写这段、直接轮到 " + shared.actor_label(actor)) if kind in NARRATOR_KINDS else "直接轮到下一位"
+            return Reply().say(messages.notice(
+                "这一段正文没写出来", reason + "已经自动重试过一次。骰果和资源变化已经保存，故事停在这里等主持人处理。",
+                f"主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 {skip}；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内"
+                "没处理的话，在座的玩家也可以发送 /团 重试。具体原因可在后台“运行”页查看"))
     proposal = result["proposal"]
     if reviewer:
         with app.store.tx() as c:
             data = {**loads(turn["data_json"], {}), "advance": advance}
             c.execute("UPDATE turns SET state='review',narrative_json=?,data_json=?,updated_at=? WHERE id=?",
                       (dumps(proposal), dumps(data), now(), turn_id))
-        await app.notifier.send(reviewer, draft_card(room, turn, actor, proposal))
+        await app.notifier.send(reviewer, draft_card(room, turn, actor, proposal, names))
         return Reply().say(messages.notice("正文已写好，正在等主持人审阅", "主持人确认后会发到群里。"))
     return await commit_narration(app, room_id, turn_id, proposal, advance)
 
 
-def draft_card(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row, proposal: dict[str, Any]) -> Any:
+def draft_card(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row, proposal: dict[str, Any],
+               names: dict[str, str] | None = None) -> Any:
     from ..render import Msg
     rules = shared.rules(room)
     choices = make_choices(proposal["suggestions"], proposal.get("suggestion_checks"))
@@ -395,16 +520,32 @@ def draft_card(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row, proposa
     m.gap().para(narration_text(proposal)).gap()
     m.items([f"**{ch['label']}.** {ch['text']}" + (f"　〔{messages.check_tag(rules, ch['check'])}〕"
                                                    if messages.check_tag(rules, ch["check"]) else "") for ch in choices])
+    ledger = proposal.get("ledger") or []
+    if ledger:
+        m.gap().caption("钱物变化（发布时生效）")
+        m.items([f"**{i}.** {economy.describe_entry(room, e, names or {})}（{e['reason']}）" for i, e in enumerate(ledger, 1)])
+        return m.gap().hint("发送 /团 主持 发布 公开到群里，/团 主持 重写 意见 按意见重新生成；"
+                            "不认可某一笔钱物变化，发送 /团 主持 记账 撤回 序号")
     return m.gap().hint("发送 /团 主持 发布 公开到群里，或 /团 主持 重写 意见 按意见重新生成")
 
 
 async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal: dict[str, Any], advance: bool) -> Reply:
-    """Store the narration, apply queued host adjustments and open the next turn."""
+    """Store the narration, apply queued host adjustments and open the next turn.
+
+    Pacing may instead hand the table to the world (a push or the finale, written right after this one)
+    or open the next act; the finale itself opens the epilogues instead of a turn.
+    """
     with app.store.read() as c:
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
     text = narration_text(proposal)
     choices = make_choices(proposal["suggestions"], proposal.get("suggestion_checks"))
+    finale = (loads(turn["receipt_json"], {}) or {}).get("kind") == "finale"
+    plan = pacing.Plan()
+    special: str | None = None            # a narrator turn written right after this narration
+    voided: str | None = None             # a vote the finale cut short
+    epilogues = None
+    from . import rush
     with app.store.tx() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         old_scene = loads(room["scene_json"], {}).get("title", "")
@@ -419,8 +560,18 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
         adjusted = adjust.apply_pending(c, room_id)
         if adjusted:
             app.store.add_event(c, room_id, "host", "主持人调整生效：" + "；".join(adjusted))
+        ledger = economy.apply_ledger(c, room, proposal.get("ledger") or [])
+        if ledger:
+            app.store.add_event(c, room_id, "system", "故事里的得失：" + "；".join(
+                f"{x['who']} {x['name']} {x['delta']:+d}（{x['reason']}）" for x in ledger))
+        economy.clear_notes(c, room_id)
+        table_talk = banter.consume(c, room_id, loads(turn["data_json"], {}).get("banter_mark"))
         round_number = turn["round"]
-        if advance:
+        rushing = rush.is_round(turn) and rush.enabled(room)
+        if rushing and advance:
+            following, _ = next_actor(c, room_id, None)
+            round_number += 1
+        elif advance:
             following, wrapped = next_actor(c, room_id, actor)
             round_number += 1 if wrapped else 0
         else:
@@ -428,30 +579,189 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
                                                                        or turn["actor_id"],)).fetchone()
         app.store.bump_room(c, room_id)
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
-        # Paused while the story was being written: the next turn still opens (and waits) so its options survive.
-        new_turn = open_turn(app, c, room, following, choices, round_number) if room["state"] in ("running", "paused") else None
-        if new_turn is None and room["state"] == "running":
-            app.store.add_event(c, room_id, "system", "没有在场的玩家，故事停在这里。")
+        new_turn = None
+        if finale:
+            epilogues = pacing.finale_written(c, room, pacing.finale_title(room, receipt, proposal.get("suggestions") or []))
+        else:
+            new_scene = loads(room["scene_json"], {}).get("title", "")
+            plan = pacing.after_narration(c, room, turn, round_number, bool(new_scene) and new_scene != old_scene,
+                                          rushing=rushing and advance)
+            room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+            pushing = bool(plan.push)
+            if room["state"] == "running" and following is not None and (plan.finale is not None or pushing):
+                special = pacing.narrator_turn(app, c, room, "finale" if plan.finale is not None else "pace_push", following,
+                                               round_number, title=plan.finale, rounds=plan.push)
+                if plan.finale is not None:
+                    from .collaboration import void_open
+                    voided = void_open(c, room_id)
+            elif room["state"] in ("running", "paused"):
+                # Paused while the story was being written: the next turn still opens (and waits) so its options survive.
+                new_turn = (rush.open_round(app, c, room, choices, round_number) if rushing and advance else
+                            open_turn(app, c, room, following, choices, round_number))
+            if new_turn is None and special is None and room["state"] == "running":
+                app.store.add_event(c, room_id, "system", "没有在场的玩家，故事停在这里。")
     scene_title = loads(room["scene_json"], {}).get("title", "")
-    story = messages.narration(text, scene_title, act_heading)
-    if act_heading or (scene_title and scene_title != old_scene):
-        story.with_art(room["world_id"], f"act:{room['act']}", _art_tag(room))
+    story = messages.narration(text, scene_title, "终章" if finale else act_heading)
+    from ..worlds import scenes
+    scenes.bind(story, room, tag=_art_tag(room))
     reply = Reply().say(story)
+    for item in table_talk:
+        reply.say(item)
     if adjusted:
         reply.say(messages.adjustments_applied(adjusted))
+    if ledger:
+        reply.say(messages.ledger_card(ledger, (economy.of_room(room) or {}).get("currency", "")))
+    if epilogues is not None:
+        return reply.say(epilogues)
+    nearby = economy.new_place_shops(room, old_scene)
+    outfitting = False
+    if nearby and room["state"] == "running":
+        money = economy.of_room(room)
+        if money and money["auto_outfit"] and special is None:
+            try:                           # the world opens 整备 by itself where there are shops
+                reply.extend(economy.open_outfit(app, room_id, economy.OUTFIT_MINUTES, "走进有店的地点"))
+                outfitting = True
+            except UserError:
+                pass
+        if not outfitting:
+            reply.say(messages.shops_nearby([s["name"] for s in nearby], scene_title))
+    for card in plan.cards:
+        reply.say(card)
+    if plan.push_note and room["state"] == "running":
+        reply.say(messages.world_push(plan.push_note, scene_title, "全队", rush=True))
+    if plan.act_change is not None and room["state"] == "running":
+        reply.extend(await change_act(app, room_id, plan.act_change, None if not lifecycle.improvises(room) else {},
+                                      prompt=False))
+        with app.store.read() as c:
+            room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+    if special is not None:
+        if plan.finale is not None:
+            reply.say(messages.notice("正在写终章", (f"结局：{plan.finale}。" if plan.finale else "")
+                                      + "收尾的几轮已经走完，AI 正在写最后一段正文；写完后每位玩家留一句尾声。"
+                                      + pacing.finale_vote_note(voided)))
+        else:
+            reply.say(messages.world_push(plan.push, scene_title, shared.actor_label(following)))
+        reply.extend(await narrate(app, room_id, special, advance=False))
+        if advance and round_number != turn["round"] and plan.finale is None:
+            from . import collaboration
+            reply.extend(await collaboration.after_round(app, room_id, round_number))
+        return reply
     if new_turn is not None and room["state"] == "paused":
         reply.say(f"故事正在暂停：下一轮由 {shared.actor_label(following)} 行动，主持人发送 /团 恢复 打开准备大厅后继续。")
     elif new_turn is not None:
-        reply.say(turn_prompt(room, new_turn, following))
+        if not outfitting:                 # closing 整备 shows the waiting turn again
+            with app.store.read() as c:
+                new_turn = c.execute("SELECT * FROM turns WHERE id=?", (new_turn["id"],)).fetchone()
+            reply.say(turn_prompt(app, room, new_turn, following))
         if advance and round_number != turn["round"]:
             from . import collaboration
             reply.extend(await collaboration.after_round(app, room_id, round_number))
     return reply
 
 
+CLARIFY_GRACE = timedelta(minutes=2)
+# Sent with the answer to this turn's question when the model asks back regardless: the player is not asked twice.
+FIRM_NOTE = ("\n（玩家已经回答过追问，本次不得 clarify：按最合理的理解处理。行动有失败可能或风险时必须选 check，"
+             "按危险程度定属性、难度和 failure_cost；只有毫无阻碍的小动作才选 narrative。）")
+
+
+def fallback_check(room: sqlite3.Row, actor: sqlite3.Row, turn: sqlite3.Row, action: str) -> dict[str, Any]:
+    """A standard check for an answered action the model still would not read.
+
+    The attribute comes from this turn's checked option closest in wording to the action, else the
+    character's best attribute; a free action is never waved through without dice.
+    """
+    rules = shared.rules(room)
+    options = [c for c in loads(turn["choices_json"], [])
+               if (c.get("check") or {}).get("kind") == "check" and c["check"].get("attribute_ref")]
+    words = set(re.sub(r"[\s，。、！？；：“”‘’（）()…—,.!?;:]", "", action))
+    if options:
+        attribute = max(options, key=lambda c: len(words & set(c["text"])))["check"]["attribute_ref"]
+    else:
+        scores = loads(actor["attributes_json"], {})
+        attribute = max(scores, key=lambda k: scores[k]) if scores else ""
+    levels = rules["difficulties"]
+    difficulty = "standard" if "standard" in levels else sorted(levels, key=levels.get)[len(levels) // 2]
+    costs = rules.get("failure_costs") or {"setback": {}}
+    return {"kind": "check", "attribute_ref": attribute, "difficulty": difficulty,
+            "failure_cost": "setback" if "setback" in costs else next(iter(costs)),
+            "reason": "玩家已回答追问，按最接近的属性检定", "clarification": "", "risk_response": ""}
+
+
+async def firm_intent(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sqlite3.Row,
+                      context: dict[str, Any], action: str) -> dict[str, Any]:
+    """The player answered the question and the model asked again: one firmer request, then a platform check."""
+    firm = {**context, "action": (str(context["action"]) + FIRM_NOTE)[:2000]}
+    try:
+        result = await app.engine.call("propose_intent", {"context": firm}, room_id=room["id"], umo=room["umo"],
+                                       rules=shared.rules(room))
+        if result["proposal"]["kind"] != "clarify":
+            return result["proposal"]
+        logger.info("321Roll Lite: the model asked back twice after an answer; using a standard check")
+    except EngineCallFailed as exc:
+        logger.warning("321Roll Lite: second intent request failed (%s); using a standard check", exc.user_message)
+    return fallback_check(room, actor, turn, action)
+
+
+def _mark_act(c: sqlite3.Connection, actor_id: str, key: str, act: int) -> None:
+    """Remember the act a once-per-act play (aid, all-in) was spent in."""
+    data = loads(c.execute("SELECT data_json FROM actors WHERE id=?", (actor_id,)).fetchone()["data_json"], {})
+    c.execute("UPDATE actors SET data_json=? WHERE id=?", (dumps({**data, key: act}), actor_id))
+
+
+def _share_failure(c: sqlite3.Connection, room: sqlite3.Row, helper_id: str, receipt: dict[str, Any]) -> dict[str, int]:
+    """The helper's aid is spent with this check; a failure that costs harm hurts the helper too."""
+    _mark_act(c, helper_id, "aid_act", room["act"])
+    if receipt["success"] or receipt["failure_cost"] != "harm":
+        return {}
+    helper = c.execute("SELECT * FROM actors WHERE id=?", (helper_id,)).fetchone()
+    doc = loadout.state(helper)
+    applied = apply_deltas(doc["resources"], dict(shared.rules(room)["failure_costs"].get("harm") or {}))
+    loadout.save(c, helper_id, doc)
+    names = {r["id"]: r["name"] for r in shared.world(room)["pack"]["resources"]}
+    return {names.get(k, k): v for k, v in applied.items()}
+
+
+def _ask_back(app: "LiteApp", room_id: str, turn_id: str, intent: dict[str, Any], action: str,
+              asked: dict[str, Any] | None) -> Reply:
+    """The model asked back (clarify) or refused (impossible): the turn waits for the same player again.
+
+    One clarifying question per turn: the answer goes back with the original action, and a second
+    question re-sends this turn's options instead of asking again.  The timer keeps at least two
+    minutes so an answer is not overtaken by the timeout pick.
+    """
+    question = (intent.get("clarification") or intent.get("reason") or "").strip()
+    again = intent["kind"] == "clarify" and bool(asked)
+    with app.store.tx() as c:
+        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
+        data = loads(turn["data_json"], {})
+        if intent["kind"] == "clarify":
+            data["clarify"] = {"spent": True} if again else {"action": action[:500], "question": question[:300]}
+        else:                                   # refused outright: the next action starts fresh
+            data.pop("clarify", None)
+        deadline = turn["deadline_at"]
+        if deadline:
+            deadline = max(datetime.fromisoformat(deadline), datetime.now(UTC) + CLARIFY_GRACE).isoformat(timespec="seconds")
+        c.execute("UPDATE turns SET state='awaiting',data_json=?,deadline_at=?,updated_at=? WHERE id=?",
+                  (dumps(data), deadline, now(), turn_id))
+        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+    minutes = None
+    if deadline:
+        minutes = max(1, round((datetime.fromisoformat(deadline) - datetime.now(UTC)).total_seconds() / 60))
+    mode = shared.rules(room).get("action_mode", "hybrid")
+    has_choices = bool(loads(turn["choices_json"], [])) and mode != "dialogue_only"
+    reply = Reply().say(messages.ask_back(shared.actor_label(actor), actor["user_name"], actor["user_id"], question,
+                                          intent["kind"], again=again, minutes=minutes, choices=has_choices))
+    if again:
+        reply.say(turn_prompt(app, room, turn, actor))
+    return reply
+
+
 async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, intent: dict[str, Any] | None,
                   *, announce: str = "", prepared: list[dict[str, Any]] | None = None,
-                  early: Callable[[Any], Awaitable[Any]] | None = None) -> Reply:
+                  early: Callable[[Any], Awaitable[Any]] | None = None, all_in: bool = False) -> Reply:
     """Resolve the awaiting turn: intent (model unless given) → dice → narration.
 
     With early, the dice and status go out as soon as they are committed and the reply carries
@@ -465,9 +775,15 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
             quota.require_round(app, c, c.execute("SELECT umo FROM rooms WHERE id=?", (room_id,)).fetchone()["umo"])
             actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
             lifecycle.auto_snapshot(c, room_id, f"第 {turn['round']} 轮 · {shared.actor_label(actor)} 行动前")
+            # A free action written after this turn's clarifying question answers it: the model reads both.
+            asked = loads(turn["data_json"], {}).get("clarify") if intent is None else None
+            if asked and asked.get("question"):
+                action = f"{asked['action']}（补充：{action}）"[:2000]
             c.execute("UPDATE turns SET state='resolving',action_text=?,updated_at=? WHERE id=?", (action, now(), turn_id))
             room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
             context = build_context(c, room, actor, action, None)
+            if asked and asked.get("question"):
+                context["action"] = (action + f"\n（主持刚才追问：{asked['question']}；括号里的补充就是玩家的回答）")[:2000]
         try:
             if intent is None:
                 try:
@@ -478,16 +794,31 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                         c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE id=?", (now(), turn_id))
                     raise UserError("行动理解失败：" + exc.user_message + " 你可以换个说法再试，或选择 A–D。") from exc
                 intent = result["proposal"]
+                if intent["kind"] == "clarify" and asked and asked.get("question"):
+                    intent = await firm_intent(app, room, actor, turn, context, action)
                 if intent["kind"] in ("clarify", "impossible"):
-                    with app.store.tx() as c:
-                        c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE id=?", (now(), turn_id))
-                    prefix = "需要澄清：" if intent["kind"] == "clarify" else "这样做行不通："
-                    return Reply().say(prefix + (intent.get("clarification") or intent.get("reason") or ""))
+                    return _ask_back(app, room_id, turn_id, intent, action, asked)
             with app.store.tx() as c:
                 actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-                receipt, doc = mechanics(room, actor, intent, prepared)
+                turn_data = loads(c.execute("SELECT data_json FROM turns WHERE id=?", (turn_id,)).fetchone()["data_json"], {})
+                offer = turn_data.get("aid")
+                aid = None
+                if offer:
+                    bonus, bond = ties.aid_bonus(room, offer["actor_id"], actor["id"])
+                    aid = {"name": offer["name"], "text": offer.get("text", ""), "bonus": bonus, **({"bond": bond} if bond else {})}
+                receipt, doc = mechanics(room, actor, intent, prepared, aid=aid, all_in=all_in)
                 receipt["intent_reason"] = intent.get("reason", "")
                 loadout.save(c, actor["id"], doc)
+                ties.spend(c, actor["id"], receipt)
+                guessed = wager.settle(c, room_id, turn_data.get("bets") or {}, receipt)
+                if guessed:
+                    receipt["wager"] = guessed
+                if receipt.get("all_in"):
+                    _mark_act(c, actor["id"], "all_in_act", room["act"])
+                if receipt.get("aid"):
+                    receipt["aid"]["changes"] = _share_failure(c, room, offer["actor_id"], receipt)
+                elif offer:
+                    receipt["aid_unused"] = offer["name"]      # no check: the helper keeps this act's aid
                 if receipt.get("face"):
                     luck.record(c, room["umo"], actor["user_id"], actor["user_name"], "check", [receipt["face"]])
                 if intent["kind"] == "recover":
@@ -527,6 +858,7 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
     proposal = await app.engine.call("generate_initial_story", fields, room_id=room_id, umo=room["umo"], rules=rules)
     with app.store.tx() as c:
         c.execute("UPDATE rooms SET scene_json=?,goal=? WHERE id=?", (dumps(proposal["scene"]), proposal["goal"], room_id))
+        pacing.start(c, room_id)
         for index, npc in enumerate(proposal["npcs"], 1):
             c.execute("INSERT OR REPLACE INTO npcs(room_id,npc_ref,name,description,motivation,updated_at) VALUES(?,?,?,?,?,?)",
                       (room_id, f"npc.opening{index}", npc["name"], npc["description"], npc["motivation"], now()))
@@ -539,16 +871,16 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
         app.store.bump_room(c, room_id)
     acts = shared.world(room).get("presentation", {}).get("acts") or []
     act = next((a for a in acts if a["number"] == room["act"]), {"title": "", "lead": ""})
-    reply = Reply().say(messages.act_card(shared.world(room)["pack"]["title"], room["act"], act["title"], act["lead"],
-                                          world=room["world_id"], art="cover", total=lifecycle.acts_total(room)))
-    reply.say(messages.scene_card(proposal["scene"]["title"], proposal["scene"]["description"], proposal["goal"],
-                                  [(n["name"], n["description"]) for n in proposal["npcs"]])
-              .with_art(room["world_id"], f"act:{room['act']}", _art_tag(room, act["title"])))
+    from ..worlds import scenes
+    reply = Reply().say(scenes.bind(messages.act_card(shared.world(room)["pack"]["title"], room["act"], act["title"], act["lead"],
+                                          world=room["world_id"], art="cover", total=lifecycle.acts_total(room)), room, "cover"))
+    reply.say(scenes.bind(messages.scene_card(proposal["scene"]["title"], proposal["scene"]["description"], proposal["goal"],
+                                  [(n["name"], n["description"]) for n in proposal["npcs"]]), room, tag=_art_tag(room, act["title"])))
     if turn is not None:
-        reply.say(turn_prompt(room, turn, first))
+        reply.say(turn_prompt(app, room, turn, first))
     if lifecycle.improvises(room):
         reply.say(messages.notice("核心版", "预设剧情只写到第一幕，之后由 AI 即兴续写，不推翻设定与已发生的事。",
-                                  "主持人想开新的一幕时发送 /团 主持 换幕 标题：引子；收尾时发送 /团 主持 完结 结局名"))
+                                  "主持人想开新的一幕时发送 /团 主持 换幕 标题：引子；收尾时发送 /团 完结 结局名"))
     return reply
 
 
@@ -564,23 +896,28 @@ async def on_roster_changed(room_id: str, actor_id: str, change: str, *, app: "L
         turn = current_turn(c, room_id)
         if room["state"] != "running":
             return Reply()
+        if turn is None and shared.ending_step(room):
+            return Reply()      # between the finale and the ending nobody takes a turn
         if turn is None:
             actor, _ = next_actor(c, room_id, None)
             new = open_turn(app, c, room, actor, [], 1) if actor is not None else None
-            return Reply().say(turn_prompt(room, new, actor)) if new is not None else Reply()
+            return Reply().say(turn_prompt(app, room, new, actor)) if new is not None else Reply()
+        from . import rush
+        if rush.is_round(turn):
+            return Reply()      # the round waits for whoever is present; leavers simply stop counting
         if change in ("left", "away", "rebuild") and turn["actor_id"] == actor_id and turn["state"] == "awaiting":
             leaving = c.execute("SELECT * FROM actors WHERE id=?", (actor_id,)).fetchone()
             following, wrapped = next_actor(c, room_id, leaving)
             new = open_turn(app, c, room, following, loads(turn["choices_json"], []), turn["round"] + (1 if wrapped else 0))
             if new is not None:
-                return Reply().say(turn_prompt(room, new, following))
+                return Reply().say(turn_prompt(app, room, new, following))
     return Reply()
 
 
 def reopen_turn(app: "LiteApp", c: sqlite3.Connection, room: sqlite3.Row) -> sqlite3.Row | None:
     """A table with no open turn (paused while a story was being written by an older version): open the turn
     that should have followed the last story, with that story's options and round."""
-    last = c.execute("SELECT * FROM turns WHERE room_id=? AND state='done' ORDER BY created_at DESC LIMIT 1",
+    last = c.execute("SELECT * FROM turns WHERE room_id=? AND state='done' ORDER BY created_at DESC, rowid DESC LIMIT 1",
                      (room["id"],)).fetchone()
     if last is None:
         actor, _ = next_actor(c, room["id"], None)
@@ -604,6 +941,20 @@ async def on_room_resumed(room_id: str, joined: list[str] | None = None, left: l
 
     With send, everything before the pulse goes out first so the group reads it while the pulse is written.
     """
+    with app.store.tx() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        epilogues = pacing.epilogue_resumed(c, room)
+        written = epilogues is not None and pacing.epilogues_done(c, room_id)
+        last = c.execute("SELECT text FROM events WHERE room_id=? AND kind='narration' ORDER BY id DESC LIMIT 1",
+                         (room_id,)).fetchone()
+    if epilogues is not None:       # after the finale there is no turn to reopen: the epilogues go on
+        reply = Reply()
+        if last is not None:
+            reply.say(messages.narration(last["text"], "终章"))
+        if written:                 # everyone wrote theirs during the pause: the story ends now
+            async with app.lock(room_id):
+                return reply.extend(await pacing._finish(app, room_id, "system"))
+        return reply.say(epilogues)
     with app.store.tx() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         turn = current_turn(c, room_id)
@@ -631,14 +982,14 @@ async def on_room_resumed(room_id: str, joined: list[str] | None = None, left: l
         return reply.say("没有在场的玩家，故事停在这里。")
     if turn["state"] != "awaiting":
         return reply.say(messages.notice(f"这一回合{TURN_STATES.get(turn['state'], turn['state'])}",
-                                         hint="主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过"))
+                                         hint="主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过；主持人 5 分钟没处理时，在座的玩家也可以 /团 重试"))
     if joined or left:
         if send is not None:
             for item in reply.messages:
                 await send(item)
             reply = Reply()
         return reply.extend(await world_pulse(app, room_id, turn, joined or [], left or [], send))
-    return reply.say(turn_prompt(room, turn, actor))
+    return reply.say(turn_prompt(app, room, turn, actor))
 
 
 async def world_pulse(app: "LiteApp", room_id: str, turn: sqlite3.Row, joined: list[str], left: list[str],
@@ -688,7 +1039,13 @@ async def on_story_completed(room_id: str, ending: Any, *, app: "LiteApp") -> Re
     with app.store.tx() as c:
         c.execute("UPDATE turns SET state='superseded',updated_at=? WHERE room_id=? AND state IN ('awaiting','narration_failed','review')",
                   (now(), room_id))
-    return Reply()
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        bonds = ties.reveal(c, room)
+    reply = Reply()
+    for item in (banter.reveal(room), bonds):
+        if item is not None:
+            reply.say(item)
+    return reply
 
 
 async def on_status(room_id: str, *, app: "LiteApp") -> Reply:
@@ -698,19 +1055,71 @@ async def on_status(room_id: str, *, app: "LiteApp") -> Reply:
         if turn is None or room["state"] not in ("running", "paused"):
             return Reply()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-    return Reply().say(f"第 {turn['round']} 轮：{shared.actor_label(actor)}（{TURN_STATES.get(turn['state'], turn['state'])}）")
+    return Reply().say(f"第 {turn['round']} 轮：{shared.actor_label(actor)}（{TURN_STATES.get(turn['state'], turn['state'])}）") \
+        .say(pacing.status_line(room, turn["round"]))
 
 
 async def on_tick(*, app: "LiteApp") -> Reply:
     stamp = datetime.now(UTC).isoformat(timespec="seconds")
     with app.store.read() as c:
+        # A table in 整备 keeps its turn clock still; closing 整备 moves the deadline on.
         due = c.execute("SELECT t.id,t.room_id FROM turns t JOIN rooms r ON r.id=t.room_id WHERE t.state='awaiting' "
-                        "AND r.state='running' AND t.deadline_at IS NOT NULL AND t.deadline_at<=?", (stamp,)).fetchall()
+                        "AND r.state='running' AND json_extract(r.data_json,'$.outfit') IS NULL "
+                        "AND t.deadline_at IS NOT NULL AND t.deadline_at<=?", (stamp,)).fetchall()
+        soon = c.execute("SELECT t.id FROM turns t JOIN rooms r ON r.id=t.room_id WHERE t.state='awaiting' "
+                         "AND r.state='running' AND json_extract(r.data_json,'$.outfit') IS NULL "
+                         "AND t.deadline_at IS NOT NULL AND t.deadline_at>? AND t.deadline_at<=?",
+                         (stamp, (datetime.now(UTC) + REMIND_BEFORE).isoformat(timespec="seconds"))).fetchall()
     for row in due:
         if app.lock(row["room_id"]).locked():
             continue
         app.spawn(timeout_turn(app, row["room_id"], row["id"]), name=f"321roll-timeout-{row['id']}")
+    for row in soon:
+        remind_turn(app, row["id"])
     return Reply()
+
+
+REMIND_BEFORE = timedelta(minutes=1)
+REMIND_MIN_LIMIT = 180      # shorter limits are already short enough to keep an eye on
+AWAY_AFTER_TIMEOUTS = 2
+
+
+def remind_turn(app: "LiteApp", turn_id: str) -> None:
+    """One @ per turn a minute before its deadline: the options message is easily buried in a busy group."""
+    with app.store.tx() as c:
+        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
+        data = loads(turn["data_json"], {})
+        if turn["state"] != "awaiting" or data.get("reminded"):
+            return
+        c.execute("UPDATE turns SET data_json=? WHERE id=?", (dumps({**data, "reminded": True}), turn_id))
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (turn["room_id"],)).fetchone()
+        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+    from . import rush
+    if rush.is_round(turn):
+        with app.store.read() as c:
+            board = rush.members(c, room["id"], turn)
+        missing = [(shared.actor_label(a), a["user_name"], a["user_id"]) for a, done in board if not done]
+        if missing:
+            reminder = messages.rush_reminder(missing, [(shared.actor_label(a), done) for a, done in board])
+            app.spawn(app.notifier.send(room["umo"], reminder), name=f"321roll-remind-{turn_id}")
+        return
+    if turn_seconds(app, room) < REMIND_MIN_LIMIT or actor is None:
+        return
+    app.spawn(app.notifier.send(room["umo"], messages.turn_reminder(shared.actor_label(actor), actor["user_name"],
+                                                                    actor["user_id"], bool(loads(turn["choices_json"], [])))),
+              name=f"321roll-remind-{turn_id}")
+
+
+def _timeout_streak(c: sqlite3.Connection, room_id: str, actor: sqlite3.Row) -> bool:
+    """Count this timeout; True when the player has now missed enough turns in a row and someone else can play on."""
+    data = loads(actor["data_json"], {})
+    streak = int(data.get("timeouts") or 0) + 1
+    others = [a for a in eligible_actors(c, room_id) if a["id"] != actor["id"]]
+    away = streak >= AWAY_AFTER_TIMEOUTS and bool(others)
+    data["timeouts"] = 0 if away else streak
+    c.execute("UPDATE actors SET data_json=?" + (",presence='away',revision=revision+1" if away else "") + ",updated_at=? WHERE id=?",
+              (dumps(data), now(), actor["id"]))
+    return away
 
 
 async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
@@ -721,8 +1130,30 @@ async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
         c.execute("UPDATE turns SET data_json=? WHERE id=?", (dumps({**loads(turn["data_json"], {}), "timeout": True}), turn_id))
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        from . import rush
+        rushing = rush.is_round(turn)
+        gone = not rushing and _timeout_streak(c, room_id, actor)
+        if gone:
+            # Missed turns in a row: set away and hand the turn on instead of acting for them again.
+            label = shared.actor_label(actor)
+            c.execute("UPDATE turns SET state='skipped',updated_at=? WHERE id=?", (now(), turn_id))
+            app.store.add_event(c, room_id, "system", f"{label} 连续 {AWAY_AFTER_TIMEOUTS} 轮超时，自动暂离", actor_id=actor["id"])
+            app.store.bump_room(c, room_id)
+            following, wrapped = next_actor(c, room_id, actor)
+            new = open_turn(app, c, room, following, loads(turn["choices_json"], []), turn["round"] + (1 if wrapped else 0))
         history = [r["text"][:6000] for r in c.execute(
             "SELECT text FROM events WHERE room_id=? AND kind='narration' ORDER BY id DESC LIMIT 3", (room_id,))]
+    if rushing:
+        async with app.lock(room_id):
+            reply = await rush.close(app, room_id, turn_id)
+        await app.notifier.send(room["umo"], [f"第 {turn['round']} 轮快团时间到，没交的人这一轮旁观。"] + reply.messages)
+        return
+    if gone:
+        items: list[Any] = [messages.auto_away(label, actor["user_name"], actor["user_id"], AWAY_AFTER_TIMEOUTS)]
+        if new is not None:
+            items.append(turn_prompt(app, room, new, following))
+        await app.notifier.send(room["umo"], items)
+        return
     choices = loads(turn["choices_json"], [])
     label = shared.actor_label(actor)
     if not choices:
@@ -730,7 +1161,7 @@ async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
             following, wrapped = next_actor(c, room_id, actor)
             new = open_turn(app, c, room, following, [], turn["round"] + (1 if wrapped else 0))
             app.store.add_event(c, room_id, "system", f"{label} 超时，回合跳过", actor_id=actor["id"])
-        items = [f"{label} 超时未行动，回合跳过。"] + ([turn_prompt(room, new, following)] if new is not None else [])
+        items = [f"{label} 超时未行动，回合跳过。"] + ([turn_prompt(app, room, new, following)] if new is not None else [])
         await app.notifier.send(room["umo"], items)
         return
     chosen = choices[0]
@@ -768,22 +1199,47 @@ def intent_from_choice(choice: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------- player commands
 def _my_turn(app: "LiteApp", caller: Caller) -> tuple[sqlite3.Row, sqlite3.Row, sqlite3.Row]:
     room = shared.require_room(app, caller, "running")
+    economy.guard(room)
     shared.require_play(app, caller, "playActions")
     actor = shared.require_actor(app, caller, room)
     with app.store.read() as c:
         turn = current_turn(c, room["id"])
+    if (turn is None or turn["state"] != "awaiting") and shared.ending_step(room):
+        raise UserError(shared.ending_step(room))
     if turn is None or turn["state"] != "awaiting":
         raise UserError("现在没有等待行动的回合。" if turn is None else
-                        "上一段正文正在等主持人审阅，请稍候。" if turn["state"] == "review" else "上一个行动还在结算，请稍候。")
+                        "上一段正文正在等主持人审阅，请稍候。" if turn["state"] == "review" else
+                        f"上一段正文没写出来，正在等主持人 /团 主持 重试；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内没处理的话，"
+                        "在座的玩家也可以发送 /团 重试。" if turn["state"] == "narration_failed" else "上一个行动还在结算，请稍候。")
     if turn["actor_id"] != actor["id"]:
         with app.store.read() as c:
             holder = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-        raise UserError(f"现在轮到 {shared.actor_label(holder)} 行动。")
+        name = shared.actor_label(holder)
+        raise UserError(f"现在轮到 {name} 行动，轮到你时会在群里 @ 你。这会儿可以 /团 说 台词、/团 援手 帮 {name} 一把，"
+                        f"或 /团 押 成 竞猜这一掷。")
+    if loads(actor["data_json"], {}).get("timeouts"):
+        with app.store.tx() as c:     # acting on one's own turn ends a run of timeouts
+            data = {**loads(actor["data_json"], {}), "timeouts": 0}
+            c.execute("UPDATE actors SET data_json=? WHERE id=?", (dumps(data), actor["id"]))
     return room, actor, turn
 
 
+def awaits(app: "LiteApp", caller: Caller) -> bool:
+    """Whether this group message comes from the player the open turn is waiting for (bare-letter choices)."""
+    from . import rush
+    try:
+        if rush.my_round(app, caller) is not None:
+            return True
+        _my_turn(app, caller)
+    except UserError:
+        return False
+    return True
+
+
 async def choose(app: "LiteApp", caller: Caller, args: str) -> Reply:
-    room, actor, turn = _my_turn(app, caller)
+    from . import rush
+    rushing = rush.my_round(app, caller)
+    room, actor, turn = rushing or _my_turn(app, caller)
     if shared.rules(room).get("action_mode") == "dialogue_only":
         raise UserError("本世界只接受自由描述行动：/团 行动 <描述>")
     args, names = loadout.split_marker(args)
@@ -791,22 +1247,35 @@ async def choose(app: "LiteApp", caller: Caller, args: str) -> Reply:
     label = words[0].upper().replace("Ａ", "A").replace("Ｂ", "B").replace("Ｃ", "C").replace("Ｄ", "D") if words else ""
     choice = next((ch for ch in loads(turn["choices_json"], []) if ch["label"] == label), None)
     if choice is None:
-        raise UserError("请选择本轮列出的 A–D 之一，例如 /团 选 A。")
+        labels = [ch["label"] for ch in loads(turn["choices_json"], [])]
+        if not labels:
+            raise UserError("这一轮没有选项，用 /团 行动 你的做法 写下你要做什么。")
+        raise UserError(f"这一轮可选 {'、'.join(labels)}，例如 /团 选 {labels[0]}；也可以 /团 行动 你的做法。")
     check = choice["check"]
-    prepared = loadout.freeze(room, actor, names, check.get("attribute_ref") if check.get("kind") == "check" else None) if names else None
     flourish = words[1].strip() if len(words) > 1 else ""
+    all_in, flourish = _all_in(room, actor, flourish)
+    if all_in and check.get("kind") != "check":
+        raise UserError(f"{label} 这一项不掷骰，孤注用不上。去掉“孤注”再选，或换一个要检定的选项。")
+    prepared = loadout.freeze(room, actor, names, check.get("attribute_ref") if check.get("kind") == "check" else None) if names else None
     action = choice["text"] + (f"（{flourish[:200]}）" if flourish else "")
     with app.store.read() as c:
         quota.require_round(app, c, room["umo"])
     await story_recap.before_action(app, caller, room["id"])
-    return await resolve(app, room["id"], turn["id"], action, intent_from_choice(choice), prepared=prepared, early=caller.send)
+    if rushing:
+        return await rush.submit(app, room, actor, turn, action, intent_from_choice(choice), prepared=prepared,
+                                 all_in=all_in, early=caller.send)
+    return await resolve(app, room["id"], turn["id"], action, intent_from_choice(choice), prepared=prepared, early=caller.send,
+                         all_in=all_in)
 
 
 async def act(app: "LiteApp", caller: Caller, args: str) -> Reply:
-    room, actor, turn = _my_turn(app, caller)
+    from . import rush
+    rushing = rush.my_round(app, caller)
+    room, actor, turn = rushing or _my_turn(app, caller)
     if shared.rules(room).get("action_mode") == "choice_only":
         raise UserError("本世界只接受选项行动：/团 选 A")
     text, names = loadout.split_marker(args)
+    all_in, text = _all_in(room, actor, text)
     if not 2 <= len(text) <= 500:
         raise UserError("写一句 2–500 字的行动描述，例如 /团 行动 推开音乐室的门看看。")
     prepared = loadout.freeze(room, actor, names) if names else None
@@ -814,10 +1283,51 @@ async def act(app: "LiteApp", caller: Caller, args: str) -> Reply:
         quota.require_round(app, c, room["umo"])        # before "正在结算" goes out
     await story_recap.before_action(app, caller, room["id"])
     await caller.send("正在结算……")
-    return await resolve(app, room["id"], turn["id"], text, None, prepared=prepared, early=caller.send)
+    if rushing:
+        return await rush.submit(app, room, actor, turn, text, None, prepared=prepared, all_in=all_in, early=caller.send)
+    return await resolve(app, room["id"], turn["id"], text, None, prepared=prepared, early=caller.send, all_in=all_in)
+
+
+ALL_IN_WORDS = ("[孤注一掷]", "【孤注一掷】", "[孤注]", "【孤注】", "孤注一掷", "孤注")
+
+
+def _all_in(room: sqlite3.Row, actor: sqlite3.Row, text: str) -> tuple[bool, str]:
+    """'孤注' at the start or end of the flourish (or [孤注] anywhere) stakes this check; once per act."""
+    text = text.strip()
+    for word in ALL_IN_WORDS:
+        if word.startswith(("[", "【")) and word in text:
+            text = text.replace(word, " ").strip()
+            break
+        if text == word or text.startswith(word + " ") or text.endswith(" " + word):
+            text = (text[len(word):] if text.startswith(word) else text[:-len(word)]).strip()
+            break
+    else:
+        return False, text
+    if loads(actor["data_json"], {}).get("all_in_act") == room["act"]:
+        raise UserError("这一幕你已经孤注过一次了，下一幕再来。")
+    return True, text
+
+
+async def all_in_help(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    """孤注 is a word added to a choice, not a command of its own: explain it and say whether it is still free."""
+    left = ""
+    try:
+        room = shared.require_room(app, caller, "running", "paused")
+        with app.store.read() as c:
+            actor = shared.actor_for(c, room["id"], caller.user_id)
+        if actor is not None:
+            used = loads(actor["data_json"], {}).get("all_in_act") == room["act"]
+            left = "这一幕你已经孤注过了，下一幕再来。" if used else "这一幕你还能孤注一次。"
+    except UserError:
+        pass
+    return Reply().say(messages.all_in_guide(left))
 
 
 async def skip(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    from . import rush
+    rushing = rush.my_round(app, caller)
+    if rushing:
+        return await rush.skip(app, *rushing)
     room, actor, turn = _my_turn(app, caller)
     return _advance_without_action(app, room, turn, f"{shared.actor_label(actor)} 跳过了本回合。")
 
@@ -825,13 +1335,39 @@ async def skip(app: "LiteApp", caller: Caller, args: str) -> Reply:
 def _advance_without_action(app: "LiteApp", room: sqlite3.Row, turn: sqlite3.Row, message: str) -> Reply:
     with app.store.tx() as c:
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        if loads(c.execute("SELECT data_json FROM turns WHERE id=?", (turn["id"],)).fetchone()["data_json"], {}).get("bets"):
+            message += "这一轮没有掷骰，竞猜作废。"
         c.execute("UPDATE turns SET state='skipped',updated_at=? WHERE id=?", (now(), turn["id"]))
         following, wrapped = next_actor(c, room["id"], actor)
         new = open_turn(app, c, room, following, loads(turn["choices_json"], []), turn["round"] + (1 if wrapped else 0))
         app.store.add_event(c, room["id"], "system", message, actor_id=actor["id"])
     reply = Reply().say(message)
     if new is not None:
-        reply.say(turn_prompt(room, new, following))
+        reply.say(turn_prompt(app, room, new, following))
+    return reply
+
+
+def _skip_narrator(app: "LiteApp", room: sqlite3.Row, turn: sqlite3.Row, kind: str) -> Reply:
+    """/团 主持 跳过 on a world-written passage that failed: the finale goes straight to the epilogues;
+    a push, pulse or host advance is dropped and the waiting player gets the last story's options back."""
+    with app.store.tx() as c:
+        c.execute("UPDATE turns SET state='skipped',updated_at=? WHERE id=?", (now(), turn["id"]))
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+        if kind == "finale":
+            app.store.add_event(c, room["id"], "host", "主持人跳过了终章，直接征集尾声")
+            return Reply().say(pacing.finale_skipped(c, room))
+        last = c.execute("SELECT * FROM turns WHERE room_id=? AND state='done' ORDER BY created_at DESC LIMIT 1",
+                         (room["id"],)).fetchone()
+        proposal = loads(last["narrative_json"], {}) if last is not None else {}
+        choices = make_choices(proposal.get("suggestions") or [], proposal.get("suggestion_checks"))
+        waiting = c.execute("SELECT * FROM actors WHERE id=?", (loads(turn["data_json"], {}).get("resume_actor") or turn["actor_id"],)).fetchone()
+        following, wrapped = (waiting, False) if waiting["presence"] == "present" and waiting["archetype_id"] else next_actor(c, room["id"], waiting)
+        new = open_turn(app, c, room, following, choices, turn["round"] + (1 if wrapped else 0)) if following is not None else None
+        label = {"pace_push": "世界推进", "world_pulse": "世界脉冲", "host_advance": "主持人推进"}.get(kind, "这段正文")
+        app.store.add_event(c, room["id"], "host", f"主持人跳过了没写出来的{label}")
+    reply = Reply().say(messages.notice(f"跳过了{label}", "这一段没写出来，故事接着上一段正文继续。"))
+    if new is not None:
+        reply.say(turn_prompt(app, room, new, following))
     return reply
 
 
@@ -847,10 +1383,13 @@ async def show_turn(app: "LiteApp", caller: Caller, args: str) -> Reply:
         actor = None if turn is None else c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
     if turn is None:
         return Reply().say("现在没有进行中的回合。")
+    if room["state"] == "paused":
+        # The choices come back when the story resumes; showing them now would invite a /团 选 that cannot work.
+        return Reply().say(shared.paused_step(room) + (f"开演后由 {shared.actor_label(actor)} 接着行动，选项会重新发出。" if actor else ""))
     if turn["state"] != "awaiting":
         return Reply().say({"resolving": f"{shared.actor_label(actor)} 的行动正在结算。",
-                            "review": "上一段正文正在等主持人审阅。"}.get(turn["state"], "上一回合的正文待主持人 /团 主持 重试。"))
-    return Reply().say(turn_prompt(room, turn, actor))
+                            "review": "上一段正文正在等主持人审阅。"}.get(turn["state"], "上一回合的正文没写出来，等主持人 /团 主持 重试；主持人 5 分钟没处理时，在座的玩家也可以 /团 重试。"))
+    return Reply().say(turn_prompt(app, room, turn, actor))
 
 
 async def order(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -873,8 +1412,11 @@ async def recap(app: "LiteApp", caller: Caller, args: str) -> Reply:
     if not rows:
         return Reply().say("还没有剧情可以回顾。")
     reply = Reply()
-    for row in reversed(rows):
-        reply.say(messages.narration(row["text"]))
+    for i, row in enumerate(reversed(rows), 1):
+        text = re.sub(r"(?<!\n)\n(?!\n)", "\n\n", row["text"])      # a scene line above its prose is its own paragraph
+        reply.say(messages.narration(text, f"剧情回顾 · 第 {i}/{len(rows)} 段"))
+    if len(rows) < 5:
+        reply.say("想看更早的，发送 /团 回顾 5（最多 5 段）。")
     return reply
 
 
@@ -905,10 +1447,12 @@ async def host_directive(app: "LiteApp", caller: Caller, args: str) -> Reply:
         current = hosted_data(room).get("directive")
         if not current:
             return Reply().say(messages.notice("现在没有主持人指引", "", "发送 /团 主持 指引 内容 记录一条，只有叙事模型会看到"))
-        return Reply().say(messages.notice("当前的主持人指引", current, "发送 /团 主持 指引 新内容 替换，/团 主持 指引 清除 取消"))
+        return Reply().say(messages.notice("当前的主持人指引", current, f"发送 {messages.cmd('/团 主持 指引 新内容')} 替换，"
+                                                                        f"{messages.cmd('/团 主持 指引 清除')} 取消"))
     with app.store.tx() as c:
         set_hosted_data(c, room["id"], directive="" if text == "清除" else text[:600])
-    return Reply().say(messages.notice("已清除主持人指引") if text == "清除" else messages.notice("已记录主持人指引", "之后的叙事会参考它，不会发到群里。", "发送 /团 主持 指引 清除 取消"))
+    return Reply().say(messages.notice("已清除主持人指引") if text == "清除" else messages.notice(
+        "已记录主持人指引", "之后的叙事会参考它，不会发到群里。", f"发送 {messages.cmd('/团 主持 指引 清除')} 取消"))
 
 
 async def host_time_limit(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -947,7 +1491,8 @@ async def host_advance(app: "LiteApp", caller: Caller, args: str) -> Reply:
     with app.store.read() as c:
         turn = current_turn(c, room["id"])
     if turn is None or turn["state"] != "awaiting":
-        raise UserError("当前回合正在结算或没有回合。")
+        raise UserError(shared.ending_step(room, "推进") or "当前回合正在结算或没有回合。")
+    economy.host_guard(room, "推进")
     action = "（主持人推进剧情）" + (args.strip()[:300] or "让局势自然发展一步")
     await caller.send("正在推进……")
     with app.store.tx() as c:
@@ -968,7 +1513,14 @@ async def host_skip(app: "LiteApp", caller: Caller, args: str) -> Reply:
     with app.store.read() as c:
         turn = current_turn(c, room["id"])
     if turn is None or turn["state"] not in ("awaiting", "narration_failed", "review"):
-        raise UserError("当前没有可以跳过的回合。")
+        raise UserError(shared.ending_step(room) or "当前没有可以跳过的回合。")
+    kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
+    if kind in NARRATOR_KINDS and turn["state"] != "awaiting":
+        return _skip_narrator(app, room, turn, kind)
+    from . import rush
+    if rush.is_round(turn) and turn["state"] == "awaiting":
+        async with app.lock(room["id"]):    # a rush round: stop waiting and write what came in
+            return Reply().say("主持人收了这一轮，没交的人旁观。").extend(await rush.close(app, room["id"], turn["id"]))
     return _advance_without_action(app, room, turn, "主持人跳过了当前回合。")
 
 
@@ -984,11 +1536,34 @@ async def host_choices(app: "LiteApp", caller: Caller, args: str) -> Reply:
         c.execute("UPDATE turns SET choices_json=?,updated_at=? WHERE id=?", (dumps(make_choices(texts, None)), now(), turn["id"]))
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
-    return Reply().say("主持人更新了选项。", turn_prompt(room, turn, actor))
+    return Reply().say("主持人更新了选项。", turn_prompt(app, room, turn, actor))
 
 
 async def host_retry(app: "LiteApp", caller: Caller, args: str) -> Reply:
-    room = _host_room(app, caller, "running")
+    return await _retry(app, caller, _host_room(app, caller, "running"))
+
+
+AUTO_RETRY_DELAY = 2.0
+PLAYER_RETRY_AFTER_MINUTES = 5
+
+
+async def player_retry(app: "LiteApp", caller: Caller, args: str) -> Reply:
+    """Any seated player may retry a failed narration once the host has had a few minutes to deal with it."""
+    room = shared.require_room(app, caller, "running")
+    if not shared.is_host(app, caller, room):
+        shared.require_actor(app, caller, room)
+        with app.store.read() as c:
+            turn = current_turn(c, room["id"])
+        if turn is not None and turn["state"] == "narration_failed":
+            waited = datetime.now(UTC) - datetime.fromisoformat(turn["updated_at"])
+            left = timedelta(minutes=PLAYER_RETRY_AFTER_MINUTES) - waited
+            if left > timedelta(0):
+                raise UserError(f"正文刚失败不久，先等主持人处理；{max(1, round(left.total_seconds() / 60))} 分钟后"
+                                "在座的玩家也可以发送 /团 重试。")
+    return await _retry(app, caller, room)
+
+
+async def _retry(app: "LiteApp", caller: Caller, room: sqlite3.Row) -> Reply:
     with app.store.tx() as c:
         turn = current_turn(c, room["id"])
         if turn is None or turn["state"] != "narration_failed":
@@ -1010,17 +1585,35 @@ async def host_next_act(app: "LiteApp", caller: Caller, args: str) -> Reply:
     improvised = None
     if preset and not any(a["number"] == target for a in preset):
         if not lifecycle.improvises(room):
-            raise UserError(f"本世界共 {len(preset)} 幕。")
+            raise UserError(f"本世界共 {len(preset)} 幕。故事走到这里，想收尾就发送 /团 主持 收尾 结局名。")
         if target < 1 or target > max(room["act"], len(preset)) + 1:
             raise UserError(f"下一幕是第 {max(room['act'], len(preset)) + 1} 幕。")
         # A Core edition stops at its first act; the host names each later act and the model improvises it.
         title, lead = split_title(named) if "：" in named or ":" in named else (named, "")
-        known = next((a for a in lifecycle.act_list(room) if a["number"] == target), None)
-        improvised = {"title": (title or (known or {}).get("title", ""))[:40], "lead": (lead or (known or {}).get("lead", ""))[:300]}
+        improvised = {"title": title[:40], "lead": lead[:300]}
+    return await change_act(app, room["id"], target, improvised)
+
+
+async def change_act(app: "LiteApp", room_id: str, target: int, improvised: dict[str, str] | None = None, *,
+                     prompt: bool = True) -> Reply:
+    """Open act 'target' (by the host, or by pacing once an act has run its rounds).
+
+    improvised: a Core-edition act past the preset ones; empty title and lead keep what the table named before.
+    prompt=False leaves the waiting turn's card to the caller.
+    """
     with app.store.tx() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        preset = shared.world(room).get("presentation", {}).get("acts") or []
+        if improvised is not None and any(a["number"] == target for a in preset):
+            improvised = None
+        if improvised is not None:
+            known = next((a for a in lifecycle.act_list(room) if a["number"] == target), None) or {}
+            improvised = {"title": (improvised.get("title") or known.get("title", ""))[:40],
+                          "lead": (improvised.get("lead") or known.get("lead", ""))[:300]}
         from ..fun.report import act_recap, favourite_line, favourites
         best = favourite_line(favourites(c, room["id"], room["act"])) if target != room["act"] else ""
         recap = act_recap(c, room["id"]) if target != room["act"] else None
+        changed = target != room["act"]
         c.execute("UPDATE rooms SET act=?,chapter=chapter+1 WHERE id=?", (target, room["id"]))
         if improvised is not None:
             extra = hosted_data(room).get("acts") or {}
@@ -1030,17 +1623,23 @@ async def host_next_act(app: "LiteApp", caller: Caller, args: str) -> Reply:
         heading = lifecycle.act_heading(room) or f"第 {target} 幕"
         app.store.add_event(c, room["id"], "chapter", heading.replace("\n", "——"))
         set_hosted_data(c, room["id"], shown_act=target)
+        pacing.act_changed(c, c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone())
         refilled = loadout.refill(c, room, "scene")
+        wage, paid = economy.pay_wage(c, room) if changed else (0, [])
         turn = current_turn(c, room["id"])
         holder = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone() \
-            if turn is not None and turn["state"] == "awaiting" and turn["actor_id"] else None
+            if prompt and turn is not None and turn["state"] == "awaiting" and turn["actor_id"] else None
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
     act = next((a for a in lifecycle.act_list(room) if a["number"] == target), {"title": "", "lead": ""})
-    reply = Reply().say(messages.act_card(room["title"], target, act["title"] or f"第 {target} 幕", act["lead"],
-                                          world=room["world_id"], total=lifecycle.acts_total(room), best=best, recap=recap))
+    from ..worlds import scenes
+    reply = Reply().say(scenes.bind(messages.act_card(room["title"], target, act["title"] or f"第 {target} 幕", act["lead"],
+                                          world=room["world_id"], total=lifecycle.acts_total(room), best=best, recap=recap), room, f"act:{target}"))
     if refilled:
         reply.say(f"新的一幕：按“每幕恢复”的技能与物品次数已恢复（{refilled} 名角色）。")
+    if wage:
+        reply.say(messages.wage_card(wage, economy.of_room(room)["currency"], paid))
     if holder is not None and room["state"] == "running":
-        reply.say(turn_prompt(room, turn, holder))
+        reply.say(turn_prompt(app, room, turn, holder))
     return reply
 
 
@@ -1050,7 +1649,7 @@ async def host_turn_to(app: "LiteApp", caller: Caller, args: str) -> Reply:
     with app.store.tx() as c:
         turn = current_turn(c, room["id"])
         if turn is None or turn["state"] != "awaiting":
-            raise UserError("现在没有等待行动的回合。")
+            raise UserError(shared.ending_step(room, "交接回合") or "现在没有等待行动的回合。")
         target = shared.find_actor(c, room["id"], token, caller.mentions)
         if target["presence"] != "present" or not target["archetype_id"]:
             raise UserError(f"{shared.actor_label(target)} 现在不能行动（暂离或还没建卡）。")
@@ -1058,7 +1657,7 @@ async def host_turn_to(app: "LiteApp", caller: Caller, args: str) -> Reply:
             raise UserError(f"现在就是 {shared.actor_label(target)} 的回合。")
         new = open_turn(app, c, room, target, loads(turn["choices_json"], []), turn["round"])
         app.store.add_event(c, room["id"], "system", f"主持人把回合交给 {shared.actor_label(target)}", actor_id=target["id"])
-    return Reply().say(f"主持人把这一回合交给了 {shared.actor_label(target)}。", turn_prompt(room, new, target))
+    return Reply().say(f"主持人把这一回合交给了 {shared.actor_label(target)}。", turn_prompt(app, room, new, target))
 
 
 async def host_rewind(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -1072,12 +1671,14 @@ async def host_rewind(app: "LiteApp", caller: Caller, args: str) -> Reply:
                                  (room["id"], lifecycle.AUTO_SAVE)).fetchone()
             if snapshot is None:
                 raise UserError("没有可以回退的行动。每次行动结算前会自动留一份记录，最多保留最近 5 步。")
-            lifecycle.restore_snapshot(c, room["id"], loads(snapshot["data_json"]))
+            before_finale = lifecycle.restore_snapshot(c, room["id"], loads(snapshot["data_json"]))
             c.execute("DELETE FROM saves WHERE id=?", (snapshot["id"],))
             if room["state"] == "running":
                 c.execute("UPDATE rooms SET state='running' WHERE id=?", (room["id"],))
             restored = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
             turn = current_turn(c, room["id"])
+            if turn is None and restored["state"] == "running":
+                turn = reopen_turn(app, c, restored)    # saved between a story and the turn after it
             holder = None
             if turn is not None and turn["state"] == "awaiting":
                 c.execute("UPDATE turns SET deadline_at=?,data_json=?,updated_at=? WHERE id=?",
@@ -1090,10 +1691,12 @@ async def host_rewind(app: "LiteApp", caller: Caller, args: str) -> Reply:
             app.store.audit(c, caller.user_id, "room.rewind", room["id"], {"to": snapshot["name"]})
             app.store.bump_room(c, room["id"])
     reply = Reply().say(messages.notice(f"已回退到「{snapshot['name']}」",
-                                        "这一步的骰子、资源变化、正文和玩法记录都已撤回。" + (f"还可以再回退 {left} 步。" if left else "这是能回退的最早一步。"),
-                                        "" if restored["state"] == "running" else "故事处于暂停状态，主持人发送 /团 恢复 打开准备大厅"))
+                                        "这一步的骰子、资源变化、正文和玩法记录都已撤回。" + (f"还可以再回退 {left} 步。" if left else "这是能回退的最早一步。")
+                                        + ("终章撤回了，故事回到收尾的最后一轮：这一轮走完会自动写终章。" if before_finale else ""),
+                                        ("想现在就写终章，发送 /团 主持 收尾 终章" if before_finale else "")
+                                        if restored["state"] == "running" else "故事处于暂停状态，主持人发送 /团 恢复 打开准备大厅"))
     if holder is not None and restored["state"] == "running":
-        reply.say(turn_prompt(restored, turn, holder))
+        reply.say(turn_prompt(app, restored, turn, holder))
     return reply
 
 
@@ -1164,6 +1767,7 @@ async def host_improv(app: "LiteApp", caller: Caller, args: str) -> Reply:
 async def host_check(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = _host_room(app, caller)
     rules = shared.rules(room)
+    economy.host_guard(room, "要求检定")
     token, rest = shared.split_target(args, caller)
     words = rest.split()
     usage = ("写法：/团 主持 检定 角色 属性 难度 [受伤] [理由]。属性：" + "、".join(rules["attributes"].values())
@@ -1183,13 +1787,15 @@ async def host_check(app: "LiteApp", caller: Caller, args: str) -> Reply:
         mod = rules["modifier"]
         score = loads(actor["attributes_json"], {}).get(attribute, mod["baseline"])
         base = (score - mod["baseline"]) // mod["divisor"]
+        trait = trait_bonus(room, actor, attribute, difficulty)
+        base += trait["bonus"] if trait else 0
         roll = roll_check(base, rules["difficulties"][difficulty])
         outcome = "critical" if roll.critical else "fumble" if roll.fumble else "success" if roll.success else "failure"
         names = {r["id"]: r["name"] for r in shared.world(room)["pack"]["resources"]}
         receipt = {"kind": "check", "attribute_ref": attribute, "attribute": rules["attributes"][attribute], "difficulty": difficulty,
                    "dc": roll.dc, "face": roll.face, "modifier": base, "total": roll.total, "outcome": outcome, "success": roll.success,
                    "resource_changes": {}, "resources_after": {names.get(k, k): v["current"] for k, v in loads(actor["resources_json"], {}).items()},
-                   "host_check": True}
+                   "host_check": True, **({"trait": trait} if trait else {})}
         label = shared.actor_label(actor)
         app.store.add_event(c, room["id"], "check", f"{label} 【主持检定】{receipt_text(receipt).removeprefix('【检定】')}"
                             + (f"（{reason}）" if reason else ""), actor_id=actor["id"], data=receipt)
@@ -1274,9 +1880,13 @@ async def host_rewrite(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 def install(app: "LiteApp") -> None:
     r = app.router
-    r.register(("选", "选择"), choose, summary="选择本轮选项", usage="/团 选 A [补充演绎]", topic="行动", private="room")
-    r.register("行动", act, summary="自由描述行动", usage="/团 行动 <描述>", topic="行动", private="room")
+    r.register(("选", "选择"), choose, summary="选择本轮选项（也可以简写成 /团 A）",
+               usage="/团 选 A [补充演绎] [用 名称] [孤注]", topic="行动", private="room")
+    r.register("行动", act, summary="自由描述行动", usage="/团 行动 <描述> [用 名称] [孤注]", topic="行动", private="room")
+    r.register(("孤注", "孤注一掷"), all_in_help, summary="押上这次检定：成功按大成功写，失败必定受伤，每幕一次",
+               usage="/团 选 A 孤注｜/团 行动 做法 [孤注]", topic="互动", private="self")
     r.register("跳过", skip, summary="跳过自己的回合", topic="行动", private="room")
+    r.register("重试", player_retry, summary="正文生成失败、主持人 5 分钟没处理时重新生成", topic="行动", private="room")
     r.register(("回合", "倒计时"), show_turn, summary="查看当前回合与选项", topic="行动", private="self")
     r.register(("顺序", "轮次"), order, summary="查看行动顺序", topic="行动", private="self")
     r.register("回顾", recap, summary="回顾最近剧情", usage="/团 回顾 [1-5]", topic="行动", private="self")
@@ -1311,3 +1921,4 @@ def install(app: "LiteApp") -> None:
     app.hooks.on("story_completed", bind(on_story_completed))
     app.hooks.on("status_lines", bind(on_status))
     app.hooks.on("tick", bind(on_tick))
+    pacing.install(app)

@@ -2,8 +2,9 @@ import { PLAY_GROUPS, dot, esc, figure, hero, icon, roundIcon, section, shares }
 
 const ICONS = { playActions: "feather", playCollaboration: "vote", playInvestigation: "search", playTestimony: "quote", playNegotiation: "scroll", playRelations: "users",
   playCalendar: "clock", playProjects: "grid", playConflict: "bolt", playChase: "activity", playDebate: "message", playPlans: "map", playOracle: "eye",
-  playFortune: "dice", playTransformation: "wand", playBranchEndings: "flag",
-  funDaily: "sun", funDice: "dice", funReport: "heart", funSchedule: "hourglass", funRelay: "pen", funLuck: "activity", funQuotes: "quote", funSoup: "message" };
+  playFortune: "dice", playTransformation: "wand", playBranchEndings: "flag", playAiBuild: "pen",
+  funDaily: "sun", funDice: "dice", funReport: "heart", funSchedule: "hourglass", funRelay: "pen", funLuck: "activity", funQuotes: "quote", funSoup: "message",
+  funAdventure: "compass" };
 const NOTE = { deferred: "本期不开放", removed: "由世界物品与资源承担" };
 
 export async function render(root, ctx) {

@@ -7,6 +7,7 @@ A world folder holds (see worlds/_template and docs/WORLD_PACK_SPEC.md):
 
     pack.json           321roll.world-template/1
     presentation.json   acts, places, endings and cover (optional)
+    extensions.json     narration defaults and optional scene_variants (optional)
     images/             cover.<ext> plus one file per image key (optional; webp, png or jpg)
 
 An act, place or ending without an "image" key uses act-<number>, place-<entry> or
@@ -31,6 +32,7 @@ from typing import Any
 from ..version import PLUGIN_VERSION
 from .catalog import COVER_TONES, WorldInvalid, validate_presentation, validate_world
 from .package import INDEX_FORMAT, PackageInvalid, build_package, read_package, sha256, summary
+from . import scenes
 
 ROOT = Path(__file__).resolve().parents[2]
 WIDTH, QUALITY = 1280, 82
@@ -102,6 +104,7 @@ def build(folder: Path, out: Path, *, images: Path | None = None, cover: dict[st
 
     pack = _read(folder / "pack.json", True)
     presentation = _read(folder / "presentation.json", False) or {}
+    extensions = _read(folder / "extensions.json", False)
     images = images or folder / "images"
     try:
         pack = validate_world(pack)
@@ -114,8 +117,13 @@ def build(folder: Path, out: Path, *, images: Path | None = None, cover: dict[st
     cover = cover or clean.get("cover") or {"mark": pack["title"].strip()[0], "tone": COVER_TONES[sum(map(ord, pack["id"])) % len(COVER_TONES)]}
     world_id, revision = pack["id"], pack["revision"]
     scene_images: list[tuple[str, bytes]] = []
+    try:
+        scenes.validate(extensions, presentation, {p.stem for p in images.iterdir()
+                                                  if p.suffix.lower() in EXTENSIONS} if images.is_dir() else set())
+    except ValueError as exc:
+        raise BuildError(str(exc)) from exc
     if images.is_dir():
-        keys = image_keys(presentation)
+        keys = list(dict.fromkeys([*image_keys(presentation), *scenes.image_keys(extensions)]))
         for key in keys:
             source = find_image(images, key)
             if source is None:
@@ -125,7 +133,8 @@ def build(folder: Path, out: Path, *, images: Path | None = None, cover: dict[st
         if unused:
             print(f"提示：{images.name}/ 里有没用到的图片：{'、'.join(unused)}")
     try:
-        data = build_package(pack, presentation, cover=cover, images=scene_images, aliases=presentation.get("shared") or {})
+        data = build_package(pack, presentation, cover=cover, images=scene_images, aliases=presentation.get("shared") or {},
+                             extensions=extensions)
         read_package(data)
     except PackageInvalid as exc:
         raise BuildError(str(exc)) from exc

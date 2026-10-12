@@ -58,5 +58,11 @@
     "type": "int",
     "default": 8,
     "hint": "文字群聊人数过多会让轮转变慢。"
+  },
+  "bare_letter_choice": {
+    "description": "轮到自己时只发字母也算选择",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后，轮到某位玩家行动时，他在群里只发一个 A、B、C 或 D 就等于 /团 选。只认当前行动者，其他人发字母照常聊天。"
   }
 }

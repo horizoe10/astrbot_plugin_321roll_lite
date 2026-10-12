@@ -385,5 +385,33 @@
       "harbor-office",
       "goal-light"
     ]
+  },
+  "creation": {
+    "modes": ["quick", "custom", "forge"],
+    "move": 4,
+    "swap": 1,
+    "origins": [
+      {"name": "雾港本地人", "text": "在码头长大，认得每一条船", "item": "hemp-rope"},
+      {"name": "过路的外乡人", "text": "搭最后一班船来，雾一起就走不了了"},
+      {"name": "港务所的人", "text": "吃公家饭，知道告示背后的规矩"}
+    ],
+    "questions": ["你为什么在今夜来到雾港？", "你欠谁一个人情？", "你最怕什么？"],
+    "kits": [
+      {"name": "守夜包", "text": "灯和热汤，够熬一整夜", "items": {"storm-lantern": 1, "ginger-soup": 2}},
+      {"name": "攀索包", "text": "上灯塔、下码头都用得着", "items": {"hemp-rope": 2, "storm-lantern": 1}}
+    ],
+    "details": [
+      {"name": "信仰", "text": "雾港人多少都信点什么", "modes": ["custom", "forge"],
+       "options": [{"name": "灯塔娘娘", "text": "渔家供的海神，灯灭时要磕头"}, {"name": "港务所告示", "text": "只信白纸黑字"}, {"name": "什么都不信"}]},
+      {"name": "口头禅", "text": "一句别人一听就知道是你的话"}
+    ],
+    "traits": [
+      {"name": "临危不乱", "text": "越危险越冷静，平时反倒丢三落四", "modes": ["custom", "forge"],
+       "up": {"when": "hard", "value": 1}, "down": {"when": "easy", "attribute": "perception", "value": 1}},
+      {"name": "孤狼", "text": "一个人办事最利索，有人帮忙反而碍手",
+       "up": {"when": "alone", "attribute": "agility", "value": 1}, "down": {"when": "helped", "value": 1}},
+      {"name": "硬骨头", "text": "受了伤才咬得住牙，可一冲动就爱孤注一掷",
+       "up": {"when": "hurt", "attribute": "body", "value": 2}, "down": {"when": "allIn", "value": 2}}
+    ]
   }
 }

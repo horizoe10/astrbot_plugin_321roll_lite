@@ -29,7 +29,8 @@ def _turn() -> list[tuple[str, str, Any]]:
         {"label": "A", "text": "撕下最后一页，带去钟楼对照", "tag": "观察·标准", "chance": 70},
         {"label": "B", "text": "沿着墨迹的方向检查地板", "tag": "敏捷·困难·失败受伤", "chance": 35},
         {"label": "C", "text": "先退回走廊，和同伴汇合", "tag": "休整"},
-    ], "mixed", 5, loadout=["细节回溯 观察 +2 · 剩 1 次", "手电 ×1"])
+    ], "mixed", 5, loadout=["细节回溯 观察 +2 · 剩 1 次", "手电 ×1"],
+        others=messages.others_guide("林晓", crew=True, seats=1))
     return [("status", "个人状态", status), ("narration", "故事正文", story), ("choices", "行动选项", choices)]
 
 
@@ -70,8 +71,200 @@ def _others() -> list[tuple[str, str, Any]]:
                                   npcs=[{"name": "值班老师", "standing": 1, "tier": "友善"}, {"name": "钟楼里的人", "standing": -2, "tier": "戒备"},
                                         {"name": "宿管阿姨", "standing": 0, "tier": "中立"}])
     return [("narration", "开场 · 场景卡", opening), ("choices", "集体表决", vote), ("sheet", "角色卡", card),
-            ("receipt", "玩法回执", receipt), ("room", "/团 状态", status), *_moments(), *_queries(), *_daily(), *_fun(),
-            *_pastimes(), *_personas()]
+            ("receipt", "玩法回执", receipt), ("room", "/团 状态", status), *_moments(),
+            ("receipt", "开团 · 入座指南", messages.table_guide(WORLD, 2, 4)), *_queries(), *_daily(), *_fun(),
+            *_pastimes(), *_adventure(), *_banter(), *_ties(), *_economy(), *_pacing(), *_personas(), *_building()]
+
+
+def _building() -> list[tuple[str, str, Any]]:
+    """/团 建卡: the three depths, a 定制 draft mid-way and an AI 精雕 draft at its last step."""
+    rows = [{"key": "quick", "label": "快选", "desc": "挑一个职业就上桌，属性和技能按职业来", "steps": "1 条指令", "time": "30 秒",
+             "cmd": "/团 建卡 快选", "closed": ""},
+            {"key": "custom", "label": "定制", "steps": "约 7 步", "time": "2–3 分钟", "cmd": "/团 建卡 定制", "closed": "",
+             "desc": "在职业上挪最多 4 点属性、换 1 项技能，选出身、多带一件东西、写一句来历"},
+            {"key": "forge", "label": "精雕", "steps": "约 10 步", "time": "5–10 分钟", "cmd": "/团 建卡 精雕", "closed": "",
+             "desc": "属性同定制，技能从 12 项里任选 2 项，加上装备、背景三问和开局关系"}]
+    modes = messages.build_modes({"kind": "build_modes", "world": "灰冠之下：祖约", "facts": "5 项属性 6–16，合计 55；技能每人 2 项",
+                                  "rows": rows, "ai": {"open": True, "left": 4, "per_day": 5}, "private": True})
+    attrs = [("力量", 10, 0), ("灵巧", 14, 0), ("感知", 8, 0), ("学识", 15, -2), ("魅力", 8, 2)]
+    labels = ["职业", "名字", "属性", "技能", "出身", "随身物品", "背景"]
+    custom = {"kind": "build_draft", "mode": "custom", "mode_label": "定制", "world": "灰冠之下：祖约",
+              "steps": [{"key": str(i), "label": l, "state": "done" if i < 3 else "now" if i == 3 else "todo"} for i, l in enumerate(labels)],
+              "position": 4, "total": 7, "archetype": "机工", "name": "老秦", "look": "",
+              "attributes": [{"name": n, "base": v, "delta": d, "value": v + d, "min": 6, "max": 16} for n, v, d in attrs],
+              "moved": 2, "move_limit": 4, "skills": [{"name": "火泵", "new": False}, {"name": "临时改装", "new": False}],
+              "origin": "", "items": [], "kit": "", "answers": [], "relation": "", "relation_kind": "", "ai": None, "notes": [],
+              "question": {"key": "skills", "label": "技能", "title": "换一项技能", "skip": True, "example": "/团 建卡 讨价还价 换 火泵",
+                           "text": "用技能池里的一项换掉职业自带的一项，最多换 1 项。写法：池子里的技能 换 自带的技能。",
+                           "options": [{"name": n, "note": t, "on": n in ("火泵", "临时改装")} for n, t in (
+                               ("明守", "正面挡住冲击"), ("火泵", "压住火势与毒烟"), ("临时改装", "现场拼出能用的工具"), ("讨价还价", "让对方松口"),
+                               ("救治", "止血、包扎、稳住伤势"), ("航测", "在地脉里找路"))]},
+              "ready": True}
+    forge = {**custom, "mode": "forge", "mode_label": "精雕", "head": "AI 起草的角色", "position": 10, "total": 10,
+             "steps": [{"key": str(i), "label": l, "state": "done" if i < 9 else "now"} for i, l in
+                       enumerate(["职业", "名字", "属性", "技能", "出身", "装备包", "背景", "背景", "背景", "开局关系"])],
+             "look": "嘴硬心软，袖口总沾着机油", "skills": [{"name": "临时改装", "new": False}, {"name": "救治", "new": True}],
+             "origin": "〔灰脊山脉〕", "kit": "矿工包", "items": ["『矿灯』×1", "『绷带卷』×2"],
+             "answers": [{"q": "你为什么会来到祖约？", "a": "替死在矿下的徒弟讨个说法"}, {"q": "你欠谁一个人情？", "a": "欠了戍卫队长一条命"},
+                         {"q": "你最怕什么？", "a": "再听见塌方前那声闷响"}],
+             "ai": {"understood": "嘴硬心软、会修机器的老兵 → 机工，技能换入救治", "notes": ["属性调整要加减相等、合计不超过 4 点，已收拢为 ±2"],
+                    "left": 5, "request": "嘴硬心软、会修机器的老兵"},
+             "question": {"key": "relation", "label": "开局关系", "title": "开局关系", "skip": True, "example": "/团 建卡 1 发小，欠他一条命",
+                          "text": "和同桌的人定一层关系（确认后发出羁绊邀请，对方同意才生效），或者认一位旧识。",
+                          "options": [{"name": "林晓", "note": "同桌，确认后发出羁绊邀请"}, {"name": "萨琳", "note": "旧识，只写进故事"}]}}
+    return [("sheet", "/团 建卡", modes), ("sheet", "建卡 · 定制中", messages.build_draft(custom)),
+            ("sheet", "建卡 · AI 起草", messages.build_draft(forge))]
+
+
+def _ties() -> list[tuple[str, str, Any]]:
+    """闪回, 羁绊 and 竞猜 cards."""
+    cast = [{"id": "a1", "name": "林晓", "role": "侦探"}, {"id": "a2", "name": "陈默", "role": "校工"},
+            {"id": "a3", "name": "苏晴", "role": "学生会长"}, {"id": "a4", "name": "周野", "role": "转学生"}]
+    bond = lambda a, b, text: {"a": a["name"], "b": b["name"], "a_id": a["id"], "b_id": b["id"], "text": text}
+    bonds = [bond(cast[0], cast[1], "发小，欠他一条命"), bond(cast[2], cast[0], "互相看不顺眼的同桌"),
+             bond(cast[3], cast[1], "替他瞒着一个秘密")]
+    status = messages.action_status(
+        "林晓", "侦探", 5, "我想起花盆底下的备用钥匙，和陈默一起撞开钟楼的门。",
+        {"kind": "check", "attribute": "敏捷", "difficulty": "hard", "dc": 15, "face": 11, "modifier": 6, "total": 17,
+         "outcome": "success", "success": True, "aid": {"name": "陈默", "bonus": 3, "bond": "发小，欠他一条命", "changes": {}},
+         "flashback": {"text": "我早就把备用钥匙藏在值班室的花盆底下", "bonus": 2},
+         "wager": {"outcome": "success", "right": ["猫猫", "阿丁"], "wrong": ["老丹"]}},
+        [("体力", 4, 5, None), ("理智", 2, 5, -1)])
+    seers = [{"name": "猫猫", "right": 4, "total": 5}, {"name": "阿丁", "right": 3, "total": 5}, {"name": "老丹", "right": 1, "total": 4}]
+    return [
+        ("receipt", "/团 闪回", messages.flashback_told("林晓", "我早就把备用钥匙藏在值班室的花盆底下", "理智", -1, 2, 5, 2)),
+        ("receipt", "/团 闪回 · 说明", messages.flashback_guide("这一幕你还能闪回一次。")),
+        ("receipt", "/团 羁绊 · 提出", messages.bond_proposed("林晓", "陈默", "发小，欠他一条命", "10002", "阿野")),
+        ("receipt", "/团 羁绊 同意", messages.bond_formed("林晓", "陈默", "发小，欠他一条命", 3)),
+        ("receipt", "/团 羁绊 · 关系图", messages.bond_map(cast, bonds[:2], [bonds[2]])),
+        ("moment", "终章 · 人物关系", messages.bond_map(cast, bonds, [], finale=True)),
+        ("receipt", "/团 押", messages.wager_board("林晓", 5, [{"name": "猫猫", "pick": "success"}, {"name": "阿丁", "pick": "success"},
+                                                          {"name": "老丹", "pick": "failure"}], seers, note="老丹 押 林晓 检定失败")),
+        ("status", "个人状态 · 闪回、羁绊援手与竞猜", status),
+    ]
+
+
+def _economy() -> list[tuple[str, str, Any]]:
+    """整备、商店、买卖、转交与故事得失."""
+    ware = lambda name, price, owned=0, text="": {"name": name, "price": price, "sell": price // 2, "text": text, "owned": owned}
+    shops = [{"name": "卡隆商行", "kind": "杂货", "text": "门口挂着冬粮价目，掌柜正往账本上记赊欠。", "place": "", "open": True,
+              "wares": [ware("麦饼", 2, 3, "一块顶半天"), ware("绷带卷", 4, 1), ware("矿灯油", 3), ware("火绒盒", 5)]},
+             {"name": "老铁匠铺", "kind": "武器", "text": "", "place": "锻铁街", "open": False,
+              "wares": [ware("短柄镐", 12), ware("铁皮护臂", 15)]}]
+    members = [{"name": "诺安", "done": True}, {"name": "萨琳", "done": False}, {"name": "李逍遥", "done": True}]
+    rows = [{"name": "诺安", "bought": ["麦饼×2", "绷带卷×1"], "sold": [], "shops": ["卡隆商行"], "spent": 8, "earned": 0, "after": 17,
+             "done": True},
+            {"name": "萨琳", "bought": ["矿灯油×1"], "sold": ["短柄镐×1"], "shops": ["卡隆商行"], "spent": 3, "earned": 6, "after": 31,
+             "done": True},
+            {"name": "李逍遥", "bought": [], "sold": [], "shops": [], "spent": 0, "earned": 0, "after": 12, "done": True}]
+    ledger = [{"who": "诺安", "kind": "money", "name": "铜轮", "delta": 6, "reason": "替泵房修好了阀门，工头当场结了工钱", "after": 23},
+              {"who": "萨琳", "kind": "item", "name": "绷带卷", "delta": -1, "reason": "给受伤的矿工包扎", "after": 0}]
+    return [
+        ("receipt", "/团 商店", messages.shop_card(shops, "铜轮", 25, place="卡隆镇 · 傍晚", outfit=True, sell=50, single=False)),
+        ("receipt", "/团 主持 整备", messages.outfit_card("整备开始", "卡隆镇 · 傍晚", ["卡隆商行"], members, 3, "铜轮")),
+        ("receipt", "/团 买", messages.trade_card("buy", "诺安", "卡隆商行", "麦饼", 2, -4, 21, "铜轮", held=5)),
+        ("receipt", "/团 给", messages.gift_card("萨琳", "诺安", "5 铜轮", 26, "铜轮")),
+        ("receipt", "整备汇总", messages.outfit_summary(rows, "铜轮", "卡隆镇 · 傍晚", "全员整备好了", ["萨琳 → 诺安：5 铜轮"])),
+        ("receipt", "故事里的得失", messages.ledger_card(ledger, "铜轮")),
+        ("receipt", "走进有店的地点", messages.shops_nearby(["卡隆商行", "老铁匠铺"], "卡隆镇 · 傍晚")),
+        ("receipt", "新的一幕 · 工钱", messages.wage_card(4, "铜轮", [{"name": "诺安", "after": 27}, {"name": "萨琳", "after": 35}])),
+        ("receipt", "/团 主持 记账", messages.ledger_draft(["诺安 铜轮 +6　替泵房修好了阀门", "萨琳 绷带卷 -1　给受伤的矿工包扎"],
+                                                      "李逍遥 铜轮 +20　捡到一袋钱")),
+    ]
+
+
+def _pacing() -> list[tuple[str, str, Any]]:
+    """节奏、换幕提议、收尾表决、世界推进与尾声."""
+    view = {"scene": {"done": 5, "limit": 4, "title": "钟楼下的走廊"}, "act": {"done": 7, "limit": 8, "number": 2, "title": "倒走的钟",
+            "last": False}, "story": {"done": 13, "target": 32, "hard": 48}, "grace": 2, "ending": True, "preset": "标准", "off": False,
+            "source": "世界设置", "own": {}, "state": {"label": "局势在酝酿", "detail": "这个场景已经 5 轮，正文会让局面变化；1 轮后世界会自己推进"},
+            "offer": None, "closing": None, "epilogue": None}
+    choices = [{"label": "A", "text": "钟声归位——把钟楼还给夜晚", "tag": "", "chance": None, "closing": "钟声归位"},
+               {"label": "B", "text": "追上楼梯口的人影", "tag": "敏捷·困难", "chance": 45},
+               {"label": "C", "text": "翻看值班室的登记簿", "tag": "观察·简单", "chance": 75},
+               {"label": "D", "text": "叫醒宿管阿姨", "tag": "", "chance": None}]
+    return [
+        ("receipt", "/团 节奏", messages.pace_card(view, True)),
+        ("choices", "收尾提议期间的行动卡", messages.turn_prompt("林晓", "林晓", "u1", 14, choices, "hybrid", 5,
+                                                         pace=("收尾提议", "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩"))),
+        ("receipt", "/团 节奏 · 玩家看到的表决提示", messages.pace_card({**view, "stage": "offer", "state": {
+            "label": "收尾提议", "detail": "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩；2 轮内没过半就继续冒险"}}, False)),
+        ("receipt", "本幕将尽", messages.act_offer(3, "空着的座位", "第三排最左边的位子，一直没人坐。", 2, 8, False)),
+        ("receipt", "本幕将尽 · 核心版待命名", messages.act_offer(2, "", "", 2, 8, True)),
+        ("receipt", "收尾提议", messages.closing_offer("钟声归位", "有人选了收束选项", "option", ["林晓"], ["陈默"], ["苏晴"], 2, 2)),
+        ("receipt", "继续冒险", messages.closing_kept("钟声归位", ["陈默", "苏晴"])),
+        ("receipt", "继续冒险 · 表决到期", messages.closing_kept("钟声归位", [], expired=True)),
+        ("receipt", "进入收尾", messages.closing_start("钟声归位", 2, False, "有人选了收束选项")),
+        ("receipt", "世界推进", messages.world_push(6, "钟楼下的走廊", "陈默")),
+        ("receipt", "世界推进 · 快团", messages.world_push(6, "钟楼下的走廊", "全队", rush=True)),
+        ("receipt", "尾声", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。"),
+                                                           ("陈默", "他把那张照片夹进了校刊的样稿里。")], ["苏晴"], 4)),
+        ("receipt", "尾声 · 跳过终章", messages.epilogue_call("钟声归位", [], ["林晓", "陈默", "苏晴"], 5,
+                                                             "终章没写出来，主持人跳过了它：故事停在上一段正文，直接写尾声。")),
+        ("receipt", "尾声 · 暂停后继续", messages.epilogue_call("钟声归位", [("林晓", "她把钟楼的门锁好，第二天照常去上早自习。")],
+                                                              ["陈默"], 2, "故事回来了，接着写尾声：计时从暂停的地方继续。")),
+        ("choices", "快团 · 收尾提议期间", messages.rush_prompt(9, choices[:3], 3, "hybrid",
+                                                         [("林晓", "小林", "u1", True), ("陈默", "阿野", "u2", False)],
+                                                         pace=("收尾提议", "要不要给「钟声归位」收尾？在座的人发送 /团 收尾 同意 或 /团 收尾 再玩"))),
+        ("receipt", "/团 X · 尾声阶段", messages.xcard_raised("epilogue")),
+    ]
+
+def _adventure() -> list[tuple[str, str, Any]]:
+    steps = [("穿过倒塌的石门", "力量", "hard", 15, 0, 30), ("沿溪水绕行", "感知", "easy", 8, 1, 70), ("摇灯呼喊", "魅力", "standard", 12, -1, 40)]
+    options = [{"label": "ABC"[i], "text": t, "tag": f"{a}·{messages.DIFFICULTY[d]}", "chance": ch} for i, (t, a, d, dc, m, ch) in enumerate(steps)]
+    roll = lambda step, label, text, face, mod, dc, ok, outcome, crit=False, fumble=False: {
+        "step": step, "label": label, "text": text, "attr": "感知", "difficulty": "简单", "face": face, "modifier": mod, "total": face + mod,
+        "dc": dc, "ok": ok, "crit": crit, "fumble": fumble, "outcome": outcome}
+    results = [roll(1, "B", "沿溪水绕行", 14, 1, 8, True, "溪水边你找到守夜人掉落的铜铃，铃舌上缠着一缕红线。"),
+               roll(2, "A", "推开倒塌的石门", 6, 0, 15, False, "石块滚下来擦伤了你的手臂，门后的脚印却更清楚了。"),
+               roll(3, "C", "摇灯呼喊", 20, -1, 12, True, "雾里有人回应了你的呼喊，守夜人从石碑后探出头来。", crit=True)]
+    base = {"title": "雾中的铃", "world": "灰冠之下", "world_id": "greycrown-prequel", "hero": "小林", "role": "戍卫",
+            "hook": "你被派去山门外找回失踪的守夜人，只带着一盏风灯。雾越来越浓，远处传来一阵铃声，像是有人在为你引路。",
+            "total": 3, "options": options}
+    first = messages.adventure_stage({**base, "step": 0, "scene": "雾里有两条路：一条沿着溪水，一条穿过倒塌的石门。铃声似乎从石门那边来。",
+                                      "results": []}, fresh=True)
+    middle = messages.adventure_stage({**base, "step": 1, "scene": "脚印在一块刻满祖约的石碑前断了。石碑背后有人在喘气，风灯照不过去。",
+                                       "results": results[:1]})
+    end = messages.adventure_end({**base, "step": 3, "scene": "", "options": [], "results": results, "wins": 2, "tier": "凯旋",
+                                  "ending": "你把守夜人带回了山门。他一路上什么也没说，只在进门前把那缕红线塞进了你手里。"})
+    return [("daily", "/团 冒险", first), ("daily", "/团 冒险 A", middle), ("daily", "/团 冒险 · 结束", end)]
+
+
+def _banter() -> list[tuple[str, str, Any]]:
+    """台词, 起哄, 援手, 密信, X 卡 and 快团 cards."""
+    party = [("林晓", "小林", "10001", True), ("陈默", "阿野", "10002", False), ("苏晴", "猫猫", "10003", True)]
+    board = [(name, done) for name, _, _, done in party]
+    note = "值班老师在撒谎。他袖口上沾着钟楼的灰，别把登记簿交给他。"
+    letters = [("苏晴", "林晓", note), ("林晓", "陈默", "十二点前别上钟楼，我在楼下等你。"),
+               ("陈默", "苏晴", "钥匙在我这儿，别告诉任何人。")]
+    status = messages.action_status(
+        "林晓", "侦探", 4, "我咬牙撞向那扇门，陈默在身后顶着。",
+        {"kind": "check", "attribute": "敏捷", "difficulty": "hard", "dc": 15, "face": 13, "modifier": 4, "total": 17,
+         "outcome": "success", "all_in": True, "success": True, "aid": {"name": "陈默", "bonus": 2, "changes": {"体力": -1}}},
+        [("体力", 3, 5, -1), ("理智", 3, 5, None)])
+    return [
+        ("receipt", "开演 · 群聊玩法", messages.plays_intro()),
+        ("receipt", "/团 说", messages.line_said("林晓", "你们先走，我断后。门后那个声音，我认得。", "陈默：这门打不开")),
+        ("receipt", "/团 起哄", messages.heckle_board([(1, "让钟楼的灯突然灭掉", 4, "阿丁"), (2, "宿管阿姨端着一碗夜宵出现", 2, "老丹"),
+                                                     (3, "登记簿自己翻到了下一页", 1, "猫猫")], 1, 2)),
+        ("receipt", "起哄采纳", messages.heckle_adopted("让钟楼的灯突然灭掉", 4)),
+        ("receipt", "/团 援手", messages.aid_offered("陈默", "林晓", "用肩膀顶住门，给她争取三秒", 2)),
+        ("status", "个人状态 · 援手与孤注", status),
+        ("receipt", "密信 · 群里", messages.letter_passed("苏晴", "林晓", delivered=False, user_id="10001", user_name="小林")),
+        ("receipt", "密信 · 收信人私聊", messages.letter_received("苏晴", "林晓", note)),
+        ("receipt", "密信 · 递出回执", messages.letter_sent("林晓", True)),
+        ("receipt", "/团 密信", messages.letter_inbox("林晓", [("收到", "苏晴", note), ("递出", "陈默", letters[1][2])])),
+        ("moment", "终章 · 纸条公开", messages.letters_revealed(letters)),
+        ("receipt", "/团 X", messages.xcard_raised()),
+        ("moment", "快团开启", messages.rush_toggled(True, 3)),
+        ("choices", "快团 · 选项", messages.rush_prompt(4, [
+            {"label": "A", "text": "一起撞开钟楼的门", "tag": "敏捷·困难·失败受伤"},
+            {"label": "B", "text": "分头找另一条上楼的路", "tag": "观察·标准"},
+            {"label": "C", "text": "守在楼下，听门后的动静", "tag": "休整"}], 3, "hybrid", party,
+            others=messages.others_guide("", seats=1, bets=False))),
+        ("receipt", "快团 · 进度", messages.rush_progress(board)),
+        ("receipt", "快团 · 剩 1 分钟", messages.rush_reminder([("陈默", "阿野", "10002")], board)),
+    ]
 
 
 def _personas() -> list[tuple[str, str, Any]]:
@@ -100,6 +293,7 @@ def _fun() -> list[tuple[str, str, Any]]:
                  {"name": "苏晴", "role": "学生会长", "player": "猫猫", "turns": 5, "checks": 7, "wins": 3}],
         "rounds": 18, "checks": 26, "crits": 3, "fumbles": 1, "best": "陈默（5 次喝彩）",
         "outcomes": {"critical": 3, "success": 12, "failure": 10, "fumble": 1},
+        "seer": {"name": "猫猫", "right": 7, "total": 9},
         "quote": "钟楼的指针倒退了一格，值班室的灯跟着暗了一下，又亮起来。"})
     schedule = messages.schedule_board("第七个不思议 · 钟楼下的旧校舍", [
         {"label": "10 月 10 日 周六 20:00", "names": ["小林", "猫猫", "阿野"], "decided": False},
@@ -170,6 +364,7 @@ def _moments() -> list[tuple[str, str, Any]]:
         ("林晓", "她把登记簿还给了值班室，最后一页从此空着。"), ("周野", "他再也没在夜里听见钟声，却总在十二点醒来。")],
         "共 18 轮 · 26 次检定", world="seventh-mystery", report={
             "rounds": 18, "checks": 26, "crits": 3, "fumbles": 1, "best": "林晓（6 次喝彩）",
+            "seer": {"name": "猫猫", "right": 7, "total": 9},
             "outcomes": {"critical": 3, "success": 12, "failure": 10, "fumble": 1},
             "acts": [{"number": 1, "title": "放学后", "best": "周野（3 次喝彩）"}, {"number": 2, "title": "倒走的钟", "best": "林晓（2 次喝彩）"},
                      {"number": 3, "title": "十二年前", "best": ""}, {"number": 4, "title": "第八声", "best": "林晓（4 次喝彩）"}]})

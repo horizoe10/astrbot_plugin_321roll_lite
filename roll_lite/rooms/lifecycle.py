@@ -12,7 +12,7 @@ from ..engine import VENDOR  # noqa: F401
 from ..engine.gateway import EngineCallFailed
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import WorldCatalog
-from ..worlds.package import edition_of, label
+from ..worlds.package import display_label, edition_of, label, required_plugin
 
 from story_engine import world_rules
 
@@ -26,7 +26,7 @@ ROOM_SAVE_COLUMNS = ("state", "title", "scene_json", "goal", "act", "chapter", "
                      "host_user_id", "data_json", "world_json", "rules_json")
 AUTO_SAVE = "auto"          # saves.created_by of the snapshots /团 主持 回退 uses; hidden from the save list
 AUTO_KEEP = 5
-NUMERALS = "一二三四五六七八九十"
+NUMERALS = messages.NUMERALS
 CORE_NOTE = "核心版：预设剧情只写到第一幕，之后由 AI 即兴续写"
 # How long the preparation lobby waits after /团 恢复 before everyone still seated counts as ready.
 REGROUP_SECONDS = 300
@@ -48,8 +48,12 @@ def card_data(room: sqlite3.Row, actor: sqlite3.Row) -> dict[str, Any]:
     items = loads(actor["items_json"], {})
     archetype = next((a for a in pack["archetypes"] if a["id"] == actor["archetype_id"]), None)
     persona = personas.active(room, actor)
+    profile = loads(actor["data_json"], {}).get("profile") or {}
+    names = {a["id"]: a["name"] for a in pack["attributes"]}
     return {"name": shared.actor_label(actor), "user_name": actor["user_name"], "away": actor["presence"] == "away",
             "archetype": archetype["name"] if archetype else "", "archetype_text": (archetype or {}).get("text", ""),
+            "profile": profile, "mode": {"custom": "定制", "forge": "精雕"}.get(profile.get("mode", ""), ""),
+            "shift": {names[k]: v for k, v in (profile.get("shift") or {}).items() if k in names},
             "attributes": [(a["name"], attrs.get(a["id"], 0), (attrs.get(a["id"], 0) - mod["baseline"]) // mod["divisor"])
                            for a in pack["attributes"]],
             "resources": [(r["name"], resources.get(r["id"], {}).get("current", 0), r["max"]) for r in pack["resources"]],
@@ -78,7 +82,7 @@ def act_heading(room: sqlite3.Row, number: int | None = None) -> str:
     act = next((a for a in act_list(room) if a["number"] == number), None)
     if act is None:
         return ""
-    label = NUMERALS[number - 1] if 1 <= number <= 10 else str(number)
+    label = NUMERALS[number - 1] if 1 <= number <= len(NUMERALS) else str(number)
     return f"第{label}幕" + (f" · {act['title']}" if act["title"] else "") + (f"\n{act['lead']}" if act["lead"] else "")
 
 
@@ -136,7 +140,7 @@ def world_rows(entries: list[Any]) -> list[dict[str, Any]]:
         core = edition_of(e.edition) == "core"
         acts = len(e.presentation.get("acts") or [])
         kind = "核心版 · 第一幕后即兴" if core else "进阶版" + (f" · {acts} 幕" if acts else "")
-        rows.append({"title": e.title, "label": label(e.edition, e.pack["revision"]), "kind": kind,
+        rows.append({"title": e.title, "label": display_label(required_plugin(e.pack), e.edition, e.pack["revision"]), "kind": kind,
                      "players": f"{e.pack['rules']['recommendedMin']}–{e.pack['rules']['recommendedMax']}"})
     return rows
 
@@ -150,8 +154,8 @@ async def list_worlds(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
     with app.store.read() as c:
-        if shared.open_room(c, caller.umo) is not None:
-            raise UserError("本群已有一桌未关闭的团。主持人可以先发送 /团 关闭。")
+        if (existing := shared.open_room(c, caller.umo)) is not None:
+            raise UserError(table_in_use(existing))
     if not args.strip():
         # Choosing the world is its own step, even when only one is enabled.
         entries = catalog(app).entries()
@@ -171,8 +175,8 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
     cap = min(app.config.default_seat_cap, pack["rules"]["seats"])
     try:
         with app.store.tx() as c:
-            if shared.open_room(c, caller.umo) is not None:
-                raise UserError("本群已有一桌未关闭的团。主持人可以先发送 /团 关闭。")
+            if (existing := shared.open_room(c, caller.umo)) is not None:
+                raise UserError(table_in_use(existing))
             c.execute("INSERT INTO rooms(id,umo,platform,group_id,state,world_id,world_json,rules_json,title,scene_json,goal,"
                       "clock_json,seat_cap,host_user_id,created_at,updated_at) VALUES(?,?,?,?,'lobby',?,?,?,?,?,?,?,?,?,?,?)",
                       (room_id, caller.umo, caller.platform_id, caller.group_id, entry.id, dumps(snapshot), dumps(rules),
@@ -186,13 +190,29 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
             app.store.add_event(c, room_id, "system", f"{caller.user_name} 开启了《{pack['title']}》")
             app.store.audit(c, caller.user_id, "room.open", room_id, {"world": entry.id, "umo": caller.umo})
     except sqlite3.IntegrityError as exc:
-        raise UserError("本群已有一桌未关闭的团。") from exc
-    reply = Reply().say(messages.open_card(pack["title"], pack["seed"], cap, pack["rules"]["minPlayers"], caller.user_name,
-                                           world=entry.id, note=CORE_NOTE if edition == "core" else ""))
+        raise UserError("本群刚刚有人开了一桌。发送 /团 状态 看看是哪一桌。") from exc
+    from ..worlds import scenes
+    with app.store.read() as c:
+        opened = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+    reply = Reply().say(scenes.bind(messages.open_card(pack["title"], pack["seed"], cap, pack["rules"]["minPlayers"], caller.user_name,
+                                           world=entry.id, note=CORE_NOTE if edition == "core" else ""), opened, "cover"))
     if any(d["source"] != "fallback" for d in defaults.values()):
         reply.say(messages.notice("叙事设置：" + narration.summary(inherited), "沿用这个世界的默认设置，主持人可以随时调整，从下一段正文开始生效。",
                                   "主持人发送 /团 主持 即兴、/团 主持 文风 或 /团 主持 篇幅 调整"))
-    return reply
+    # Last, so the newest message in the group is the one every player needs.
+    return reply.say(messages.table_guide(pack["title"], pack["rules"]["minPlayers"], cap))
+
+
+def table_in_use(room: sqlite3.Row) -> str:
+    """Why /团 开启 refused, with the one command that clears the way for this table's state."""
+    title = f"《{messages.short_title(room['title'])}》"
+    if room["state"] in ("running", "paused"):
+        doing = "暂停中" if room["state"] == "paused" else "正在进行"
+        return (f"本群的{title}{doing}，一个群同时只能有一桌。想换一桌：主持人或管理员发送 /团 关闭 确认 直接收桌，"
+                "故事和记录都保留在后台；想先给故事收个尾，就发送 /团 完结 结局名。")
+    if room["state"] == "ended":
+        return f"本群的{title}已经完结，还没收桌。主持人或管理员发送 /团 关闭 收桌后，就能开新的一桌。"
+    return f"本群已有一桌{title}在招募入座。主持人或管理员发送 /团 关闭 收掉它，再开新的一桌。"
 
 
 async def show_worldview(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -207,8 +227,12 @@ async def join(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller, "lobby", "running", "paused")
     with app.store.tx() as c:
         existing = c.execute("SELECT * FROM actors WHERE room_id=? AND user_id=?", (room["id"], caller.user_id)).fetchone()
+        if existing is not None and existing["presence"] == "away":
+            raise UserError("你还在座位上，只是暂离了。发送 /团 返回 回到行动队列。")
         if existing is not None and existing["presence"] != "left":
             raise UserError("你已经在座位上了。")
+        if room["state"] != "lobby" and shared.ending_step(room):
+            raise UserError("故事已经写到终章，这一桌马上落幕，不再入座：先围观一起看结局，下一桌开局时再来。")
         table = shared.table_data(room)
         if any(entry["user_id"] == caller.user_id for entry in table.get("removed", [])):
             raise UserError("主持人已请你离开这一桌。需要主持人发送 /团 主持 放行 你的昵称 后才能再入座。")
@@ -216,7 +240,10 @@ async def join(app: "LiteApp", caller: Caller, args: str) -> Reply:
             raise UserError("主持人暂时关闭了入座。等主持人发送 /团 主持 入座 开 后再来。")
         seated = c.execute("SELECT COUNT(*) FROM actors WHERE room_id=? AND presence<>'left'", (room["id"],)).fetchone()[0]
         if seated >= room["seat_cap"]:
-            raise UserError(f"席位已满（{room['seat_cap']} 人）。")
+            limit = min(app.config.max_seat_cap, shared.world(room)["pack"]["rules"]["seats"])
+            more = f"主持人发送 /团 人数 {limit} 可以加座。" if room["seat_cap"] < limit else "这个世界最多就这么多人。"
+            watch = "没入座也可以 /团 起哄 给故事出点子、/团 押 成 竞猜。" if room["state"] == "running" else ""
+            raise UserError(f"席位已满（{room['seat_cap']} 人）。{more}{watch}")
         order = c.execute("SELECT COALESCE(MAX(order_index),0)+1 FROM actors WHERE room_id=?", (room["id"],)).fetchone()[0]
         if existing is not None:
             c.execute("UPDATE actors SET presence='present',order_index=?,user_name=?,revision=revision+1,updated_at=? WHERE id=?",
@@ -263,25 +290,49 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
     else:
         arch = next((a for a in pack["archetypes"] if token in (a["id"], a["name"])), None)
     if arch is None:
-        raise UserError("没有这个职业。发送 /团 职业 查看列表。")
+        raise UserError("没有这个职业。发送 /团 职业 查看列表，或 /团 建卡 换一种建卡方式。")
     if actor["archetype_id"] and room["state"] != "lobby":
-        raise UserError("故事开始后不能更换职业。")
+        raise UserError("故事开始后不能更换职业。实在要换，请主持人发送 /团 主持 退回 你的角色名 收回角色，再重新建卡。")
     built = build_character(shared.rules(room), pack, arch["id"], name)
+    return await commit_character(app, caller, room, actor, arch, built, {"mode": "quick"})
+
+
+async def commit_character(app: "LiteApp", caller: Caller, room: sqlite3.Row, actor: sqlite3.Row, arch: dict[str, Any],
+                           built: dict[str, Any], profile: dict[str, Any], extra: list[Any] | None = None) -> Reply:
+    """Write a built character to the seat (any build mode), then tell the player and the table what comes next.
+
+    profile keeps what the build added beyond numbers (mode, origin, answers…); the build draft is dropped.
+    extra are messages for the group after the announcement (a bond the build proposed).
+    """
+    from .build import LABELS
+    rebuilt = bool(actor["archetype_id"])
+    mode = LABELS.get(profile.get("mode", "quick"), "快选")
     with app.store.tx() as c:
         persona = personas.pick_for_card(app, c, room, actor, built["name"])
+        data = loads(actor["data_json"], {})
+        data.pop("build", None)
+        data["profile"] = profile
+        from .. import economy
+        money = economy.of_room(room)
+        if money is not None:            # a new or rebuilt card starts its wallet over
+            data["money"] = int(profile.get("start_money", money["initial"]))
         changed = c.execute(
             "UPDATE actors SET name=?,archetype_id=?,attributes_json=?,resources_json=?,skills_json=?,items_json=?,"
-            "revision=revision+1,updated_at=? WHERE id=? AND revision=?",
+            "data_json=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?",
             (built["name"], arch["id"], dumps(built["attributes"]), dumps(built["resources"]), dumps(built["skills"]),
-             dumps(built["items"]), now(), actor["id"], actor["revision"])).rowcount
+             dumps(built["items"]), dumps(data), now(), actor["id"], actor["revision"])).rowcount
         if changed != 1:
             raise UserError("角色刚刚发生了变化，请再发一次。")
         if persona is not None:
             personas.attach(c, c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone(), persona)
-        app.store.add_event(c, room["id"], "system", f"{caller.user_name} 选择了{arch['name']}「{built['name']}」", actor_id=actor["id"])
+        how = f"选择了{arch['name']}" if mode == "快选" else f"用{mode}建好了{arch['name']}"
+        app.store.add_event(c, room["id"], "system", f"{caller.user_name} {how}「{built['name']}」", actor_id=actor["id"])
         app.store.bump_room(c, room["id"])
         actor = c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone()
-    reply = Reply().say(character_card(room, actor))
+    reply = Reply()
+    if rebuilt:
+        reply.say(f"已改为{arch['name']}「{built['name']}」，原来的角色卡作废。开演前还可以再改。")
+    reply.say(character_card(room, actor))
     if persona is not None:
         reply.say(f"已带上你的人设「{persona['name']}」：AI 会按它的性格和经历来写这个角色，属性和技能仍按{arch['name']}。"
                   "想让 AI 写一句你在这个世界里的身份，发送 /团 人设 融入。")
@@ -289,7 +340,12 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
         reply.say(f"这个角色带着人设「{personas.attached(actor)['name']}」。")
     public: list[Any] = []
     if caller.in_private:
-        public.append(f"{caller.user_name} 建好了角色：{arch['name']}「{built['name']}」。")
+        public.append(f"{caller.user_name} " + ("" if mode == "快选" else f"用{mode}") + f"建好了角色：{arch['name']}「{built['name']}」。")
+    if extra:
+        if caller.in_private:
+            public.extend(extra)
+        else:
+            reply.extend(Reply().say(*extra))
     if room["state"] == "running":
         hook = await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor["id"], change="joined")
         if caller.in_private:
@@ -299,6 +355,11 @@ async def choose_archetype(app: "LiteApp", caller: Caller, args: str) -> Reply:
     if public:
         await app.notifier.send(room["umo"], public)
     reply.say(messages.next_steps_after_card(room["state"], regroup(room) is not None))
+    if room["state"] == "running":
+        from ..plays import story_recap
+        line = story_recap.welcome(app, caller, room["id"])
+        if line:
+            reply.say(line)
     return reply
 
 
@@ -322,8 +383,9 @@ async def roster(app: "LiteApp", caller: Caller, args: str) -> Reply:
     archs = {a["id"]: a["name"] for a in pack["archetypes"]}
     with app.store.read() as c:
         actors = c.execute("SELECT * FROM actors WHERE room_id=? AND presence<>'left' ORDER BY order_index", (room["id"],)).fetchall()
+    from .build import progress
     rows = [(a["user_name"], f"{archs.get(a['archetype_id'], '')}「{a['name']}」" if a["archetype_id"] else "—",
-             "暂离" if a["presence"] == "away" else ("就绪" if a["archetype_id"] else "未选职业")) for a in actors]
+             "暂离" if a["presence"] == "away" else ("就绪" if a["archetype_id"] else progress(a, room) or "未建卡")) for a in actors]
     return Reply().say(messages.roster(len(actors), room["seat_cap"], rows))
 
 
@@ -334,7 +396,7 @@ async def leave(app: "LiteApp", caller: Caller, args: str) -> Reply:
         c.execute("UPDATE actors SET presence='left',revision=revision+1,updated_at=? WHERE id=?", (now(), actor["id"]))
         app.store.add_event(c, room["id"], "system", f"{shared.actor_label(actor)} 离开了这一桌", actor_id=actor["id"])
         app.store.bump_room(c, room["id"])
-    reply = Reply().say(messages.notice(f"{shared.actor_label(actor)} 已离座", "角色和记录保留在这一桌，想回来时再发送 /团 加入。"))
+    reply = Reply().say(messages.notice(f"{shared.actor_label(actor)} 已离座", "角色和记录保留在这一桌，想回来时在群里发送 /团 加入。"))
     if room["state"] in ("running", "paused"):
         reply.extend(await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor["id"], change="left"))
     return reply
@@ -365,6 +427,9 @@ async def change_presence(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row,
         title = f"{label} {'暂离' if presence == 'away' else '回到了队列'}"
         detail = "轮到你时会自动跳过，表决也不再等你。" if presence == "away" else "下一次轮到你时会在群里@你。"
         hint = "回来时发送 /团 返回" if presence == "away" else ""
+        if presence == "present" and not actor["archetype_id"]:
+            detail = "你还没建卡，建好之后才会排进行动顺序。"
+            hint = "私聊我发送 /团 建卡 选一种建卡方式"
     reply = Reply().say(messages.notice(title, detail, hint))
     if room["state"] in ("running", "paused"):
         reply.extend(await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor["id"],
@@ -405,16 +470,20 @@ async def start(app: "LiteApp", caller: Caller, args: str) -> Reply:
         actors = shared.present_actors(c, room["id"])
     ready = [a for a in actors if a["archetype_id"]]
     if len(ready) < rules["minPlayers"]:
-        raise UserError(f"至少需要 {rules['minPlayers']} 名已选职业的在场玩家。")
-    missing = [a["user_name"] for a in actors if not a["archetype_id"]]
+        raise UserError(f"至少需要 {rules['minPlayers']} 名建好卡的在场玩家，现在有 {len(ready)} 名。"
+                        "玩家发送 /团 加入 入座，再私聊我 /团 建卡（群里发也可以）。")
+    from .build import progress
+    missing = [a["user_name"] + (f"（{progress(a, room)}）" if progress(a, room) else "") for a in actors if not a["archetype_id"]]
     if missing:
-        raise UserError("还有玩家没有选职业：" + "、".join(missing) + "。可以等他们选好，或请他们 /团 暂离。")
+        raise UserError("还有玩家没有建好卡：" + "、".join(missing) + "。可以等他们建好，或发送 /团 主持 暂离 昵称 让他们先暂离，"
+                        "这次开演就不算他们。")
     with app.store.tx() as c:
         if c.execute("UPDATE rooms SET state='running',revision=revision+1,updated_at=? WHERE id=? AND state='lobby' AND revision=?",
                      (now(), room["id"], room["revision"])).rowcount != 1:
             raise UserError("团桌状态刚刚变化，请再试一次。")
         app.store.add_event(c, room["id"], "system", "故事开演")
     await caller.send("正在生成开场，请稍候……")
+    await caller.send(messages.plays_intro())
     try:
         return await app.hooks.emit("story_started", room_id=room["id"])
     except EngineCallFailed as exc:
@@ -482,7 +551,8 @@ def regroup_card(c: sqlite3.Connection, room: sqlite3.Row, info: dict[str, Any],
     names = {a["id"]: a["name"] for a in shared.world(room)["pack"]["archetypes"]}
     rows = []
     for a in people["present"]:
-        state = "未建卡" if not a["archetype_id"] else "未准备" if a["id"] in pending else "已准备"
+        from .build import progress
+        state = (progress(a, room) or "未建卡") if not a["archetype_id"] else "未准备" if a["id"] in pending else "已准备"
         rows.append((shared.actor_label(a), names.get(a["archetype_id"], ""), state, a["id"] in joined))
     left = max(0, int((datetime.fromisoformat(info["deadline"]) - datetime.now(UTC)).total_seconds()))
     return messages.regroup_card(title, rows, [shared.actor_label(a) for a in people["left"]],
@@ -525,7 +595,7 @@ async def get_ready(app: "LiteApp", caller: Caller, args: str) -> Reply:
     if actor["presence"] != "present":
         raise UserError("你现在不在队列里，先发送 /团 返回。" if actor["presence"] == "away" else "你已经离座，先发送 /团 加入。")
     if not actor["archetype_id"]:
-        raise UserError("先建好角色再准备：/团 职业 看职业，/团 选职业 序号 角色名。")
+        raise UserError("先建好角色再准备：发送 /团 建卡 选一种建卡方式。")
     cancel = args.strip() in ("取消", "不", "撤回")
     label = shared.actor_label(actor)
     with app.store.tx() as c:
@@ -606,9 +676,10 @@ async def complete_story(app: "LiteApp", room_id: str, ending: dict[str, Any] | 
         data["ending"] = ending
         c.execute("UPDATE rooms SET state='ended',ended_at=?,data_json=? WHERE id=?", (now(), dumps(data), room_id))
         app.store.bump_room(c, room_id)
-        app.store.add_event(c, room_id, "system", "故事完结" + (f"：{ending['title']}" if ending else ""), data={"by": by})
+        app.store.add_event(c, room_id, "system", "故事完结" + (f"：{ending['title']}" if ending and ending.get("title") else ""), data={"by": by})
+    # The ending card comes first; what the plays reveal at the end (notes, bonds) follows it.
+    reveals = await app.hooks.emit("story_completed", room_id=room_id, ending=ending)
     reply = Reply()
-    reply.extend(await app.hooks.emit("story_completed", room_id=room_id, ending=ending))
     with app.store.read() as c:
         names = {a["id"]: shared.actor_label(a) for a in c.execute("SELECT * FROM actors WHERE room_id=?", (room_id,))}
         record = c.execute("SELECT document_json FROM records WHERE room_id=? AND kind='ending' ORDER BY seq DESC LIMIT 1",
@@ -616,20 +687,29 @@ async def complete_story(app: "LiteApp", room_id: str, ending: dict[str, Any] | 
         from ..fun.report import report_data
         report = report_data(c, c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone())
     rounds, checks, best = report["rounds"], report["checks"], report["best"]
-    epilogues = [(names.get(e["actor_ref"], ""), e["text"]) for e in (loads(record["document_json"]) if record else {}).get("epilogues", [])]
+    # The wind-down's own epilogues (plays/pacing.py) come with the ending; the ending play keeps them in its record.
+    written = (ending or {}).get("epilogues") or (loads(record["document_json"]) if record else {}).get("epilogues", [])
+    epilogues = [(names.get(e["actor_ref"], ""), e["text"]) for e in written]
     title = (ending or {}).get("title", "")
-    shown = next((e for e in shared.world(room).get("presentation", {}).get("endings") or []
-                  if title and e.get("name") == title), None)
-    reply.say(messages.ending_card(shared.world(room)["pack"]["title"], title, epilogues,
-                                   f"共 {rounds} 轮 · {checks} 次检定" + (f" · 全场最佳 {best}" if best else ""), world=room["world_id"],
-                                   art=f"ending:{shown['id']}" if shown and shown.get("id") else "", report=report))
-    return reply
+    from ..worlds import scenes
+    keys = scenes.ending_keys(shared.world(room), title)
+    card = scenes.bind(messages.ending_card(shared.world(room)["pack"]["title"], title, epilogues,
+                                   f"共 {rounds} 轮 · {checks} 次检定" + (f" · 全场最佳 {best}" if best else ""), report=report),
+                       room, keys[0] if keys else "cover", "终章")
+    if len(keys) > 1:
+        card.data["extra_scene_keys"] = keys[1:]
+    reply.say(card)
+    return reply.extend(reveals)
 
 
 async def finish(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller, "running", "paused")
     shared.require_host(app, caller, room)
-    return await complete_story(app, room["id"], {"title": args.strip()} if args.strip() else None, by=caller.user_id)
+    from ..plays import pacing
+    ending = pacing.ending_from_state(room) or {}
+    if args.strip():
+        ending = {**ending, "title": args.strip()}
+    return await complete_story(app, room["id"], ending or None, by=caller.user_id)
 
 
 async def close(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -700,7 +780,8 @@ def snapshot_room(c: sqlite3.Connection, room_id: str) -> dict[str, Any]:
     return data
 
 
-def restore_snapshot(c: sqlite3.Connection, room_id: str, data: dict[str, Any]) -> None:
+def restore_snapshot(c: sqlite3.Connection, room_id: str, data: dict[str, Any]) -> bool:
+    """Put a save back (the table comes back paused).  True when it went back to just before the finale."""
     for table in reversed(SAVE_TABLES):
         c.execute(f"DELETE FROM {table} WHERE room_id=?", (room_id,))
     for table in SAVE_TABLES:
@@ -710,8 +791,13 @@ def restore_snapshot(c: sqlite3.Connection, room_id: str, data: dict[str, Any]) 
                       [row[k] for k in columns])
     room = dict(data["room"])
     room["state"] = "paused"
+    extra = loads(room.get("data_json"), {})
+    extra.pop("scene_art", None)  # Chat history did not rewind with the game; show the restored scene again.
+    room["data_json"] = dumps(extra)
     c.execute(f"UPDATE rooms SET {','.join(k + '=?' for k in room)} WHERE id=?", [*room.values(), room_id])
     c.execute("DELETE FROM events WHERE room_id=? AND id>?", (room_id, data["last_event"]))
+    from ..plays import pacing
+    return pacing.after_restore(c, room_id)
 
 
 def auto_snapshot(c: sqlite3.Connection, room_id: str, label: str) -> None:
@@ -742,7 +828,7 @@ async def list_saves(app: "LiteApp", caller: Caller, args: str) -> Reply:
         rows = c.execute("SELECT name,created_at FROM saves WHERE room_id=? AND created_by<>? ORDER BY created_at",
                          (room["id"], AUTO_SAVE)).fetchall()
     if not rows:
-        return Reply().say("这一桌还没有存档。主持人发送 /团 存档 [名称] 存档。")
+        return Reply().say(f"这一桌还没有存档。主持人发送 {messages.cmd('/团 存档 [名称]')} 存一份。")
     return Reply().say(messages.saves_list([(r["name"], r["created_at"][:16].replace("T", " "))
                                             for r in rows]))
 
@@ -783,7 +869,7 @@ def install(app: "LiteApp") -> None:
     r.register("退出", leave, summary="离开这一桌", topic="开团", private="room")
     r.register("暂离", away, summary="暂时离开行动队列", topic="开团", private="room")
     r.register(("返回", "返回队列"), back, summary="回到行动队列", topic="开团", private="room")
-    r.register("准备", get_ready, summary="在准备大厅里准备好（写“取消”撤回）", usage="/团 准备 [取消]", topic="开团")
+    r.register("准备", get_ready, summary="在准备大厅里准备好（写“取消”撤回）", usage="/团 准备 [取消]", topic="开团", private="room")
     r.register("开演", start, summary="开始故事，或在准备大厅里继续故事（主持人）", topic="主持")
     r.register("人数", seat_cap, summary="设置席位上限（主持人）", usage="/团 人数 <n>", topic="主持")
     r.register("暂停", pause, summary="暂停故事（主持人）", topic="主持")
@@ -794,7 +880,7 @@ def install(app: "LiteApp") -> None:
         return await regroup_tick(app)
     app.hooks.on("tick", tick)
     r.register("完结", finish, summary="直接完结故事（主持人）", usage="/团 完结 [结局名]", topic="主持")
-    r.register("关闭", close, summary="收桌（主持人）", topic="主持")
+    r.register("关闭", close, summary="收桌（主持人）；故事还没完结时要写“确认”", usage="/团 关闭 [确认]", topic="主持")
     r.register("存档", save, summary="存档（主持人）", usage="/团 存档 [名称]", topic="主持")
     r.register("存档列表", list_saves, summary="查看存档", topic="主持", private="self")
     r.register("读档", load_save, summary="读档（主持人）", usage="/团 读档 <序号或名称>", topic="主持")

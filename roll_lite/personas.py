@@ -579,7 +579,8 @@ async def use(app: "LiteApp", caller: Caller, args: str) -> Reply:
     if not name:
         raise UserError("写法：/团 人设 使用 名字。发送 /团 人设 查看你的人设卡。")
     if room["state"] != "lobby" and actor["archetype_id"]:
-        raise UserError("故事开始后不能再换人设。需要的话请主持人发送 /团 主持 人设 清除 你的角色名，再重新建卡。")
+        raise UserError("故事开始后不能再换人设。实在想换，请主持人发送 /团 主持 退回 你的角色名 收回角色（属性和物品会重来），"
+                        "然后你再 /团 人设 使用 名字、/团 选职业 重新建卡。")
     row = _mine(app, caller, name)
     rename = bool(actor["archetype_id"])
     with app.store.tx() as c:

@@ -48,7 +48,7 @@ def inline(text: Any, fmt: str, start: bool = True) -> str:
     start=False for text that follows a marker on the same line (list item, label, quote mark).
     """
     out = []
-    for i, part in enumerate(_INLINE.split(str(text))):
+    for i, part in enumerate(_INLINE.split(mark_commands(str(text)))):
         if i % 2 == 0:
             out.append(part if fmt == PLAIN else (esc(part) if i == 0 and start else esc_inline(part)))
         elif part.startswith(BT):
@@ -118,10 +118,13 @@ class Block:
             rows = []
             for item in d["items"]:
                 tag = item.get("tag") or ""
+                if tag and item.get("chance") is not None:    # the odds before preparations, as the image card shows
+                    tag += f" · 约 {item['chance']}%"
+                mark = "🏁 收束 · " if item.get("closing") else ""
                 if md:
-                    rows.append(f"- **{item['label']}**　{esc_inline(item['text'])}" + (f"　{BT}{tag}{BT}" if tag else ""))
+                    rows.append(f"- **{item['label']}**　{mark}{esc_inline(item['text'])}" + (f"　{BT}{tag}{BT}" if tag else ""))
                 else:
-                    rows.append(f" {item['label']} │ {item['text']}" + (f"　〈{tag}〉" if tag else ""))
+                    rows.append(f" {item['label']} │ {mark}{item['text']}" + (f"　〈{tag}〉" if tag else ""))
             return "\n".join(rows)
         if k == "list":
             # A line break inside an item stays a break in Markdown instead of folding into the line above.
@@ -252,8 +255,92 @@ class Msg:
 Item = "Msg | str"
 
 
+# ---------------------------------------------------------------- plain strings
+# Errors and one-line notices are written as plain strings; render() lays them out like the other messages:
+# every "/团 …" command becomes inline code, and when the text starts with what happened and then says what
+# to do, the "what to do" part becomes a hint line.  Arguments stop at Chinese punctuation, a full-width space,
+# a long token or a word that starts a new clause ("发送 /团 主持 放行 昵称 让对方可以再次入座").
+_CMD_START = re.compile(r"/团(?=[ \u3000，。；：、！？）)」』]|$)")
+_CMD_TOKEN = re.compile(r" ([^\s，。；：、！？）)」』“”（(]+)")
+# Words that end a command when they stand alone after it ("发送 /团 存档列表 查看")…
+_STOP_WORDS = frozenset({"或", "或者", "和", "再", "后", "然后", "之后", "即可", "来", "去", "就", "才", "也", "并", "让",
+                         "查看", "看看", "读取", "接任", "婉拒", "替换", "撤回", "接受", "揭晓", "入座", "试试", "收桌",
+                         "调整", "恢复", "修改", "生效", "开演", "继续", "竞猜"})
+# …and words that start a clause when a longer token begins with them ("/团 关闭 收掉它").
+_STOP_HEADS = ("让", "看", "查看", "可以", "即可", "带上", "调整", "修改", "重新", "收回", "打开", "开始", "继续", "后", "再",
+               "以便", "把", "按", "给", "请", "来", "去", "就", "才", "确认后", "恢复", "清除", "关闭", "开启", "选", "写",
+               "找回", "回到", "发起", "加入", "入座", "查询", "起草", "整理", "生成", "提醒", "领取", "这", "那", "从",
+               "于", "时", "前", "里", "中", "上", "下", "并", "竞猜", "试试", "端上", "收掉", "收桌", "直接", "解开",
+               "公开", "记录", "一步步", "自己", "附和", "取消", "开新", "负责", "婉拒", "接任", "看看", "提第", "接下",
+               "之类", "换一种")
+# Registered verbs ("建卡", "主持 建卡"); filled by commands.Router.register.  A '/团 xx' whose first word is not a
+# verb is prose ("有人再发 /团 时会自动补发"), not a command.
+KNOWN_VERBS: set[str] = set()
+_SENTENCE = re.compile(r"[^。；！？\n]*[。；！？]?")
+
+
+def _verb(word: str) -> bool:
+    return not KNOWN_VERBS or word in KNOWN_VERBS or bool(re.fullmatch(r"[A-Da-d]", word))
+
+
+def _command_end(text: str, start: int) -> int:
+    """End of the command that starts at text[start] ('/团'), or start when it is not a command."""
+    end, pos, count, first = start + 2, start + 2, 0, ""
+    while True:
+        m = _CMD_TOKEN.match(text, pos)
+        if m is None:
+            return end if count else start
+        token = m.group(1)
+        if count == 0:
+            if not _verb(token):
+                return start
+            first = token
+        fixed = count == 0 or (count == 1 and f"{first} {token}" in KNOWN_VERBS)   # the verb, and 主持's sub-verb
+        if token.startswith("/") or (not fixed and (
+                token in _STOP_WORDS or len(token) > 12
+                or any(token.startswith(h) and len(token) > len(h) for h in _STOP_HEADS))):
+            return end
+        end = pos = m.end()
+        count += 1
+
+
+def mark_commands(text: str) -> str:
+    """Wrap every '/团 …' command of a plain string in backticks (text that already has backticks is left alone)."""
+    if BT in text or "/团" not in text:
+        return text
+    out, pos = [], 0
+    for m in _CMD_START.finditer(text):
+        if m.start() < pos:
+            continue
+        end = _command_end(text, m.start())
+        if end == m.start():
+            continue
+        out.append(text[pos:m.start()] + BT + text[m.start():end] + BT)
+        pos = end
+    return "".join(out) + text[pos:]
+
+
+def text_msg(text: str) -> "Msg":
+    """A plain string as a message: commands in code; 'what happened. what to do: /团 …' splits into text and hint."""
+    lines = [line.strip() for line in str(text).strip().split("\n")]
+    m = Msg()
+    if len(lines) == 1:
+        sentences = [s for s in _SENTENCE.findall(lines[0]) if s]
+        cut = next((i for i, s in enumerate(sentences) if "/团" in s), None)
+        if cut:
+            m.text(mark_commands("".join(sentences[:cut]))).gap().hint(mark_commands("".join(sentences[cut:])))
+            return m
+    for line in lines:
+        if line:
+            m.text(mark_commands(line))
+        else:
+            m.gap()
+    return m
+
+
 def render(item: Any, fmt: str) -> str:
-    return item.render(fmt) if isinstance(item, Msg) else str(item)
+    return item.render(fmt) if isinstance(item, Msg) else text_msg(str(item)).render(fmt) if str(item).strip() else ""
+
 
 
 def mentions_of(item: Any) -> list[tuple[str, str]]:

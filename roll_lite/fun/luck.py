@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 MIN_ROLLS = 10       # on the board
 FEW_ROLLS = 5        # below this a member's tier reads "样本太少"
-SOURCES = {"check": "检定", "daily": "一掷", "dice": "掷骰", "duel": "对决"}
+SOURCES = {"check": "检定", "daily": "一掷", "dice": "掷骰", "duel": "对决", "adventure": "冒险"}
 # (lowest average, label, tier key); a fair d20 averages 10.5
 TIERS = ((12.5, "天光", "dawn"), (11.25, "顺风", "fair"), (9.75, "平潮", "calm"), (8.5, "阴云", "cloud"), (0, "逆风", "gale"))
 BOARD_WORDS = ("榜", "排行", "排行榜")

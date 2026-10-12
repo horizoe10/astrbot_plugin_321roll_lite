@@ -114,13 +114,16 @@ def report_data(c: sqlite3.Connection, room: sqlite3.Row) -> dict[str, Any]:
     ending = (loads(room["data_json"], {}).get("ending") or {}).get("title", "") if room["state"] == "ended" else ""
     acts = [{"number": a["number"], "title": a["title"], "best": favourite_line(favourites(c, room_id, a["number"]))}
             for a in lifecycle.act_list(room) if a["number"] <= room["act"]]
+    from ..plays import wager
+    seer = wager.prophet(room)
     return {"title": messages.short_title(pack["title"]), "sub": messages.subtitle(pack["title"]), "world": room["world_id"],
             "state": lifecycle.STATE_LABELS.get(room["state"], room["state"]), "ending": ending,
             "act": room["act"], "total": lifecycle.acts_total(room), "acts": acts,
             "cast": [member(a) for a in actors],
             "rounds": rounds, "checks": len(outcomes), "crits": outcomes.count("critical"), "fumbles": outcomes.count("fumble"),
             "outcomes": {k: outcomes.count(k) for k in ("critical", "success", "failure", "fumble")},
-            "best": favourite_line(favourites(c, room_id)), "quote": quote}
+            "best": favourite_line(favourites(c, room_id)), "quote": quote,
+            "seer": {"name": seer["name"], "right": seer["right"], "total": seer["total"]} if seer else None}
 
 
 async def report(app: "LiteApp", caller: Caller, args: str) -> Reply:

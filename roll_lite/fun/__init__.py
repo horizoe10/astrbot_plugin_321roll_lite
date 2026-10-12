@@ -1,5 +1,5 @@
 """Group pastimes outside the story: free dice and duels, luck stats, battle reports and cheers, saved lines,
-scheduling, story relays and turtle soup.
+scheduling, story relays, turtle soup and one-minute adventures.
 
 Each has its own switch on the WebUI plays page (features kind 'fun').  Today's roll lives in roll_lite/daily.py.
 """
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 def install(app: "LiteApp") -> None:
-    from . import dice, luck, quotes, relay, report, schedule, soup
+    from . import adventure, dice, luck, quotes, relay, report, schedule, soup
     dice.install(app)
     luck.install(app)
     report.install(app)
@@ -20,4 +20,5 @@ def install(app: "LiteApp") -> None:
     schedule.install(app)
     relay.install(app)
     soup.install(app)
+    adventure.install(app)
 

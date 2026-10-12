@@ -93,19 +93,25 @@ class LiteApp:
 
     # ------------------------------------------------------------ assembly
     def install(self) -> None:
-        from . import daily, fun, personas
-        from .plays import collaboration, custom, hosted, kit, story_recap
-        from .rooms import governance, lifecycle
+        from . import daily, economy, fun, personas
+        from .plays import banter, collaboration, custom, hosted, kit, rush, story_recap, ties, wager
+        from .rooms import build, governance, lifecycle
         from .web import api
 
         register_core(self.router)
         lifecycle.install(self)
         governance.install(self)
+        build.install(self)
         hosted.install(self)
         story_recap.install(self)
+        banter.install(self)
+        ties.install(self)
+        wager.install(self)
+        rush.install(self)
         collaboration.install(self)
         custom.install(self)
         kit.install(self)
+        economy.install(self)
         personas.install(self)
         daily.install(self)
         fun.install(self)
@@ -153,3 +159,33 @@ class LiteApp:
 
     def is_admin_id(self, user_id: str) -> bool:
         return str(user_id) in self.config.admin_ids
+
+    def display_name(self, platform_id: str, user_id: str, given: str) -> str:
+        """What to call a user: the platform nickname, else the one seen before, else something short.
+
+        QQ's official bot sends no nickname in private chats (and sometimes not in groups); the sender
+        name then falls back to a 32-character openid.  A nickname seen once is remembered per platform.
+        """
+        given = (given or "").strip()
+        scope = f"user:{platform_id}:{user_id}"
+        fallback = f"玩家{user_id[-4:]}" if len(user_id) > 12 else user_id
+        if given and given != user_id:
+            with self.store.read() as c:
+                known = self.store.get_setting(c, scope, "nickname", None)
+            if known != given:
+                with self.store.tx() as c:
+                    self.store.set_setting(c, scope, "nickname", given)
+                    # Seats taken while only the id was known now show the name.
+                    c.execute("UPDATE actors SET user_name=? WHERE user_id=? AND user_name IN (?,?) "
+                              "AND room_id IN (SELECT id FROM rooms WHERE platform=?)", (given, user_id, user_id, fallback, platform_id))
+            return given
+        with self.store.read() as c:
+            known = self.store.get_setting(c, scope, "nickname", None)
+            if known:
+                return known
+            row = c.execute("SELECT a.user_name FROM actors a JOIN rooms r ON r.id=a.room_id WHERE r.platform=? AND a.user_id=? "
+                            "AND a.user_name NOT IN ('',?,?) ORDER BY a.updated_at DESC LIMIT 1",
+                            (platform_id, user_id, user_id, fallback)).fetchone()
+        if row:
+            return row[0]
+        return fallback

@@ -1,6 +1,6 @@
 """Host adjustments from the WebUI, applied when the next round's narration is committed.
 
-The host queues changes (resources, item quantities, skills, remaining uses,
+The host queues changes (resources, money, item quantities, skills, remaining uses,
 NPC attitudes).  They wait in rooms.data_json["adjustments"] and take effect in
 the same transaction that stores the model's next narration, before the next
 turn opens, so the story the players just read is never contradicted.
@@ -14,7 +14,7 @@ from . import loadout, shared
 from .storage import dumps, loads, new_id, now
 
 STANDING = ("敌对", "戒备", "冷淡", "中立", "友善", "信任", "盟友")
-KINDS = ("resource", "item", "skill", "uses", "attitude")
+KINDS = ("resource", "money", "item", "skill", "uses", "attitude")
 
 
 class AdjustInvalid(ValueError):
@@ -51,6 +51,14 @@ def _check(c: sqlite3.Connection, room: sqlite3.Row, change: dict[str, Any]) -> 
     ref = str(change.get("ref") or "")
     ids = {"resource": {r["id"] for r in pack["resources"]}, "item": {i["id"] for i in pack["items"]},
            "skill": {s["id"] for s in pack["skills"]}}
+    if kind == "money":
+        from . import economy
+        delta = change.get("delta")
+        if economy.of_room(room) is None:
+            raise AdjustInvalid("这个世界没有钱")
+        if type(delta) is not int or delta == 0 or abs(delta) > 100000:
+            raise AdjustInvalid("钱的变化需为非零整数")
+        return {"kind": kind, "actor": actor["id"], "delta": delta}
     if kind == "uses":
         entry = change.get("entry")
         if entry not in ("skill", "item") or ref not in ids[entry] or type(change.get("value")) is not int or change["value"] < 0:
@@ -94,6 +102,9 @@ def describe(room: sqlite3.Row, change: dict[str, Any], names: dict[str, str]) -
         return f"{change['subject']} 对队伍的态度 → {STANDING[change['standing'] + 3]}"
     if kind == "resource":
         return f"{who} {resources.get(change['ref'], change['ref'])} {change['delta']:+d}"
+    if kind == "money":
+        from . import economy
+        return f"{who} {(economy.of_room(room) or {}).get('currency', '钱')} {change['delta']:+d}"
     if kind == "item":
         return f"{who} {'获得' if change['delta'] > 0 else '失去'}「{items[change['ref']]['name']}」×{abs(change['delta'])}"
     if kind == "skill":
@@ -139,6 +150,13 @@ def apply_pending(c: sqlite3.Connection, room_id: str) -> list[str]:
             else:
                 actor = c.execute("SELECT * FROM actors WHERE id=?", (change["actor"],)).fetchone()
                 if actor is None or actor["presence"] == "left":
+                    continue
+                if change["kind"] == "money":
+                    from . import economy
+                    money = economy.of_room(room)
+                    if money is not None:
+                        economy.set_balance(c, actor["id"], economy.balance(actor, money) + change["delta"])
+                    lines.append(describe(room, change, names))
                     continue
                 doc = loadout.state(actor)
                 if change["kind"] == "resource":

@@ -16,6 +16,7 @@ from . import narrative_annotations
 from . import hosted_decisions
 from . import attribute_basis
 from . import compact_narrative, play_hooks
+from . import hosted_ledger
 
 
 CONTRACT = "se-hosted-turn/1.0.0"
@@ -141,7 +142,7 @@ def _digest(value):
 def compile_context(context):
     """Select already audience-filtered facts; never promote guesses to truth."""
     fields=('brief','scene','goal','actor','npcs','facts','recent_events','action','mechanical_receipt','rules')
-    _object(context, fields+tuple(key for key in ('narrative_policy','action_references','entity_catalog','decision_contract','selected_candidate','attribute_context','narrative_block_contract','narrative_model_contract','play_hook_options') if key in context))
+    _object(context, fields+tuple(key for key in ('narrative_policy','action_references','entity_catalog','decision_contract','selected_candidate','attribute_context','narrative_block_contract','narrative_model_contract','play_hook_options','economy_options') if key in context))
     if 'narrative_model_contract' in context and (context['narrative_model_contract'] not in {compact_narrative.CONTRACT,play_hooks.MODEL_CONTRACT} or 'narrative_block_contract' not in context or not attribute_checks.enabled(context['rules'])):
         raise ValueError('hosted_turn.narrative_contract_invalid')
     if 'narrative_block_contract' in context and (context['narrative_block_contract']!=narrative_annotations.ACTION_CONTRACT or 'decision_contract' not in context or context.get('entity_catalog',{}).get('schema')!=narrative_annotations.UPDATE_CATALOG_SCHEMA):
@@ -155,6 +156,10 @@ def compile_context(context):
         candidate=selected['candidate']
         if candidate.get('text')!=context['action']:raise ValueError('hosted_turn.decision_action_changed')
     if 'play_hook_options' in context:play_hooks.validate_options(context['play_hook_options'])
+    if 'economy_options' in context:
+        hosted_ledger.validate_options(context['economy_options'])
+        # The ledger rides on the checked, non-compact narration contract only.
+        if 'narrative_model_contract' in context or not attribute_checks.enabled(context['rules']):raise ValueError('hosted_turn.ledger_contract_invalid')
     if 'entity_catalog' in context:narrative_annotations.validate_catalog(context['entity_catalog'])
     if 'narrative_policy' in context:hosted_narrative_policy.validate(context['narrative_policy'])
     action = _text(context['action'], 2000)
@@ -251,7 +256,7 @@ def validate_narrative(value, context):
     updates=annotated and context['entity_catalog']['schema']==narrative_annotations.UPDATE_CATALOG_SCHEMA
     decisions='decision_contract' in context
     checks_enabled=attribute_checks.enabled(context['rules'])
-    _object(value, ('paragraphs','facts','npcs','suggestions','progress')+(('annotations',) if annotated and 'annotations' in value else ())+(('decision_node',) if decisions else ())+(('suggestion_checks',) if checks_enabled else ())+(('play_hooks',) if 'play_hook_options' in context and 'play_hooks' in value else ()))
+    _object(value, ('paragraphs','facts','npcs','suggestions','progress')+(('annotations',) if annotated and 'annotations' in value else ())+(('decision_node',) if decisions else ())+(('suggestion_checks',) if checks_enabled else ())+(('play_hooks',) if 'play_hook_options' in context and 'play_hooks' in value else ())+(('ledger',) if 'economy_options' in context and 'ledger' in value else ()))
     paragraphs = value['paragraphs']
     if not isinstance(paragraphs, (list,tuple)) or not 1 <= len(paragraphs) <= (16 if actions else 8):
         raise ValueError('hosted_turn.paragraphs_invalid')
@@ -317,6 +322,7 @@ def validate_narrative(value, context):
         if any(item['rule']!={k:check[k] for k in ('kind','difficulty','failure_cost')} for item,check in zip(decision['candidates'],checks)):raise ValueError('hosted_turn.choice_checks_invalid')
     return {'schema':'se-hosted-turn-proposal/1.6.0' if checks_enabled else 'se-hosted-turn-proposal/1.5.0' if actions else 'se-hosted-turn-proposal/1.4.0' if decisions else 'se-hosted-turn-proposal/1.3.0' if updates else 'se-hosted-turn-proposal/1.2.0' if annotated else 'se-hosted-turn-proposal/1.1.0','committed':False,
             **({'play_hooks':play_hooks.normalize(value.get('play_hooks',[]),context)} if 'play_hook_options' in context else {}),
+            **({'ledger':hosted_ledger.normalize(value.get('ledger',[]),context)} if 'economy_options' in context else {}),
             **({'suggestion_checks':checks} if checks_enabled else {}),
             **({'decision_node':decision} if decisions else {}),
             **({'blocks':narrative_annotations.normalize(paragraphs,value.get('annotations',[]),context['entity_catalog'],normalized_npcs if updates else (),allow_actions=actions)} if annotated else {}),
@@ -358,7 +364,7 @@ class RemoteHostedTurnEngine:
             return hosted_narrative_policy.options()
         if method == 'health':
             _object(payload,())
-            return {'status':'alive','contract_version':CONTRACT,'features':['story.custom_plays/1.0.0',play_hooks.FEATURE,compact_narrative.FEATURE,attribute_checks.FEATURE,action_references.FEATURE,narrative_annotations.FEATURE,narrative_annotations.UPDATE_FEATURE,narrative_annotations.ACTION_FEATURE,hosted_decisions.FEATURE,'hosting.attribute_basis/1.0.0','post_resolution.entity_refs/1.0.0','post_resolution.player_statement/1.0.0','post_resolution.npc_actions/1.0.0','resolution.pack_plan/1.0.0','resolution.attribute_basis/1.0.0','resolution.pack_dialogue/1.0.0','resolution.fixed_attributes/1.0.0','narrative.length/2.0.0','post_resolution.narrative_length/2.0.0','offline.public/1.0.0','visual.static_svg/1.0.0','luck.preparation/1.0.0','luck.preparation.result_condition/1.0.0',COLLECTIVE_FEATURE,'turn.timeout_ranking/1.0.0',HOST_CONTEXT_FEATURE]}
+            return {'status':'alive','contract_version':CONTRACT,'features':['story.custom_plays/1.0.0',play_hooks.FEATURE,hosted_ledger.FEATURE,compact_narrative.FEATURE,attribute_checks.FEATURE,action_references.FEATURE,narrative_annotations.FEATURE,narrative_annotations.UPDATE_FEATURE,narrative_annotations.ACTION_FEATURE,hosted_decisions.FEATURE,'hosting.attribute_basis/1.0.0','post_resolution.entity_refs/1.0.0','post_resolution.player_statement/1.0.0','post_resolution.npc_actions/1.0.0','resolution.pack_plan/1.0.0','resolution.attribute_basis/1.0.0','resolution.pack_dialogue/1.0.0','resolution.fixed_attributes/1.0.0','narrative.length/2.0.0','post_resolution.narrative_length/2.0.0','offline.public/1.0.0','visual.static_svg/1.0.0','luck.preparation/1.0.0','luck.preparation.result_condition/1.0.0',COLLECTIVE_FEATURE,'turn.timeout_ranking/1.0.0',HOST_CONTEXT_FEATURE]}
         if method == COLLECTIVE_METHOD:
             return await propose_collective_event(payload, bridge)
         _object(payload, ('operation_ref','call_sequence','deadline_at','idempotency_key','context'))
@@ -421,6 +427,7 @@ class RemoteHostedTurnEngine:
             if 'narrative_block_contract' in context:
                 instruction+='本次启用有序NPC动作合同：annotations.kind允许npc_action。NPC动作只写该NPC已经发生的可见动作，NPC对白使用npc_dialogue，两类都必须绑定同一可靠speaker。环境和无法可靠辨认的发言保留paragraph及speaker=null。按事情发生顺序交替排列，不将环境、其他人的动作或推测塞进一个人的发言。每个paragraphs元素只含一个自然段，不含换行或HTML，每段最多360个非空白字符，至多16段；相邻同一NPC的动作和对白会按原顺序共用气泡。'
             if 'play_hook_options' in context:instruction+=play_hooks.INSTRUCTION
+            if 'economy_options' in context:instruction+=hosted_ledger.INSTRUCTION
             if compact:instruction+=compact_narrative.INSTRUCTION
             else:
                 if 'decision_contract' in context:instruction+=hosted_decisions.INSTRUCTION
@@ -440,7 +447,7 @@ class RemoteHostedTurnEngine:
         output_limit=8192 if not intent and context.get('narrative_policy',{}).get('mode')=='epic' else 4096
         request=ModelInvocationRequest(payload['operation_ref'],payload['call_sequence'],ModelPurpose.TURN_NARRATIVE,
             instruction,json.dumps(model_context,ensure_ascii=False,sort_keys=True,separators=(',',':')),
-            ('se-hosted-intent-model-output/1.2.0' if 'attribute_context' in context else INTENT_CONTRACT) if intent else context['narrative_model_contract'] if compact else 'se-hosted-narrative-model-output/1.6.0' if attribute_checks.enabled(context['rules']) else narrative_annotations.ACTION_MODEL_CONTRACT if 'narrative_block_contract' in context else hosted_decisions.MODEL_CONTRACT if 'decision_contract' in context else narrative_annotations.UPDATE_MODEL_CONTRACT if context.get('entity_catalog',{}).get('schema')==narrative_annotations.UPDATE_CATALOG_SCHEMA else narrative_annotations.MODEL_CONTRACT if 'entity_catalog' in context else NARRATIVE_CONTRACT,2048 if intent else output_limit,
+            ('se-hosted-intent-model-output/1.2.0' if 'attribute_context' in context else INTENT_CONTRACT) if intent else context['narrative_model_contract'] if compact else hosted_ledger.MODEL_CONTRACT if 'economy_options' in context else 'se-hosted-narrative-model-output/1.6.0' if attribute_checks.enabled(context['rules']) else narrative_annotations.ACTION_MODEL_CONTRACT if 'narrative_block_contract' in context else hosted_decisions.MODEL_CONTRACT if 'decision_contract' in context else narrative_annotations.UPDATE_MODEL_CONTRACT if context.get('entity_catalog',{}).get('schema')==narrative_annotations.UPDATE_CATALOG_SCHEMA else narrative_annotations.MODEL_CONTRACT if 'entity_catalog' in context else NARRATIVE_CONTRACT,2048 if intent else output_limit,
             {'primary_model_calls':1},payload['deadline_at'],payload['idempotency_key'])
         result=await bridge.invoke_model(request)
         if result.problem is not None or result.operation_ref!=request.operation_ref or result.call_sequence!=request.call_sequence:

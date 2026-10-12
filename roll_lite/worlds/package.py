@@ -28,7 +28,8 @@ tier it does not know (it needs a newer plugin) before anything is written; see 
 world.json may carry ``extensions`` for the full version (weather, ambience, catalog data...);
 Lite reads only the world's narration defaults from them: ``"321roll".randomness`` (0-100,
 steps of 5, the improvisation band, see narrative_style()) and ``"321roll-lite".dialogue`` and
-``.length``; see roll_lite/narration.py.  Anything else there is ignored.
+``.length``; see roll_lite/narration.py. ``.scene_variants`` is validated before install;
+other optional extension keys are ignored.
 """
 from __future__ import annotations
 
@@ -47,7 +48,7 @@ PACKAGE_FORMAT = "321roll-lite.world-package/2"
 INDEX_FORMAT = "321roll-lite.world-index/1"
 BUNDLE_FORMAT = "321roll-lite.world-bundle/1"
 MB = 1024 * 1024
-MAX_PACKAGE = 32 * MB
+MAX_PACKAGE = 64 * MB
 MAX_ASSETS = 200
 MAX_IMAGE = 6 * MB
 MAX_JSON = 2 * MB
@@ -92,6 +93,33 @@ def label(edition: str | None, revision: Any) -> str:
     """The version people see: the tier's letter and the revision (C1, P2, M1); pro when no tier is given."""
     edition = edition_of(edition)
     return EDITIONS.get(edition, edition[:1].upper()) + str(revision)
+
+
+# The lowest plugin that reads each optional world block; raise an entry when its block changes shape.
+BASE_PLUGIN = "0.5.0"
+FEATURE_PLUGIN = (("creation", "0.7.0"), ("economy", "0.7.0"), ("pacing", "0.7.0"))
+
+
+def required_plugin(pack: dict[str, Any]) -> str:
+    """min_plugin from what the world actually uses, so rebuilding with a newer plugin does not lock older ones out."""
+    return max([BASE_PLUGIN] + [v for key, v in FEATURE_PLUGIN if key in pack], key=version_tuple)
+
+
+def short_version(value: str | None) -> str:
+    """0.7.0 → 0.7: world formats only change between minor versions."""
+    return ".".join(str(value or "").split(".")[:2])
+
+
+def display_label(min_plugin: str | None, edition: str | None, revision: Any) -> str:
+    """What people see: the plugin it needs and the tier revision, e.g. 0.7 P2 (just P2 when unknown)."""
+    short = short_version(min_plugin)
+    return f"{short} {label(edition, revision)}" if short else label(edition, revision)
+
+
+def file_name(pack_id: str, min_plugin: str | None, edition: str | None, revision: Any) -> str:
+    """greycrown-prequel-0.7-P2.zip"""
+    short = short_version(min_plugin)
+    return f"{pack_id}-{short + '-' if short else ''}{label(edition, revision)}.zip"
 
 
 def refusal(edition: str | None) -> str | None:
@@ -197,7 +225,7 @@ def build_package(pack: dict[str, Any], presentation: dict[str, Any], *, cover: 
         if target in shown:
             shown[alias] = shown[target]
     manifest = {"format": PACKAGE_FORMAT, "id": pack["id"], "revision": pack["revision"], "title": pack["title"],
-                "summary": summary(pack), "min_plugin": PLUGIN_VERSION, "cover": cover,
+                "summary": summary(pack), "min_plugin": required_plugin(pack), "cover": cover,
                 "banner": shown.get("cover"), "images": shown, "assets": table,
                 "files": {name: {"size": len(data), "sha256": sha256(data)} for name, data in payload.items()}}
     if edition:
@@ -240,7 +268,7 @@ class Package:
 
     @property
     def label(self) -> str:
-        return label(self.edition, self.revision)
+        return display_label(self.manifest.get("min_plugin"), self.edition, self.revision)
 
     @property
     def asset_file(self) -> bytes:
@@ -340,7 +368,12 @@ def read_package(data: bytes, expected_sha256: str | None = None) -> Package:
     needed = manifest.get("min_plugin")
     if needed and version_tuple(needed) > version_tuple(PLUGIN_VERSION):
         raise PackageInvalid(f"这个世界需要插件 {needed} 或更新版本")
-    extensions = bundle.get("extensions") if isinstance(bundle.get("extensions"), dict) else None
+    extensions = bundle.get("extensions")
+    from . import scenes as scene_variants
+    try:
+        scene_variants.validate(extensions, raw_presentation, set(images))
+    except ValueError as exc:
+        raise PackageInvalid(str(exc)) from exc
     return Package(data, digest, manifest, pack, presentation, raw_presentation, files, images, assets,
                    randomness=_randomness(bundle), extensions=extensions)
 

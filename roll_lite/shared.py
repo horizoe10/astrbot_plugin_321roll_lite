@@ -25,8 +25,36 @@ def require_room(app: "LiteApp", caller: Caller, *states: str) -> sqlite3.Row:
         raise UserError("本群还没有开团。管理员可以发送 /团 开启 选一个世界开一桌。")
     if states and room["state"] not in states:
         labels = {"lobby": "筹备中", "running": "进行中", "paused": "已暂停", "ended": "已完结"}
-        raise UserError(f"当前团桌{labels.get(room['state'], room['state'])}，不能执行这个操作。")
+        allowed = "、".join(labels[s] for s in states if s in labels)
+        if room["state"] == "paused":
+            raise UserError(paused_step(room))
+        raise UserError(STATE_STEPS.get(room["state"]) or f"故事正在进行，这个操作只能在团桌{allowed}时使用。")
     return room
+
+
+# What a player can do next when a command does not fit the table's state.
+STATE_STEPS = {"ended": "这一桌已经完结：发送 /团 战报 看这一局的回顾；主持人发送 /团 关闭 收桌后可以开新的一桌。",
+               "lobby": "故事还没开演：还没入座的先 /团 加入 并建好卡，人齐后等主持人发送 /团 开演。"}
+
+
+def paused_step(room: sqlite3.Row, what: str = "") -> str:
+    """A paused table either waits for /团 恢复 or already has its lobby open; the next step differs."""
+    head = f"故事暂停中，{what}要等开演后再来。" if what else "故事暂停中。"
+    if loads(room["data_json"], {}).get("regroup"):
+        return head + "准备大厅已经开着：建好卡的人发送 /团 准备，还没入座的可以先 /团 加入 再建卡；主持人 /团 开演 后继续。"
+    return head + "等主持人发送 /团 恢复 打开准备大厅，大家准备好后再开演。"
+
+
+def ending_step(room: sqlite3.Row, what: str = "") -> str | None:
+    """Between the finale and the ending card the story takes no more moves; what to do instead, or None."""
+    st = loads(room["data_json"], {}).get("hosted", {}).get("pacing") or {}
+    if st.get("epilogue"):
+        return (f"终章已经写完，{what}用不上了：" if what else "终章已经写完：") + \
+            "发送 /团 尾声 一句话 写下你的角色最后的去向；主持人可以 /团 完结 直接落幕。"
+    if st.get("finale"):
+        return (f"故事正在写终章，{what}先停一下" if what else "故事正在写终章") + \
+            "：写完后每人留一句尾声。终章没写出来时，主持人可以 /团 主持 重试，或 /团 主持 跳过 直接写尾声。"
+    return None
 
 
 def actor_for(c: sqlite3.Connection, room_id: str, user_id: str) -> sqlite3.Row | None:
@@ -108,7 +136,11 @@ def require_actor(app: "LiteApp", caller: Caller, room: sqlite3.Row) -> sqlite3.
     with app.store.read() as c:
         actor = actor_for(c, room["id"], caller.user_id)
     if actor is None:
-        raise UserError("你还没有加入这一桌。发送 /团 加入 入座。")
+        if room["state"] == "ended":
+            raise UserError(STATE_STEPS["ended"])
+        spectate = "；没入座也可以 /团 起哄 给故事出点子、/团 押 成 竞猜别人这一掷" if room["state"] == "running" else ""
+        where = "" if caller.in_group else "在群里"
+        raise UserError(f"你还没有加入这一桌。{where}发送 /团 加入 入座{spectate}。")
     return actor
 
 

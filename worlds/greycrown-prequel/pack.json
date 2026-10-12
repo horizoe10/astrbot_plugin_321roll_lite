@@ -1,13 +1,13 @@
 {
   "format": "321roll.world-template/1",
   "id": "greycrown-prequel",
-  "revision": 1,
+  "revision": 2,
   "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
   "worldview": "灰冠帝国倒下已经二百三十六年。帝国的冠机还在山脚的册库分站里运转：打孔卡记着每一块地、每一笔债、每一个被登记的名字，标准钟每天正午校准一次。没有被登记的人，在册上就是不存在的。\n\n〔灰脊山脉〕的石环人世代采石、炼铁，把先人葬进山心的石室。今年春汛，一条墓道塌了，露出一层赤红的煤。它烧得比任何木炭都久、都烈，足以让山脚那台从帝国时代就锈着的\"火泵\"重新转起来，把水淹的旧矿道抽干。有了这种煤，蒸汽机就能用了。\n\n可煤脉压在祖墓之下。要开采，就要把先人迁葬，还要比石环人多得多的人手。山下的〔流民坡〕上住着几百个没有册籍的人：逃债的、被赶出城的、生来就不在任何名册上的人。他们愿意下井，只要一样东西：死后能和石环人一起葬进山心，名字刻进石壁，从此\"被计入\"。\n\n〖石环矿冶会〗的主事长老「赫铎」拟好了一份约，十天后要在册库分站打孔录入。一旦录入，就由冠机照章执行，直到永远。\n\n春汛退后，山下商行的代理「卡隆」也上了山。石环欠商行十年煤款，商行扣下了今冬运上山的冬粮，要石环先还账，再谈开矿。\n\n册库分站在山脚，正午标准钟一响，录事就开始打孔。流民坡的人每天站在分站门口看人进出，他们这辈子还没有一张属于自己的卡。\n\n石环人死后，名字要刻进山心的石壁，刻上去才算回了家。流民坡上，至今没有一块刻着自己名字的石头。",
   "seed": "春汛退去的第三天，石环山门前挤满了人。正午的钟声从山脚传上来，赫铎长老把告示最后一个角按平，手背的烫疤蹭上了浆糊。\n\n“铁炉停了半年。山心有煤，再拖一个冬天，打铁的人就得卖铁砧。”他转向流民坡来的人，“凡愿下井者，入石环之籍，葬于山心。十日后去册库分站录约。”\n\n“活着的时候呢？”莉姆问。\n\n“领工钱，分口粮，和石环人一样。”\n\n“我问的是名字。上回坡上死了人，分站叫我们填死者的册号。他一辈子没入过册，连死也报不上。往后还会这样吗？”\n\n赫铎指着告示：“入籍，就是把名字录进去。”\n\n莉姆又看了一遍那两个字。身后的孩子扯她衣角，她把孩子的手攥住，没有松开。\n\n山门外，商行代理卡隆刚下马车，正掸去契据上的水珠。“长老，您还欠十年煤款。冬粮已经运到山脚，我得先有个能向商行交代的数。”\n\n“粮放着，人饿着，倒是各有各的位置。”莉姆说。\n\n“车夫和粮商也等着领钱。”卡隆仍很客气，“请您体谅。”\n\n祖墓入口传来拐杖敲石阶的声音。守墓人萨琳坐在那里，膝上沾着塌口的灰。\n\n“先人说过，进山的人要报名字。”她望着赫铎，“你手里的约，也写得和墙上一样短？”\n\n赫铎摸了摸衣襟里的纸，没有取出来。“工钱、工期，总得写清。”\n\n“那就读完再说。”\n\n萨琳看见了你们，往旁边挪出一点位置。\n\n“你们不是石环人，也不是流民。替我看看那份约。先问清楚，想把名字写进去的人，得答应些什么。”",
   "style": "工业黎明前夜的群像：石室、矿灯、锈蚀的火泵与第一缕煤烟。黑暗来自\"被计入\"本身的代价：名字、归属与世代的义务。人与人之间仍有互助、争执与温情；靠下井、谈判与查证推进，少有厮杀。",
   "boundaries": "- 不写飞艇、机甲、护目镜，不写神秘学升格、旧神或超自然复苏。\n- 不把一切归咎于冠机：先民的誓言、石环的债与流民的渴望是本地成因。\n- 不裁定断冠原因，不写冠机是否有意志，不出现〔第十三钟〕，不提东洲。\n- 不裁定祖约最终录入了哪个版本，留作\"至今的争议\"。\n- 迁葬与遗骸只写敬重与仪式，不写不敬的细节；伤亡点到为止。",
-  "guidance": "真相分三层。每层先满足前提再揭示，幕号只是正常节奏；前提齐了而主持人还没换幕时可以揭示，并在选项里加一条“（主持人可换幕）”。\n\n第一层（第1幕）：告示、各方立场、萨琳托玩家看约。\n第二层（第2–3幕）：赫铎拟了两份草约，送去打孔的是“工役及于子嗣”；石环欠商行十年煤款；卡隆的人拧松了火泵阀门，拖到还款期；卡隆托维瑟加打“工役可转让抵债”，萨琳托维瑟“录约日无人作证就一行也别打”。商行十年利息从未录卡，冠机不执行没录卡的条文，石环只欠本金。这一条要先拿到煤账，再与册库记录对照（学识检定、契术士或逼问维瑟），才能揭示；契术士事先只会起疑。\n第三层（第4幕）：山心石室古誓下方有一排被凿去的名字，石环先民入册前也是没有名字的人；旧矿道与石室的沉降刻度表明，开采会让三座墓室下沉。负担只能挪到流民坡或石环城下，须承受方当众同意：流民坡由莉姆或托勒，石环城下由赫铎。两件证据各支持古誓的一种读法，任何人都不能裁定。第5幕不开采、挪到流民坡、挪到石环城下三条路都能走通，模型不替玩家判断哪种读法正确。真相通过物证和人物之口出现，不由旁白直接说出。\n\n事实标签：关键节点写成 world_fact，text 以标签开头：【证据·火泵阀门】【证据·两份草约】【证据·十年煤账】【揭示·利息未录卡】【证据·两封托书】【揭示·凿去的名字】【揭示·沉降刻度】【承诺·负担去处】（写明谁同意了什么）【立场·维瑟】（愿当众作证）。地脉使挪负担前先确认已有【承诺·负担去处】。\n\n时间：第10日录约。目标栏写“距录约N日｜已公开：……”；大致第1幕第1日，第2幕第2–3日，第3幕第4–6日，第4幕第7–9日，第5幕第10日。\n\n无人干预时：第1幕赫铎把“及于子嗣”那份交给维瑟；第2幕火泵抽不干水，卡隆上山催债；第3幕卡隆拿冬粮换赫铎点头加上“可转让”；第4幕托勒带人占井；第5幕维瑟按送来的卡打孔，未核对就锁进柜里。\n\n每幕要点：\n- 第1幕：山门前三方各说一段：赫铎讲还债和铁炉，莉姆讲名字，萨琳只说“读完再说”。卡隆的马车停在山门外。\n- 第2幕：下到水淹旧矿道修火泵。水冷、灯少、空气差，检定失败的代价是体力或灯油。墓道深处第一次看见赤髓煤的光。\n- 第3幕：在石环议事堂议约，工匠、流民和卡隆的人都在场，适合用证词、对照和条款推进。\n- 第4幕：进山心石室，或在井口与托勒对峙；两件证据都要有人亲眼看到。\n- 第5幕：正午标准钟响，维瑟站在打孔机前。作证、出示和最后的条款在这里收束，迁葬仪式随后进行：先读名，再起棺，最后封门。\n\n检定与代价：修泵用学识或灵巧，下井涉水用力量，读刻度与古誓用学识或感知，说服与对质用魅力。失败的代价优先是时间（少一个时段）、冬粮和〈人心〉，其次才是〈生命力〉。\n\n人物的声音：赫铎说话像算账，句句带数；萨琳不说满话，常以“先人说过”开头；莉姆直来直去；卡隆客气，从不提高声音；维瑟只谈规程；托勒话少，先动手。\n\n职业暗线只在该职业的玩家行动时使用。其他入口始终开放：阀门靠修泵时的感知检定，利息靠煤账，沉降靠萨琳与刻度，咳血的病人莉姆会提起，卡隆的信能在驿馆搜到。\n\n人物卡只写公开立场：赫铎“保住铁炉”，卡隆“来收十年煤款”，维瑟“照章办事”，托勒“流民不再求人”。\n\n冲突点到为止，不写大规模伤亡；石环不覆灭、不迁城、不与流民合并成新组织。所有录入类结局都以打孔卡锁进柜里、无人当场核对收尾，为305年的大罢炉留下伏笔；“山心不开”不出现打孔。\n\n结局优先级：同一面石壁＞名字刻进石壁＞山下的账＞锁进柜里＞山心不开。",
+  "guidance": "冠落纪236年，开场第1日，第10日拟录约。赫铎要保铁炉，莉姆求刻名，萨琳守墓，卡隆保煤债，维瑟怕查账，托勒求尊严；梅妲顾口粮照护，卢肯要工钱和出路。人物彼此有旧关系，合作仍逐事确认。\n背景：赫铎拟送“工役及于子嗣”，不知卡隆另托维瑟加“工役可转让抵债”；萨琳托无人作证就不打孔。利息未录卡，冠机只认已录条文，煤账与册库可互证。古誓下凿去的名字属于入册前的石环先民；采矿会使三座墓室下沉，负担只可移向坡地或城下，须实际承受方知情同意。不裁定古誓读法或最终祖约入卡版本。\n粮车、泵房、安置、记名、册库五项局面可独立参与与收束，按相关条目给出需求、机会和后果。不按幕自动触发；临时供粮不等于同意工役，修好泵不等于允许采矿。真实成果改变下一次谈判与生活条件，不参与也不强制失败。世界没有后台自动时钟，只有已经说明且实际经过的时间与行动。\n能力分工：力量搬运抗冲，灵巧精细动作，坚韧耐受疲劳，感知现场察觉，学识已有知识，工艺实际制修，洞察比对推理，意志压力下自持，魅力交流动员。感知找迹象，洞察核解释；学识知原理，工艺把东西做成。一次动作按主要风险选一属性。技能加值、物品消耗和恢复只读平台回执，人心资源不代替人物同意。\n建卡来历优先于职业素材；旧识只表示见过或往来，不赋予秘密、同意或权限，玩家羁绊须对方接受。九属性使用D20尺度，不引入正篇成长、专精和超自然升格。迁葬先读名、起棺、封门；石环不覆灭、不迁城、不合并。\n\n人物与世界事实稳定，故事由行动发展。合作逐事协商，可同时接触不同阵营；问价、接受援助或拒绝未同意的要求不自动归队、敌对或关闭其他交涉。人物依愿望、顾虑和已知消息主动提议、拒绝、让步或改变关系；条目中的转向条件是可用理由，不是唯一解锁按钮。承诺冲突时说明具体代价，允许解释、补偿或终止，已有承诺仍须回应。骰子不能替当事人同意。\n五幕提供场景素材，可跳过、交错或重访；换幕只整理实际时空，不补做事件、不解锁秘密、不自动推进倒计时。秘密凭亲见、物证或可信证言揭示，线索可交叉核验，不按层级排队。时间按实际行动推进，先说明耗时与征兆；已阻止的事件不重演，不为催选边临时制造危机。四个建议围绕眼前不同方法与代价，保留自由行动。\n职业旧识与私人经历由本人选择采用；未采用不写成既定背景，关键信息另有公共入口。普通询问、拒绝与分工直接回应，有风险才检定。单人可求助NPC，多人可自愿分工；轮流时只结算当前行动者，快团逐人落实已提交行动、位置与结果，未提交者不代选，共同行动不重复扣时。分歧逐项协调，不替全队站队。\n群聊互动：台词是表达，不等于行动完成或接受条款；羁绊以平台确认的双方关系为准，拒绝或解除不自动结仇。密信不进入公开正文、人物卡、目标或事实，收信也不等于同意。闪回按平台认可内容呼应准备，不改已发生事实、他人意愿或世界规则；矛盾部分不成为新真相。起哄只作符合世界的小插曲，不替人选边或改结算；X卡及时转场，不追问。援手、孤注、闪回的加值与消耗只读平台回执，不重复结算；快团不另开援手。\n只记已发生的新事实：证据含来源、持有人与公开范围；立场含对象、原因；承诺含双方同意、事项及履行或变更。玩家背景用player_declaration，公共事件用world_fact，不将猜测、建议或秘密写成公共事实。人物卡只写已知身份和公开打算；复用已有npc_ref。目标列眼前事项与真实未完约定，不列路线完成率。每段明确末尾场景。\n结局名称是可选回顾角度，无高低顺序，也不穷尽结果。按实际后果与玩家收束意愿选用或自拟走向；多项成立由玩家商定，用“/团 结局 提出 名称：走向”交给平台流程，不自动完结。",
   "attributes": [
     {
       "id": "strength",
@@ -18,6 +18,12 @@
     {
       "id": "dexterity",
       "name": "灵巧",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "toughness",
+      "name": "坚韧",
       "min": 6,
       "max": 16
     },
@@ -34,13 +40,31 @@
       "max": 16
     },
     {
+      "id": "willpower",
+      "name": "意志",
+      "min": 6,
+      "max": 16
+    },
+    {
       "id": "charisma",
       "name": "魅力",
       "min": 6,
       "max": 16
+    },
+    {
+      "id": "craft",
+      "name": "工艺",
+      "min": 6,
+      "max": 16
+    },
+    {
+      "id": "insight",
+      "name": "洞察",
+      "min": 6,
+      "max": 16
     }
   ],
-  "budget": 55,
+  "budget": 99,
   "modifier": {
     "baseline": 10,
     "divisor": 2
@@ -77,7 +101,7 @@
     "recommendedMax": 4,
     "mode": "hybrid",
     "expectedResults": true,
-    "skillSlots": 2,
+    "skillSlots": 3,
     "failureCost": 1,
     "failureResource": "vitality",
     "restCost": 0,
@@ -89,7 +113,7 @@
     {
       "id": "open-guard",
       "name": "明守",
-      "text": "站在人前，挡住落石、冲撞或推搡的人群",
+      "text": "在人前承住冲撞、落物或推挤，为撤离留出位置；不能独力挡住整场塌方。",
       "attribute": "strength",
       "modifier": 2,
       "cost": 0,
@@ -102,89 +126,11 @@
     {
       "id": "hidden-guard",
       "name": "暗守",
-      "text": "提前察觉埋伏与暗中的手脚，护送要紧的人或物",
+      "text": "留意盲角、尾随和人群异动，提前安排护送；判断仍须依据可见征兆。",
       "attribute": "perception",
       "modifier": 2,
       "cost": 0,
       "costResource": "",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "fire-pump",
-      "name": "火泵",
-      "text": "读懂旧图纸，修好或操作蒸汽机械，抽干水道、带动绞盘",
-      "attribute": "knowledge",
-      "modifier": 2,
-      "cost": 0,
-      "costResource": "",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "jury-rig",
-      "name": "临时改装",
-      "text": "用手边零件做出能用一次的装置",
-      "attribute": "dexterity",
-      "modifier": 2,
-      "cost": 1,
-      "costResource": "trust",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "guide-vein",
-      "name": "导脉",
-      "text": "把塌陷、渗水等\"负担\"挪到另一处。负担只能挪、不能消失，挪到哪里须经那里的人同意",
-      "attribute": "perception",
-      "modifier": 2,
-      "cost": 1,
-      "costResource": "trust",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "mimic",
-      "name": "拟生",
-      "text": "借壁虎或潜鱼之形，穿过狭窄的石缝与水淹的矿道；还形后会带着那种习惯一阵子",
-      "attribute": "dexterity",
-      "modifier": 2,
-      "cost": 0,
-      "costResource": "",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "bargain",
-      "name": "讨价还价",
-      "text": "在议约中多争一步，或让对方先开价",
-      "attribute": "charisma",
-      "modifier": 2,
-      "cost": 0,
-      "costResource": "",
-      "gain": 0,
-      "gainResource": "",
-      "uses": 2,
-      "reset": "scene"
-    },
-    {
-      "id": "wager",
-      "name": "押注",
-      "text": "看穿对方的底牌，用一个赌约换取让步",
-      "attribute": "perception",
-      "modifier": 2,
-      "cost": 1,
-      "costResource": "trust",
       "gain": 0,
       "gainResource": "",
       "uses": 2,
@@ -193,7 +139,7 @@
     {
       "id": "triage",
       "name": "救治",
-      "text": "处理伤势，恢复同伴 2 点〈生命力〉",
+      "text": "判断伤势并实施急救与照护；本技能只给检定加值，生命力恢复按绷带或休整回执结算。",
       "attribute": "knowledge",
       "modifier": 2,
       "cost": 0,
@@ -206,7 +152,7 @@
     {
       "id": "steady-hand",
       "name": "稳手",
-      "text": "在混乱中完成精细的事：缝合、拆解或悄悄换下一页纸",
+      "text": "在混乱中完成缝合、取出异物等精细处置，也能用于细小器件；材料仍须备齐。",
       "attribute": "dexterity",
       "modifier": 2,
       "cost": 0,
@@ -217,9 +163,61 @@
       "reset": "scene"
     },
     {
-      "id": "omen",
-      "name": "灾候",
-      "text": "推算塌方、汛水与天气，说出\"还能撑多久\"；不知道的就说不知道",
+      "id": "bargain",
+      "name": "讨价还价",
+      "text": "就价款、期限与责任争取可接受的条款；对方是否承诺须实际确认。",
+      "attribute": "charisma",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "wager",
+      "name": "押注",
+      "text": "根据已知筹码判断赌约的风险和责任，提出有边界的担保；不读取底牌，也不使未同意者受约。",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 1,
+      "costResource": "trust",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "trace",
+      "name": "追迹",
+      "text": "辨认足迹、工具痕与现场残留，寻找接触顺序；痕迹不直接证明动机。",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "compare-record",
+      "name": "勘证",
+      "text": "比对证物与证言，区分矛盾、遗漏和猜测；只有得到材料支持的结论才能作为证据。",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "test-stratum",
+      "name": "试层",
+      "text": "从岩样与矿层记录判断煤石性质、夹层和开凿风险；须实际取样，不凭空估出储量。",
       "attribute": "knowledge",
       "modifier": 2,
       "cost": 0,
@@ -230,10 +228,218 @@
       "reset": "scene"
     },
     {
-      "id": "timing",
-      "name": "航测",
-      "text": "为同伴排好时机，让同伴的下一次检定 +1",
+      "id": "sound-fissure",
+      "name": "探隙",
+      "text": "听回声、看渗水和裂纹，辨别井下空隙及松动处，为试掘、支护或撤离提供依据。",
       "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "judge-stock",
+      "name": "辨材",
+      "text": "辨别金属、燃料和旧件是否适合当前用途，估算损耗，寻找可用的替代材料。",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "cast-repair",
+      "name": "铸修",
+      "text": "依图纸修复、铸补或配制器件，能检修火泵；耗材、炉火、工时与试运条件仍需落实。",
+      "attribute": "craft",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "price-sources",
+      "name": "询价",
+      "text": "向不同供货人问价、探询现货与替代来源；只得到愿意提供的消息，不凭职业自带商网。",
+      "attribute": "charisma",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "arrange-supply",
+      "name": "调货",
+      "text": "核对货量、运力与交付次序，提出分批或替代供应；货物须真实存在且经持有人同意。",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "read-route",
+      "name": "辨途",
+      "text": "依据路迹、水位和天气征兆比较山路及宿营位置；未探明的路段仍有未知风险。",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "guide-crossing",
+      "name": "领路",
+      "text": "在恶劣路况与慌乱中保持方向、组织自愿同行者分段撤离；不赋予他人额外行动或免除承重。",
+      "attribute": "willpower",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "shore-up",
+      "name": "支护",
+      "text": "按现场承重搭支架、修棚与加固通道；须有合用木石和工时，完成后仍要检查维护。",
+      "attribute": "craft",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "drainage",
+      "name": "治水",
+      "text": "测坡向、流量与排水去处，安排沟渠和蓄排；不凭空消水，影响他处须告知并协商。",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "verify-names",
+      "name": "考名",
+      "text": "比对碑铭、名册与口述的称谓年代，整理身份来源；不自动获得册籍或裁定古誓唯一读法。",
+      "attribute": "knowledge",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "inscribe-record",
+      "name": "拓录",
+      "text": "拓下可见刻痕、抄存原话并标明来源和缺损；须获准接触原件，不补造未见的名字。",
+      "attribute": "dexterity",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "hold-ground",
+      "name": "久守",
+      "text": "承担寒水、负重或长时值守造成的疲劳；仍须休息、换班和撤出不宜停留之处。",
+      "attribute": "toughness",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "steady-nerve",
+      "name": "定心",
+      "text": "在催促、恐惧与哀恸中稳住自己的行动；不替别人消除恐惧或改变意愿。",
+      "attribute": "willpower",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "field-survey",
+      "name": "测程",
+      "text": "实测距离、落差与通行耗时，为现场安排提供数据；不预知未来事件。",
+      "attribute": "perception",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "listen-closely",
+      "name": "倾听",
+      "text": "从对方实际说出的话区分诉求与顾虑，提出待核实的问题；不把猜测当作读心。",
+      "attribute": "insight",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "coordinate",
+      "name": "协作",
+      "text": "把已同意参与者的分工、交接与停止条件讲清；不强征劳动，也不另赠援手加值。",
+      "attribute": "charisma",
+      "modifier": 2,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene"
+    },
+    {
+      "id": "slip-through",
+      "name": "穿隙",
+      "text": "借身体协调通过狭窄通道或绕开拥挤处；尺寸、携物和可通行条件仍然有效。",
+      "attribute": "dexterity",
       "modifier": 2,
       "cost": 0,
       "costResource": "",
@@ -247,7 +453,7 @@
     {
       "id": "lamp",
       "name": "『矿灯』",
-      "text": "感知检定 +1（井下与暗处），每幕 3 次",
+      "text": "井下与暗处照明时感知检定 +1，每幕 3 次；不驱散烟气。",
       "attribute": "perception",
       "modifier": 1,
       "cost": 0,
@@ -262,7 +468,7 @@
     {
       "id": "bandage",
       "name": "『绷带卷』",
-      "text": "〈生命力〉+2",
+      "text": "消耗一卷，使用者生命力 +2（不超过上限）；给他人治疗须按平台支持的转交或处置流程。",
       "attribute": "",
       "modifier": 0,
       "cost": 0,
@@ -277,7 +483,7 @@
     {
       "id": "oatcake",
       "name": "『麦饼』",
-      "text": "〈人心〉+1（分给流民或工匠）",
+      "text": "消耗一份，使用者人心 +1（不超过上限）；分享食物不自动获得 NPC 信任或同意。",
       "attribute": "",
       "modifier": 0,
       "cost": 0,
@@ -288,103 +494,397 @@
       "reset": "never",
       "initial": 2,
       "consume": 1
+    },
+    {
+      "id": "tool-roll",
+      "name": "『修理工具卷』",
+      "text": "有图纸或明确作法的器件检修，工艺检定 +1，每幕 2 次；不提供缺失零件。",
+      "attribute": "craft",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "rope",
+      "name": "『承重绳』",
+      "text": "搬运或攀援时固定承重点；对应检定 +1，每幕 2 次",
+      "attribute": "strength",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "sample-kit",
+      "name": "『取样匣』",
+      "text": "保存当次水、煤和油样；对应检定 +1，每幕 2 次",
+      "attribute": "knowledge",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "rubbing-kit",
+      "name": "『拓印纸』",
+      "text": "保留可见刻痕与字迹的细节；对应检定 +1，每幕 2 次",
+      "attribute": "perception",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "rite-cloth",
+      "name": "『素礼布』",
+      "text": "在已商定的守礼或迁葬中稳住自己，意志检定 +1，每幕 2 次；不裁定仪式合法性。",
+      "attribute": "willpower",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "filter-cloth",
+      "name": "『滤尘面巾』",
+      "text": "短时减轻工作扬尘，不替代通风和撤离；对应检定 +1，每幕 2 次",
+      "attribute": "toughness",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "hand-shield",
+      "name": "『手盾』",
+      "text": "承接近身冲撞、为同行者挡出空位；不提供常驻减伤；对应检定 +1，每幕 2 次。",
+      "attribute": "strength",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "suture-case",
+      "name": "『缝合针匣』",
+      "text": "在具备照护条件时作精细处置；不另恢复生命力；对应检定 +1，每幕 2 次。",
+      "attribute": "dexterity",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "tally-scales",
+      "name": "『盘货筹』",
+      "text": "摆出货量、车次与交付缺口，检查安排能否兑现；洞察检定 +1，每幕 2 次。",
+      "attribute": "insight",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "waystaff",
+      "name": "『行杖』",
+      "text": "山路长行时分担身体负荷；不免除险地判断；对应检定 +1，每幕 2 次。",
+      "attribute": "toughness",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "plumb-line",
+      "name": "『墨斗垂线』",
+      "text": "放线、定垂直并检查搭建误差；不代替木石材料；对应检定 +1，每幕 2 次。",
+      "attribute": "craft",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
+    },
+    {
+      "id": "ledger-case",
+      "name": "『抄本夹』",
+      "text": "按出处保存并核对图纸、条文或名册；携带的是空夹，不自带秘密文书；对应检定 +1，每幕 2 次。",
+      "attribute": "knowledge",
+      "modifier": 1,
+      "cost": 0,
+      "costResource": "",
+      "gain": 0,
+      "gainResource": "",
+      "uses": 2,
+      "reset": "scene",
+      "initial": 0,
+      "consume": 0
     }
   ],
   "archetypes": [
     {
       "id": "warden",
       "name": "戍卫",
-      "text": "护卫与正面对抗（专精型） · 流民坡长大",
+      "text": "护送与现场防护；先安排安全位置，再应对冲撞和人群风险。",
       "attributes": {
-        "strength": 16,
+        "strength": 15,
         "dexterity": 10,
+        "toughness": 14,
         "perception": 13,
         "knowledge": 8,
-        "charisma": 8
+        "willpower": 12,
+        "charisma": 9,
+        "craft": 7,
+        "insight": 11
       },
       "skills": [
         "open-guard",
-        "hidden-guard"
-      ]
-    },
-    {
-      "id": "mechanic",
-      "name": "机工",
-      "text": "火泵与临时装置（双修型） · 读得懂帝国图纸",
-      "attributes": {
-        "strength": 10,
-        "dexterity": 14,
-        "perception": 8,
-        "knowledge": 15,
-        "charisma": 8
-      },
-      "skills": [
-        "fire-pump",
-        "jury-rig"
-      ]
-    },
-    {
-      "id": "geomancer",
-      "name": "地脉使",
-      "text": "导脉与穿行（偏科型） · 能感到山心震颤",
-      "attributes": {
-        "strength": 8,
-        "dexterity": 11,
-        "perception": 16,
-        "knowledge": 12,
-        "charisma": 8
-      },
-      "skills": [
-        "guide-vein",
-        "mimic"
-      ]
-    },
-    {
-      "id": "contractor",
-      "name": "契术士",
-      "text": "议约与赌约（双修型） · 熟悉册库规程",
-      "attributes": {
-        "strength": 8,
-        "dexterity": 10,
-        "perception": 14,
-        "knowledge": 8,
-        "charisma": 15
-      },
-      "skills": [
-        "bargain",
-        "wager"
+        "hidden-guard",
+        "hold-ground"
       ]
     },
     {
       "id": "physician",
       "name": "医士",
-      "text": "救治与精细手艺（偏科型） · 常去流民坡出诊",
+      "text": "诊察、急救与持续照护；关心伤者状况和处置条件。",
       "attributes": {
-        "strength": 8,
-        "dexterity": 12,
-        "perception": 11,
-        "knowledge": 16,
-        "charisma": 8
+        "strength": 7,
+        "dexterity": 14,
+        "toughness": 9,
+        "perception": 12,
+        "knowledge": 15,
+        "willpower": 13,
+        "charisma": 10,
+        "craft": 8,
+        "insight": 11
       },
       "skills": [
         "triage",
-        "steady-hand"
+        "steady-hand",
+        "steady-nerve"
       ]
     },
     {
-      "id": "observer",
-      "name": "观象士",
-      "text": "灾候与时机（均衡型） · 受山下资助的学者",
+      "id": "contractor",
+      "name": "契术士",
+      "text": "解释条款、议定担保与责任；约束来自当事人确实接受的承诺。",
+      "attributes": {
+        "strength": 7,
+        "dexterity": 8,
+        "toughness": 9,
+        "perception": 10,
+        "knowledge": 13,
+        "willpower": 12,
+        "charisma": 15,
+        "craft": 11,
+        "insight": 14
+      },
+      "skills": [
+        "bargain",
+        "wager",
+        "steady-nerve"
+      ]
+    },
+    {
+      "id": "detective",
+      "name": "侦探",
+      "text": "追查接触痕迹、核验证言与责任；依证据提出结论。",
+      "attributes": {
+        "strength": 8,
+        "dexterity": 12,
+        "toughness": 9,
+        "perception": 15,
+        "knowledge": 13,
+        "willpower": 10,
+        "charisma": 11,
+        "craft": 7,
+        "insight": 14
+      },
+      "skills": [
+        "trace",
+        "compare-record",
+        "listen-closely"
+      ]
+    },
+    {
+      "id": "prospector",
+      "name": "探矿客",
+      "text": "勘矿层、辨空隙与井下险情；为试掘、停工和撤离提供依据。",
+      "attributes": {
+        "strength": 12,
+        "dexterity": 11,
+        "toughness": 14,
+        "perception": 15,
+        "knowledge": 13,
+        "willpower": 9,
+        "charisma": 7,
+        "craft": 10,
+        "insight": 8
+      },
+      "skills": [
+        "test-stratum",
+        "sound-fissure",
+        "slip-through"
+      ]
+    },
+    {
+      "id": "founder",
+      "name": "铸匠",
+      "text": "辨料、铸补与修复器具；把有限旧件做成可用的部件。",
+      "attributes": {
+        "strength": 13,
+        "dexterity": 14,
+        "toughness": 12,
+        "perception": 10,
+        "knowledge": 11,
+        "willpower": 9,
+        "charisma": 8,
+        "craft": 15,
+        "insight": 7
+      },
+      "skills": [
+        "judge-stock",
+        "cast-repair",
+        "hold-ground"
+      ]
+    },
+    {
+      "id": "broker",
+      "name": "掮客",
+      "text": "寻找货源、协调替货与交付；擅长让供需和运力接上。",
       "attributes": {
         "strength": 8,
         "dexterity": 10,
-        "perception": 13,
-        "knowledge": 12,
-        "charisma": 12
+        "toughness": 9,
+        "perception": 12,
+        "knowledge": 13,
+        "willpower": 11,
+        "charisma": 15,
+        "craft": 7,
+        "insight": 14
       },
       "skills": [
-        "omen",
-        "timing"
+        "price-sources",
+        "arrange-supply",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "ranger",
+      "name": "巡界人",
+      "text": "辨路、选营与引导撤离；熟悉山路上的天气、脚程和人群。",
+      "attributes": {
+        "strength": 11,
+        "dexterity": 13,
+        "toughness": 12,
+        "perception": 15,
+        "knowledge": 9,
+        "willpower": 14,
+        "charisma": 8,
+        "craft": 7,
+        "insight": 10
+      },
+      "skills": [
+        "read-route",
+        "guide-crossing",
+        "field-survey"
+      ]
+    },
+    {
+      "id": "constructor",
+      "name": "构筑师",
+      "text": "搭棚、支护与排水；让固定设施能承重、可使用、有人维护。",
+      "attributes": {
+        "strength": 12,
+        "dexterity": 10,
+        "toughness": 13,
+        "perception": 11,
+        "knowledge": 14,
+        "willpower": 9,
+        "charisma": 8,
+        "craft": 15,
+        "insight": 7
+      },
+      "skills": [
+        "shore-up",
+        "drainage",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "chronicler",
+      "name": "铭录师",
+      "text": "核名、拓碑与保存口述；见证身份与迁葬，不替家属或册库裁决。",
+      "attributes": {
+        "strength": 7,
+        "dexterity": 12,
+        "toughness": 8,
+        "perception": 13,
+        "knowledge": 15,
+        "willpower": 11,
+        "charisma": 10,
+        "craft": 9,
+        "insight": 14
+      },
+      "skills": [
+        "verify-names",
+        "inscribe-record",
+        "listen-closely"
       ]
     }
   ],
@@ -419,7 +919,7 @@
       "kind": "place",
       "public": true,
       "summary": "石环先人的石室，墓道被春汛冲塌",
-      "secret": "最深处通往山心石室，只有萨琳或导脉能带人进去。开采会让上方三座墓室下沉。",
+      "secret": "最深处通往山心石室，可由萨琳带路，也可勘查旧矿道通风道；导脉提供判断，非唯一职业门票。开采会让上方三座墓室下沉。",
       "links": [
         "red-marrow-seam",
         "salin",
@@ -477,7 +977,7 @@
       "kind": "npc",
       "public": true,
       "summary": "〖石环矿冶会〗主事长老，拟约人，手背上全是旧烫疤",
-      "secret": "想保住铁炉和工匠的体面，怕石环破产。证明利息没录卡或有人担下首年煤款，他会撤回“及于子嗣”；被当众羞辱就提前录约。不知道卡隆托维瑟加打的那一行。",
+      "secret": "想保住铁炉和工匠的体面，怕石环破产；愿考虑能覆盖债务、维持生产的新条款。替担煤款是一个筹码，不是唯一谈法。被当众羞辱会防备，是否送约仍看实际后果。他不知道卡隆托维瑟加打的条文。",
       "links": [
         "clue-drafts"
       ]
@@ -488,7 +988,7 @@
       "kind": "npc",
       "public": true,
       "summary": "守墓人，拦在祖墓入口的老妇人，膝上横着拐杖",
-      "secret": "知道古誓，不能裁定它的意思；年轻时见过上一次迁葬，记得每一步仪式。有人读完两份草约并承诺按仪式迁葬，她会带人进山心石室。",
+      "secret": "知道古誓而不裁定其意思，年轻时见过上次迁葬，熟悉仪式。希望看清约文、敬重先人；愿按实际保护方案讨论查墓和作证，不以接受她全部主张为交谈条件。",
       "links": [
         "ancestral-tomb"
       ]
@@ -499,7 +999,7 @@
       "kind": "npc",
       "public": true,
       "summary": "流民坡的领头人，说话直，护着坡上的孩子",
-      "secret": "要流民的名字刻进石壁，为此愿接受“及于子嗣”；若“止于本身”也能刻名，她改为支持。托勒动手时她会站到中间。",
+      "secret": "要流民的名字刻上石壁，起初愿为此接受“及于子嗣”；若有可行的本人入籍或其他保障，会权衡孩子的负担重新商量。托勒动手时她想拦住，能否做到依现场。",
       "links": [
         "drifter-slope"
       ]
@@ -510,7 +1010,7 @@
       "kind": "npc",
       "public": true,
       "summary": "册库分站的录事，负责打孔，袖口总沾着蜡油",
-      "secret": "怕册库总站查账。有人出示两封托书，他会当众作证；没人过问，就按卡隆送来的卡打孔，不核对就锁进柜里。",
+      "secret": "怕册库总站查账，习惯按收到的卡办事；握有卡隆与萨琳两封托书，立场可随证据、责任与可信保护改变。核对、暂缓和作证须实际提出与回应，不预定他必将未核对的卡锁柜。",
       "links": [
         "registry-station",
         "clue-requests"
@@ -544,8 +1044,8 @@
       "name": "录约之前",
       "kind": "goal",
       "public": true,
-      "summary": "在十日后录约之前，弄清祖约到底写了什么、该写什么",
-      "secret": "录约时须有人当众作证；维瑟只按送到手里的卡打孔，打完锁进柜里。条文含“及于子嗣”时，流民的孩子生来就在石环的工役册上。",
+      "summary": "录约日在十日后，各方对册籍、工役、债务与迁葬各有诉求",
+      "secret": "录约须有人当众作证。录入的条文决定工役与册籍，含“及于子嗣”会使孩子生来负担工役。各方可提出、撤回或修改方案；冠机只执行实际录卡条文，本团最终录入版本仍留作历史争议。",
       "links": [
         "registry-station"
       ]
@@ -591,7 +1091,7 @@
       "kind": "npc",
       "public": true,
       "summary": "山下商行的代理，穿呢子外套，来收十年煤款",
-      "secret": "想拿到子嗣工役的转让权和赤髓矿权，怕利息没录卡被揭穿。被揭穿后改为谈判：降息换首年产煤；谈崩就断冬粮。身边跟着两个护卫和一个修理匠，拧松火泵阀门的就是这个修理匠。",
+      "secret": "想收煤款并取得矿权，手握冬粮与债据；利息未录卡，担心被核实后失去筹码。他曾托维瑟加“工役可转让抵债”并让人拧松火泵阀门。可谈本金、供粮和矿权，是否收手依利益与责任，不因一次合作变成盟友。身边有两名护卫和实施破坏的修理匠。",
       "links": [
         "merchant-house"
       ]
@@ -602,7 +1102,7 @@
       "kind": "npc",
       "public": true,
       "summary": "流民坡的年轻人，腰上别着凿子，不愿再求人",
-      "secret": "要流民不再低头。莉姆当众担保或玩家替流民争到刻名，他会收手；否则在第4幕带人占井。",
+      "secret": "想让流民不再低头，倾向占井施压；会权衡莉姆担保、刻名保障和真实风险。是否行动依局势和消息，不按幕号必发；一次拒绝不自动断绝商量。",
       "links": [
         "drifter-league"
       ]
@@ -666,13 +1166,110 @@
     },
     {
       "id": "goal-hooks",
-      "name": "职业暗线",
+      "name": "职业经历素材",
       "kind": "goal",
       "public": false,
-      "summary": "按入座职业启用的私人入口；其余入口始终开放",
-      "secret": "戍卫：佩刀是赫铎所赐，托勒是旧日玩伴，两边都来求他。机工：一眼看出火泵阀门被拧过，手法像商行雇的修理匠。地脉使：感到三座墓室在下沉；宗门戒律要求挪负担前取得承受方同意。契术士：知道冠机只执行录过卡的条文，怀疑利息有问题，要煤账才能证明。医士：坡上咳血的人多偷挖过赤髓煤。观象士：怀里有卡隆的信，要他估算矿脉能挖多少年。",
+      "summary": "可自选的旧识与经历；不绑定动机、阵营或任务",
+      "secret": "经历由本人自选。戍卫可护送，医士可诊察，契术士可核责任，侦探可查工单痕迹，探矿客可验矿层，铸匠可修泵件，掮客可找货源，巡界人可勘山路，构筑师可修棚排水，铭录师可核名拓碑。职业提供方法，不赠秘密、权限或盟友；关键信息另有公共入口。",
       "links": [
         "goal-covenant"
+      ]
+    },
+    {
+      "id": "maida",
+      "name": "梅妲",
+      "kind": "npc",
+      "public": true,
+      "summary": "流民坡分粥与照护棚的组织者，记账仔细，讲话不急",
+      "secret": "希望病人孩子不断粮，怕别人代坡地接受长期债。与莉姆互信，却不愿用孩子的份额换政治承诺；可商量分批放粮、帮工或外部捐助，先公布实际收支。",
+      "links": [
+        "drifter-slope",
+        "lim",
+        "merchant-lodge"
+      ]
+    },
+    {
+      "id": "luken",
+      "name": "卢肯",
+      "kind": "npc",
+      "public": true,
+      "summary": "随商队来的修理匠，工具擦得很亮，不爱抬头看人",
+      "secret": "就是拧松阀门的修理匠；欠工钱，怕被卡隆推出去顶罪。想领薪离山，愿因可信保护、工资结清或责任分担交出工单；是否承认破坏须实际交谈，不能一次好感检定洗清责任。",
+      "links": [
+        "karon",
+        "fire-pump",
+        "merchant-lodge"
+      ]
+    },
+    {
+      "id": "work-grain",
+      "name": "粮车与账单",
+      "kind": "goal",
+      "public": false,
+      "summary": "可选局面：冬粮在驿馆，锅灶在坡上",
+      "secret": "梅妲要定下一批口粮，卡隆要可交账的担保。可验货、议分批放粮、组织自愿搬运或另找供给；不给回应时商行会在已有运力与期限内考虑回运，先出现点货征兆。放粮数量、偿付条件与接收人据实记。临时供粮缓解占井压力，但不代表接受世代工役；账目可带去册库核对。",
+      "links": [
+        "maida",
+        "karon",
+        "merchant-lodge",
+        "work-register"
+      ]
+    },
+    {
+      "id": "work-pump",
+      "name": "泵房轮班",
+      "kind": "goal",
+      "public": false,
+      "summary": "可选局面：修好之后，机器还需要人照料",
+      "secret": "泵抽水需一整天，停转会回涨。卢肯工单、图纸与阀门可核验破坏；可修复、试运、培训自愿值守者，或停工先改安全安排。初次转动不等于矿道排干，记录抽水时段与值守。若无人照料且燃料耗尽才停泵，先报燃料征兆。复工创造短期工钱与运煤可能，也暴露沉降问题，不自动批准开采。",
+      "links": [
+        "fire-pump",
+        "luken",
+        "flooded-shafts",
+        "work-burial"
+      ]
+    },
+    {
+      "id": "work-shelter",
+      "name": "坡上的安置",
+      "kind": "goal",
+      "public": false,
+      "summary": "可选局面：有名字之前，也要有地方过夜",
+      "secret": "梅妲想改善漏雨棚与照护，托勒希望众人自己选住处。可勘察排水、借用经许可的库房、分工修棚或转移病人；风雨只有已有天气征兆时发展，不按幕制造。记录住户同意、材料来源与照护安排。劳动可与运粮协作，但不得强征；住得安稳使谈约有余地，不能替承受方同意转移采矿负担。",
+      "links": [
+        "maida",
+        "toller",
+        "drifter-slope",
+        "work-grain"
+      ]
+    },
+    {
+      "id": "work-burial",
+      "name": "墓室与名字",
+      "kind": "goal",
+      "public": false,
+      "summary": "可选局面：一面石壁，几种记名办法",
+      "secret": "萨琳要守礼，莉姆要名字被看见，工匠担忧沉降。可测绘、拓记、与家属商议迁葬或先封护；未经家属与承受方同意不挪遗骸和负担。旧矿道刻度与石室可互证。完成一次记名或修护就有独立成果，不必先签祖约；采矿方案改变时需重问受影响者，既有测绘能帮助修泵与安置。",
+      "links": [
+        "salin",
+        "lim",
+        "deep-chamber",
+        "work-shelter"
+      ]
+    },
+    {
+      "id": "work-register",
+      "name": "册库的副本",
+      "kind": "goal",
+      "public": false,
+      "summary": "可选局面：条文还在纸上，见证人已经来了",
+      "secret": "维瑟怕总站追责，赫铎求复工，卡隆保债权。可查已录本金、比对托书、写明临时约的对象与期限、组织自愿见证；公开证据须核实来源。记录各方接受与拒绝的具体条款，允许部分达成，未同意部分继续谈。供粮、工钱和照护账能支撑议价；最终祖约入卡版本仍留作历史争议，地方合作可真实落实。",
+      "links": [
+        "vither",
+        "hedor",
+        "clue-ledger",
+        "clue-requests",
+        "work-pump"
       ]
     }
   ],
@@ -684,6 +1281,472 @@
       "stone-ring-town",
       "salin",
       "goal-covenant"
+    ]
+  },
+  "creation": {
+    "modes": [
+      "quick",
+      "custom",
+      "forge"
+    ],
+    "move": 4,
+    "swap": 1,
+    "origins": [
+      {
+        "name": "石环炉边",
+        "text": "曾靠冶炼、修补或搬运谋生，认得行会里几位老师傅；可以与行会有分歧。",
+        "item": "tool-roll"
+      },
+      {
+        "name": "流民坡地",
+        "text": "熟悉搭棚、互助与无册籍的日常，和莉姆、托勒打过照面；不预设是否愿意入籍。",
+        "item": "rope"
+      },
+      {
+        "name": "山路商旅",
+        "text": "走过粮车和驿站的路，见过卡隆怎么算账；雇主与来意由你选择。",
+        "item": "tally-scales",
+        "money": 6
+      },
+      {
+        "name": "册库学徒",
+        "text": "在册库分站帮过抄写，认得录事维瑟；不自动拥有查库权限或知道秘密。",
+        "item": "ledger-case"
+      },
+      {
+        "name": "墓道守礼人",
+        "text": "熟悉礼俗与记名工作，见过守墓人萨琳；能尊重不同的解释。",
+        "item": "rite-cloth"
+      },
+      {
+        "name": "外乡访学者",
+        "text": "为技艺、行医或考察而来，是否受资助及与谁相识由你说明。",
+        "item": "rubbing-kit",
+        "money": 3
+      },
+      {
+        "name": "井下长大",
+        "text": "父辈下过旧矿道，你熟悉井下的气味和响动；矿道水淹后再没下去过。",
+        "item": "filter-cloth"
+      },
+      {
+        "name": "逃债上山",
+        "text": "为躲山下的一笔债来到石环；欠了谁、欠多少、还不还由你说明。",
+        "item": "waystaff",
+        "money": -4
+      },
+      {
+        "name": "帝国机工后人",
+        "text": "祖上替帝国修过机器，你听着火泵的故事长大；手艺传到你这辈只剩一半。",
+        "item": "plumb-line"
+      },
+      {
+        "name": "照护棚帮手",
+        "text": "在流民坡的照护棚给梅妲打过下手，会换药熬粥；不代表坡上人都信你。",
+        "item": "suture-case"
+      }
+    ],
+    "questions": [
+      "请用一段话描述你的经历、来到石环的缘由和现在想做的事。"
+    ],
+    "kits": [
+      {
+        "name": "井下勘察",
+        "text": "取样与短时防尘，进入矿道仍须确认安全。",
+        "items": {
+          "sample-kit": 1,
+          "filter-cloth": 1
+        }
+      },
+      {
+        "name": "炉边铸修",
+        "text": "备好检修和搬运工具，材料与炉火另行取得。",
+        "items": {
+          "tool-roll": 1,
+          "rope": 1
+        }
+      },
+      {
+        "name": "行路护送",
+        "text": "准备长行与路上照护。",
+        "items": {
+          "waystaff": 1,
+          "bandage": 1
+        }
+      },
+      {
+        "name": "市集调货",
+        "text": "核对交付，也为赶路留一份口粮。",
+        "items": {
+          "tally-scales": 1,
+          "oatcake": 1
+        }
+      },
+      {
+        "name": "坡地构筑",
+        "text": "放线和承重工具，不含建房所需木石。",
+        "items": {
+          "plumb-line": 1,
+          "rope": 1
+        }
+      },
+      {
+        "name": "碑册铭录",
+        "text": "在当事人许可下拓记与守礼。",
+        "items": {
+          "rubbing-kit": 1,
+          "rite-cloth": 1
+        }
+      },
+      {
+        "name": "照护行医",
+        "text": "准备精细处置与消耗敷料。",
+        "items": {
+          "suture-case": 1,
+          "bandage": 1
+        }
+      },
+      {
+        "name": "访人查证",
+        "text": "带空抄本夹与备用矿灯，不附带案情或证物。",
+        "items": {
+          "ledger-case": 1,
+          "lamp": 1
+        }
+      }
+    ],
+    "details": [
+      {
+        "name": "册籍",
+        "text": "你在冠机的册上是什么身份",
+        "modes": [
+          "custom",
+          "forge"
+        ],
+        "options": [
+          {
+            "name": "石环正籍",
+            "text": "名字录在石环的册上，死后能葬进山心。"
+          },
+          {
+            "name": "商行雇契",
+            "text": "册上记着你是商行的雇工，契约到期前身不由己。"
+          },
+          {
+            "name": "无籍之人",
+            "text": "生来不在任何名册上，在册上你就是不存在的。"
+          },
+          {
+            "name": "册上已死",
+            "text": "册上早把你报了死，活着反倒说不清。"
+          },
+          {
+            "name": "顶着别人的册号",
+            "text": "用的是别人的名字和册号，真名没人知道。"
+          },
+          {
+            "name": "外乡临时牒",
+            "text": "持外乡开的临时文牒，过期就得离开。"
+          },
+          {
+            "name": "被除了籍",
+            "text": "曾经在册，后来因为债或罪被除了名。"
+          }
+        ]
+      },
+      {
+        "name": "名归何处",
+        "text": "你相信一个人死后，名字该归到哪里",
+        "modes": [
+          "custom",
+          "forge"
+        ],
+        "options": [
+          {
+            "name": "刻进山心",
+            "text": "守石环旧俗：名字刻上石壁，才算回了家。"
+          },
+          {
+            "name": "录进册里",
+            "text": "信冠机的册：录了名，才算真正活过。"
+          },
+          {
+            "name": "记在人心",
+            "text": "不靠石壁也不靠打孔卡，有人记得就够了。"
+          },
+          {
+            "name": "归葬故乡",
+            "text": "名字该带回出生的地方，不刻在异乡的石头上。"
+          },
+          {
+            "name": "不想被记住",
+            "text": "宁愿什么都不留下，名字跟人一起散了。"
+          },
+          {
+            "name": "名字无关紧要",
+            "text": "活着做事要紧，身后的名由别人去说。"
+          }
+        ]
+      },
+      {
+        "name": "身上的约",
+        "text": "你现在背着什么约、债或誓",
+        "modes": [
+          "forge"
+        ],
+        "options": [
+          {
+            "name": "工约在身",
+            "text": "替行会、商行或某位雇主做着没完的活。"
+          },
+          {
+            "name": "欠着一笔债",
+            "text": "欠钱、欠粮或欠人情，债主是谁由你定。"
+          },
+          {
+            "name": "立过一个誓",
+            "text": "对人、对先人或对自己许下过承诺。"
+          },
+          {
+            "name": "替人顶了名",
+            "text": "替别人担着一份约或一笔债，对方欠你一个交代。"
+          },
+          {
+            "name": "受人之托",
+            "text": "答应过别人一件事，还没办成。"
+          },
+          {
+            "name": "欠一条命",
+            "text": "有人救过你，你还没还上。"
+          },
+          {
+            "name": "无约一身轻",
+            "text": "眼下谁也不欠，也没对谁许过什么。"
+          }
+        ]
+      },
+      {
+        "name": "放不下",
+        "text": "你最想护住的人或东西",
+        "modes": [
+          "forge"
+        ],
+        "options": [
+          {
+            "name": "坡上的孩子",
+            "text": "坡上有个孩子，你一直照看着。"
+          },
+          {
+            "name": "家里的铁砧",
+            "text": "家传的铁砧和炉子，不能断在你手里。"
+          },
+          {
+            "name": "一块没刻名的石头",
+            "text": "有个人走了，名字还没地方刻。"
+          },
+          {
+            "name": "一笔要还的账",
+            "text": "这笔账还清之前，你没法真正停下。"
+          },
+          {
+            "name": "师父的手艺",
+            "text": "师父教的手艺，你想让它传下去。"
+          },
+          {
+            "name": "自己的名字",
+            "text": "你只想让自己的名字被好好记下来。"
+          },
+          {
+            "name": "一句没说出口的话",
+            "text": "有句话，还没对某个人说出口。"
+          }
+        ]
+      }
+    ],
+    "traits": [
+      {
+        "name": "井下耳朵",
+        "text": "在黑暗里听得清石头的动静，人一多反倒分神。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "alone",
+          "attribute": "perception",
+          "value": 1
+        },
+        "down": {
+          "when": "helped",
+          "attribute": "perception",
+          "value": 1
+        }
+      },
+      {
+        "name": "烫疤手",
+        "text": "手上全是炉火留下的疤，不怕烫也不怕重活，细巧活却总差一点。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "hard",
+          "attribute": "craft",
+          "value": 1
+        },
+        "down": {
+          "when": "easy",
+          "attribute": "dexterity",
+          "value": 1
+        }
+      },
+      {
+        "name": "账本脑袋",
+        "text": "数字和条款过目不忘，可一受伤就心慌意乱。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "hard",
+          "attribute": "knowledge",
+          "value": 1
+        },
+        "down": {
+          "when": "hurt",
+          "attribute": "willpower",
+          "value": 1
+        }
+      },
+      {
+        "name": "一根筋",
+        "text": "认准的事就做到底，平常的小事反倒看不出门道。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "allIn",
+          "attribute": "willpower",
+          "value": 2
+        },
+        "down": {
+          "when": "easy",
+          "attribute": "insight",
+          "value": 1
+        }
+      },
+      {
+        "name": "咬牙硬扛",
+        "text": "苦日子里学会了硬扛，带着伤也撑得住，就是不肯开口求人。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "hurt",
+          "value": 1
+        },
+        "down": {
+          "when": "easy",
+          "attribute": "charisma",
+          "value": 1
+        }
+      },
+      {
+        "name": "守礼之人",
+        "text": "讲礼数、守规矩，平常说话让人放心；真到要拼手脚的时候总慢半拍。",
+        "modes": [
+          "forge"
+        ],
+        "up": {
+          "when": "easy",
+          "attribute": "charisma",
+          "value": 1
+        },
+        "down": {
+          "when": "hard",
+          "attribute": "dexterity",
+          "value": 1
+        }
+      }
+    ],
+    "relation": false
+  },
+  "economy": {
+    "currency": "煤筹",
+    "initial": 6,
+    "prices": {
+      "lamp": 5,
+      "bandage": 2,
+      "oatcake": 1,
+      "tool-roll": 6,
+      "rope": 4,
+      "sample-kit": 5,
+      "rubbing-kit": 3,
+      "rite-cloth": 3,
+      "filter-cloth": 2,
+      "hand-shield": 7,
+      "suture-case": 6,
+      "tally-scales": 5,
+      "waystaff": 4,
+      "plumb-line": 4,
+      "ledger-case": 4
+    },
+    "sell": 50,
+    "wage": 4,
+    "storyLimit": 12,
+    "kitMoney": 10,
+    "shops": [
+      {
+        "id": "karon-counter",
+        "name": "卡隆商行",
+        "kind": "杂货",
+        "place": "merchant-lodge",
+        "items": [
+          "lamp",
+          "rope",
+          "oatcake",
+          "filter-cloth",
+          "tally-scales",
+          "waystaff"
+        ],
+        "text": "商行驿馆的柜台，货齐，价不软；赊账要另找卡隆谈。"
+      },
+      {
+        "id": "forge-stall",
+        "name": "炉边铁铺",
+        "kind": "工具",
+        "place": "stone-ring-town",
+        "items": [
+          "tool-roll",
+          "plumb-line",
+          "hand-shield",
+          "sample-kit",
+          "lamp"
+        ],
+        "text": "石环炉边的铁铺，修的比卖的多，铁件按斤论价。"
+      },
+      {
+        "id": "care-shed",
+        "name": "照护棚",
+        "kind": "药棚",
+        "place": "drifter-slope",
+        "items": [
+          "bandage",
+          "suture-case",
+          "oatcake",
+          "filter-cloth"
+        ],
+        "text": "梅妲的照护棚，按本钱匀给需要的人，不赚差价。"
+      },
+      {
+        "id": "registry-stall",
+        "name": "册库纸铺",
+        "kind": "文书",
+        "place": "registry-station",
+        "items": [
+          "rubbing-kit",
+          "ledger-case",
+          "rite-cloth"
+        ],
+        "text": "册库分站门口卖纸墨和拓具，买多了要登记用途。"
+      }
     ]
   }
 }

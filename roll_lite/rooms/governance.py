@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from .. import adjust, loadout, messages, shared
 from ..commands import Caller, Reply, UserError
 from ..render import Msg
-from ..storage import loads, now
+from ..storage import dumps, loads, now
 from . import lifecycle
 
 if TYPE_CHECKING:
@@ -199,14 +199,18 @@ async def rebuild(app: "LiteApp", caller: Caller, args: str) -> Reply:
         if not target["archetype_id"]:
             raise UserError(f"{target['user_name']} 还没有建卡。")
         label = shared.actor_label(target)
+        data = loads(target["data_json"], {})
+        data.pop("profile", None)
+        data.pop("build", None)
         c.execute("UPDATE actors SET name='',archetype_id='',attributes_json='{}',resources_json='{}',items_json='{}',"
-                  "skills_json='{}',traits_json='[]',ready=0,revision=revision+1,updated_at=? WHERE id=?", (now(), target["id"]))
+                  "skills_json='{}',traits_json='[]',data_json=?,ready=0,revision=revision+1,updated_at=? WHERE id=?",
+                  (dumps(data), now(), target["id"]))
         app.store.add_event(c, room["id"], "system", f"主持人请 {target['user_name']} 重新建卡（原角色「{label}」）"
                             + (f"：{reason[:100]}" if reason else ""), actor_id=target["id"])
         app.store.bump_room(c, room["id"])
     card = (Msg().mention(target["user_id"], target["user_name"]).title(f"主持人请 {target['user_name']} 重新建卡")
             .text(f"原角色「{label}」已收回。" + (f"原因：{reason[:100]}。" if reason else "")))
-    card.gap().hint("私聊我发送 /团 职业 查看职业，再发 /团 选职业 序号 角色名" +
+    card.gap().hint("私聊我发送 /团 建卡 选一种建卡方式（快选、定制或 AI 建卡）" +
                     ("；建好后会排回行动顺序" if room["state"] != "lobby" else ""))
     reply = Reply().say(card)
     if room["state"] in ("running", "paused"):
@@ -249,7 +253,7 @@ def _by_name(definitions: dict[str, Any], name: str, kind: str) -> str:
 
 def _parse_adjust(c: sqlite3.Connection, room: sqlite3.Row, caller: Caller, args: str) -> dict[str, Any]:
     words = args.split()
-    usage = ("写法：/团 主持 调整 角色 资源名 ±数量｜角色 物品 名称 ±数量｜角色 技能 名称 习得/失去｜"
+    usage = ("写法：/团 主持 调整 角色 资源名 ±数量｜角色 钱 ±数额｜角色 物品 名称 ±数量｜角色 技能 名称 习得/失去｜"
              "角色 次数 名称 剩余次数｜态度 人物 档位（" + "/".join(adjust.STANDING) + " 或 -3…3）")
     if words and words[0] == "态度":
         if len(words) < 3:
@@ -273,6 +277,10 @@ def _parse_adjust(c: sqlite3.Connection, room: sqlite3.Row, caller: Caller, args
         entry = "skill" if any(words[1] in (r, d["name"]) for r, d in skills.items()) else "item"
         ref = _by_name(skills if entry == "skill" else items, words[1], "技能或物品")
         return {"kind": "uses", "actor": target["id"], "entry": entry, "ref": ref, "value": int(words[2])}
+    from .. import economy
+    money = economy.of_room(room)
+    if money and len(words) == 2 and words[0] in ("钱", "钱包", money["currency"]) and _NUMBER.match(words[1]):
+        return {"kind": "money", "actor": target["id"], "delta": _number(words[1])}
     if len(words) == 2 and _NUMBER.match(words[1]):
         return {"kind": "resource", "actor": target["id"], "ref": _by_name(resources, words[0], "资源"), "delta": _number(words[1])}
     raise UserError(usage)
@@ -327,5 +335,5 @@ def install(app: "LiteApp") -> None:
     r.register("主持 入座", seating, summary="关闭或开放入座", usage="/团 主持 入座 [关|开]", topic="主持")
     r.register("主持 退回", rebuild, summary="请一位玩家重新建卡", usage="/团 主持 退回 <角色|@对方> [原因]", topic="主持")
     r.register("主持 顺序", reorder, summary="查看或调整行动顺序", usage="/团 主持 顺序 [角色一 角色二 …]", topic="主持")
-    r.register("主持 调整", queue_adjustment, summary="调整资源、物品、技能、次数或人物态度（下一回合生效）",
+    r.register("主持 调整", queue_adjustment, summary="调整资源、钱、物品、技能、次数或人物态度（下一回合生效）",
                usage="/团 主持 调整 <角色> <资源> <±n>｜撤销 [序号]", topic="主持", private="self")

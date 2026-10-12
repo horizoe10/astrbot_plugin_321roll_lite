@@ -6,13 +6,22 @@ anything not in render.MARKDOWN_PLATFORMS) always get plain text, and a
 platform that refuses Markdown once (QQ official without the native-markdown
 permission) is remembered and gets plain text from then on.  Status,
 narration and choices segments can each be sent as image cards (cards.py)
-rendered by AstrBot's html_render; if that fails AstrBot's own text-to-image
-template is tried, and after that the segment goes out as text.
+rendered by AstrBot's html_render.  Scene banners are scaled down before they
+are embedded; a card that fails with its banner is rendered once more without
+it, and after that the segment goes out as text.  Each render has a time limit,
+and once one times out the rest of that batch skips cards, so a slow render
+service cannot hold up a whole table.
 """
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import io
+import re
+from functools import lru_cache
 import json
+import os
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
@@ -20,17 +29,34 @@ from astrbot.api import logger
 
 from . import cards
 from .render import MARKDOWN, PLAIN, Msg, from_json, mentions_of, render, target_format, to_json
-from .storage import now
+from .storage import dumps, loads, now
+from .worlds import scenes
 
 if TYPE_CHECKING:
     from .app import LiteApp
 
 MAX_MESSAGE = 1800
 MENTION_PLATFORMS = frozenset({"aiocqhttp"})
+# QQ official adapters turn an At into a real mention from AstrBot 4.29.0-beta.1; older ones drop it silently.
+QQ_OFFICIAL_PLATFORMS = frozenset({"qq_official", "qq_official_webhook"})
+QQ_AT_SINCE = (4, 29, 0, 1, 1)
+# QQ shows a mention as a blue @ only in text and Markdown messages; beside a picture it prints the raw tag,
+# so a card that mentions someone is followed by this short line carrying the mention.
+CARD_MENTION_NOTE = "请看上图 ↑"
 SEGMENTS = ("status", "narration", "choices", "moment", "sheet", "receipt", "room", "daily")
-PREF_KEYS = ("format", *(f"image_{s}" for s in SEGMENTS), "card_theme", "interval", "merge")
+PREF_KEYS = ("format", *(f"image_{s}" for s in SEGMENTS), "scene_images", "card_theme", "interval", "merge")
 # Undelivered messages handed over with one incoming message; the rest wait for the next one.
 PENDING_BATCH = 10
+# Cards are 800 px wide; a banner is scaled to this width and re-encoded so the card HTML stays small.
+CARD_BANNER_WIDTH = 960
+CARD_BANNER_QUALITY = 80
+# The tallest card banner is 13.6rem on a 2.5vw root, i.e. 100:34 of the card width.  The browser crops the
+# picture to that box from the centre (object-fit: cover), so cropping it here first changes nothing on screen.
+CARD_BANNER_RATIO = 100 / 34
+# Seconds one html_render call may take; the public render service can need over ten seconds for a picture card.
+RENDER_TIMEOUT = 25
+# Reasons a world simply has no picture for a key; anything else is worth a log line.
+_NO_PICTURE = ("这个世界没有场景图", "没有这张场景图")
 
 
 @dataclass(frozen=True)
@@ -44,6 +70,7 @@ class MessagePrefs:
     image_receipt: bool = False
     image_room: bool = False
     image_daily: bool = False
+    scene_images: bool = True
     card_theme: str = "light"
     interval: float = 1.0
     merge: bool = False
@@ -70,6 +97,7 @@ def save_prefs(app: "LiteApp", value: dict[str, Any]) -> MessagePrefs:
         interval = 1.0
     prefs = MessagePrefs(format=MARKDOWN if value.get("format") == MARKDOWN else PLAIN,
                          **{f"image_{s}": bool(value.get(f"image_{s}")) for s in SEGMENTS},
+                         scene_images=bool(value.get("scene_images", True)),
                          card_theme=value.get("card_theme") if value.get("card_theme") in cards.THEMES else "light",
                          interval=interval, merge=bool(value.get("merge")))
     with app.store.tx() as c:
@@ -105,12 +133,43 @@ class Outgoing:
     mentions: tuple[tuple[str, str], ...] = ()
     markdown: bool = False
     source: int = 0          # index of the item it came from (for a plain-text retry)
+    scene_room: str = ""
+    scene_key: str = ""
+    scene_only: bool = False
+    mergeable: bool = True
+
+
+def _version_key(text: str) -> tuple[int, ...] | None:
+    """'4.29.0-beta.2' -> (4, 29, 0, 1, 2); alpha/beta/rc rank below the final release."""
+    m = re.match(r"v?(\d+)\.(\d+)\.(\d+)(?:[-.]?(alpha|beta|rc)\.?(\d*))?", str(text).strip().lower())
+    if not m:
+        return None
+    rank = {"alpha": 0, "beta": 1, "rc": 2}.get(m.group(4) or "", 3)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)), rank, int(m.group(5) or 0))
+
+
+@lru_cache(maxsize=1)
+def astrbot_version() -> tuple[int, ...] | None:
+    try:
+        from astrbot.core.config.default import VERSION
+    except Exception:
+        return None
+    return _version_key(VERSION)
+
+
+def real_mentions(platform_name: str) -> bool:
+    if platform_name in MENTION_PLATFORMS:
+        return True
+    if platform_name in QQ_OFFICIAL_PLATFORMS:
+        version = astrbot_version()
+        return version is not None and version >= QQ_AT_SINCE
+    return False
 
 
 def _chain(out: Outgoing, platform_name: str) -> Any:
     from astrbot.api.event import MessageChain  # imported lazily so tests run without AstrBot
     chain = MessageChain()
-    real_at = platform_name in MENTION_PLATFORMS
+    real_at = bool(out.mentions) and real_mentions(platform_name)
     prefix = "" if real_at else "".join(f"@{name} " for _, name in out.mentions)
     if real_at:
         for user_id, name in out.mentions:
@@ -131,38 +190,133 @@ def card_art(app: "LiteApp", art: dict[str, str] | None) -> dict[str, str] | Non
     """Resolve a message's banner: the installed scene image, else the world cover image, else colour and mark."""
     if not art:
         return None
-    from .rooms import lifecycle
     from .worlds import market
-    entry = lifecycle.catalog(app).get(art.get("world") or "")
+    entry = scenes.frozen_entry(app, art)
     image = ""
+    problems: list[str] = []
     if entry is not None and entry.origin:
         for key in dict.fromkeys((art.get("key") or "cover", "cover")):
             try:
-                image = market.image(app, entry, key)["url"]
+                image = card_banner(app, entry, key)
                 break
-            except market.MarketError:
+            except (market.MarketError, OSError, ValueError) as exc:
+                if str(exc) not in _NO_PICTURE:
+                    problems.append(f"{key}: {exc}")
                 continue
+    if not image and problems:
+        logger.warning("321Roll Lite: no banner picture for %s, using the colour cover (%s)", art.get("world"), "; ".join(problems))
     look = cards.cover(art.get("world") or "", entry.title if entry else "", entry.presentation if entry else None)
     return {**art, **look, "image": image}
 
 
-async def _to_image(app: "LiteApp", item: Any, prefs: MessagePrefs) -> str:
+def card_art_plain(art: dict[str, str] | None) -> dict[str, str] | None:
+    """The colour-and-mark cover alone, for when the installed world cannot be read."""
+    return {**art, **cards.cover(art.get("world") or "", "", None), "image": ""} if art else None
+
+
+def card_banner(app: "LiteApp", entry: Any, key: str) -> str:
+    """A scene image scaled to card width as a JPEG data URL, cached beside the installed revision.
+
+    World packs keep their full-size pictures; only the copy embedded in card HTML is reduced, because a
+    multi-megabyte data URL makes the render service time out or refuse the page.
+    """
+    from PIL import Image
+    from .worlds import market
+    folder = market.asset_root(app, entry.id) / str(entry.origin.get("folder") or "") / "card-cache"
+    target = folder / (hashlib.sha256(f"banner-v2:{key}".encode()).hexdigest() + ".jpg")
+    if not target.is_file():
+        raw = base64.b64decode(market.image(app, entry, key)["url"].split(",", 1)[1])
+        with Image.open(io.BytesIO(raw)) as source:
+            picture = source.convert("RGB")
+        tallest = round(picture.width / CARD_BANNER_RATIO)
+        if picture.height > tallest:
+            top = (picture.height - tallest) // 2
+            picture = picture.crop((0, top, picture.width, top + tallest))
+        if picture.width > CARD_BANNER_WIDTH:
+            picture = picture.resize((CARD_BANNER_WIDTH, max(1, round(picture.height * CARD_BANNER_WIDTH / picture.width))),
+                                     Image.LANCZOS)
+        out = io.BytesIO()
+        picture.save(out, "JPEG", quality=CARD_BANNER_QUALITY, optimize=True, progressive=True)
+        folder.mkdir(parents=True, exist_ok=True)
+        partial = target.with_suffix(f".{os.getpid()}.part")
+        partial.write_bytes(out.getvalue())
+        os.replace(partial, target)
+    return "data:image/jpeg;base64," + base64.b64encode(target.read_bytes()).decode("ascii")
+
+
+@dataclass
+class Rendered:
+    url: str = ""
+    banner: bool = False      # the card carries the scene picture, so no separate scene image is needed
+    timed_out: bool = False   # the render service is too slow; the rest of the batch goes out as text
+
+
+async def _to_image(app: "LiteApp", item: Any, prefs: MessagePrefs) -> Rendered:
     star = getattr(app, "star", None)
-    if star is None:
-        return ""
-    if isinstance(item, Msg):
-        try:
-            page = cards.card_html(item, prefs.card_theme, card_art(app, item.art))
-            url = await star.html_render(cards.TEMPLATE, {"html": page}, return_url=True, options=dict(cards.RENDER_OPTIONS))
-            if url:
-                return url
-        except Exception as exc:
-            logger.warning("321Roll Lite card render failed, trying AstrBot text-to-image: %s", exc)
+    if star is None or not isinstance(item, Msg):
+        return Rendered()
     try:
-        return await star.text_to_image(render(item, MARKDOWN), return_url=True) or ""
+        art = card_art(app, item.art)
     except Exception as exc:
-        logger.warning("321Roll Lite text-to-image failed, sending text: %s", exc)
+        logger.warning("321Roll Lite card banner unavailable, using the colour cover: %s", exc)
+        art = card_art_plain(item.art)
+    # With a banner the card is tried once more without it: an oversized page is the usual reason it fails.
+    looks = [art, {**art, "image": ""}] if art and art.get("image") else [art]
+    for look in looks:
+        banner = bool(look and look.get("image"))
+        try:
+            page = cards.card_html(item, prefs.card_theme, look)
+            url = await asyncio.wait_for(star.html_render(cards.TEMPLATE, {"html": page}, return_url=True,
+                                                          options=dict(cards.RENDER_OPTIONS)), RENDER_TIMEOUT)
+            if url:
+                return Rendered(url, banner)
+            reason: Any = "the render service returned no image"
+        except asyncio.TimeoutError:
+            if not banner:
+                logger.warning("321Roll Lite card render timed out after %ss; sending text for the rest of this batch",
+                               RENDER_TIMEOUT)
+                return Rendered(timed_out=True)
+            reason = f"timed out after {RENDER_TIMEOUT}s"
+        except Exception as exc:
+            reason = exc
+        logger.warning("321Roll Lite card render failed (%s); %s", reason,
+                       "retrying without the scene banner" if banner else "sending text")
+    return Rendered()
+
+
+def scene_file(app: "LiteApp", art: dict[str, str]) -> str:
+    """Decode a single pinned asset into a JPEG beside its revision; safe for both QQ adapters."""
+    from .worlds import market
+    from PIL import Image
+    entry = scenes.frozen_entry(app, art)
+    if entry is None or not entry.origin:
         return ""
+    cache = market.asset_root(app, entry.id) / entry.origin["folder"] / "scene-cache"
+    name = hashlib.sha256(art["key"].encode()).hexdigest() + ".jpg"
+    target = cache / name
+    if not target.is_file():
+        data = base64.b64decode(market.image(app, entry, art["key"])["url"].split(",", 1)[1])
+        cache.mkdir(parents=True, exist_ok=True)
+        with Image.open(io.BytesIO(data)) as im:
+            im.convert("RGB").save(target, "JPEG", quality=92)
+    return str(target)
+
+
+def _last_scene(app, room_id):
+    with app.store.read() as c:
+        row = c.execute("SELECT data_json FROM rooms WHERE id=?", (room_id,)).fetchone()
+    return (loads(row["data_json"], {}).get("scene_art") or {}).get("key") if row else None
+
+
+def _remember_scene(app, out, status):
+    if not out.scene_room:
+        return
+    with app.store.tx() as c:
+        row = c.execute("SELECT data_json FROM rooms WHERE id=?", (out.scene_room,)).fetchone()
+        if row:
+            data = loads(row["data_json"], {})
+            data["scene_art"] = {"key": out.scene_key, "status": status}
+            c.execute("UPDATE rooms SET data_json=? WHERE id=?", (dumps(data), out.scene_room))
 
 
 async def prepare(app: "LiteApp", items: list[Any], platform_name: str, platform_id: str,
@@ -171,19 +325,57 @@ async def prepare(app: "LiteApp", items: list[Any], platform_name: str, platform
     fmt = target_format(prefs.format, platform_name, platform_id in prefs.blocked)
     separator = "---" if fmt == MARKDOWN else "┄┄┄┄┄┄┄┄┄┄"
     outgoing: list[Outgoing] = []
+    planned: dict[str, str | None] = {}
+    cards_on = True
     for index, item in enumerate(items):
         segment = item.segment if isinstance(item, Msg) else ""
         mentions = tuple(mentions_of(item))
-        if prefs.image(segment):
-            image = await _to_image(app, item, prefs)
-            if image:
-                outgoing.append(Outgoing(image=image, mentions=mentions, source=index))
-                continue
+        art = item.art if isinstance(item, Msg) else None
+        scenic = segment == "narration" or (isinstance(item, Msg) and (item.data or {}).get("kind") in {"open", "act", "ending"})
+        room_id = (art or {}).get("room", "")
+        key = (art or {}).get("key", "")
+        if room_id and room_id not in planned:
+            planned[room_id] = _last_scene(app, room_id)
+        fresh = bool(scenic and art and key and (not room_id or planned[room_id] != key))
+        image, banner = "", False
+        if cards_on and prefs.image(segment):
+            # Every story card carries the current scene as its banner; only the separate picture is deduplicated.
+            rendered = await _to_image(app, item, prefs)
+            image, banner, cards_on = rendered.url, rendered.banner, not rendered.timed_out
+        ending = isinstance(item, Msg) and (item.data or {}).get("kind") == "ending"
+        if fresh and prefs.scene_images and (ending or not banner):
+            try:
+                path = scene_file(app, art)
+                if path:
+                    outgoing.append(Outgoing(image=path, source=index, scene_room=room_id, scene_key=key, scene_only=True))
+                    planned[room_id] = key
+            except Exception as exc:
+                logger.warning("321Roll Lite scene image unavailable: %s", exc)
+                _remember_scene(app, Outgoing(scene_room=room_id, scene_key=key), "failed")
+                planned[room_id] = key
+        if ending and prefs.scene_images:
+            for extra in (item.data or {}).get("extra_scene_keys", []):
+                try:
+                    path = scene_file(app, {**art, "key": extra})
+                    if path:
+                        outgoing.append(Outgoing(image=path, source=index, scene_only=True))
+                except Exception as exc:
+                    logger.warning("321Roll Lite ending image unavailable: %s", exc)
+        if image:
+            split = bool(mentions) and platform_name in QQ_OFFICIAL_PLATFORMS
+            outgoing.append(Outgoing(image=image, mentions=() if split else mentions, source=index,
+                                     scene_room=room_id if fresh and banner else "", scene_key=key))
+            if split:
+                outgoing.append(Outgoing(text=CARD_MENTION_NOTE, mentions=mentions, markdown=fmt == MARKDOWN,
+                                         source=index, mergeable=False))
+            if fresh and banner:
+                planned[room_id] = key
+            continue
         text = render(item, fmt)
         if not text:
             continue
         last = outgoing[-1] if outgoing else None
-        if prefs.merge and last is not None and not last.image and not (mentions and last.mentions) \
+        if prefs.merge and last is not None and not last.image and last.mergeable and not (mentions and last.mentions) \
                 and len(last.text) + len(text) < MAX_MESSAGE:
             last.text += f"\n\n{separator}\n\n{text}"
             last.mentions = last.mentions or mentions
@@ -217,14 +409,29 @@ async def deliver(app: "LiteApp", send: Sender, items: list[Any], *, platform_na
             if result is False:
                 raise RuntimeError("platform refused the message")
         except Exception as exc:
+            if out.scene_only:
+                logger.warning("321Roll Lite: %s refused a scene image (%s); sending the story text", platform_id, exc)
+                _remember_scene(app, out, "failed")
+                position += 1
+                continue
+            if out.image and isinstance(items[out.source], Msg) and items[out.source].art:
+                logger.warning("321Roll Lite: %s refused a story card (%s); sending text", platform_id, exc)
+                _remember_scene(app, out, "failed")
+                outgoing[position:position+1] = [Outgoing(text=part, source=out.source)
+                                               for part in chunks(render(items[out.source], PLAIN))]
+                continue
             if not out.markdown:
                 raise
             logger.warning("321Roll Lite: %s refused Markdown (%s); switching it to plain text", platform_id, exc)
             _block_markdown(app, platform_id)
-            remaining = items[out.source:]
-            outgoing = outgoing[:position] + await prepare(app, remaining, platform_name, platform_id,
-                                                           replace(prefs, format=PLAIN, blocked=()))
+            plain = replace(prefs, format=PLAIN, blocked=())
+            # The mention line after a card is the last part of its item, and the card already went out.
+            start = out.source + 1 if not out.mergeable else out.source
+            rest = [replace(o, source=o.source + start)
+                    for o in await prepare(app, items[start:], platform_name, platform_id, plain)]
+            outgoing = outgoing[:position] + ([replace(out, markdown=False)] if not out.mergeable else []) + rest
             continue
+        _remember_scene(app, out, "sent")
         position += 1
 
 

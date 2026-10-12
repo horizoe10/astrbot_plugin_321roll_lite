@@ -39,6 +39,7 @@ PLAYS: tuple[Play, ...] = (
     Play("playFortune", "机运与命运", "active"),
     Play("playBranchEndings", "分支与多结局", "active"),
     Play("playPersonas", "人设卡", "active"),
+    Play("playAiBuild", "AI 建卡", "active"),
     Play("playPrivatePhases", "私人并行阶段", "deferred"),
     Play("playRegroup", "合法汇合", "deferred", ("playPrivatePhases",)),
     Play("playFlashback", "闪回准备", "deferred", ("playPlans",)),
@@ -51,6 +52,7 @@ PLAYS: tuple[Play, ...] = (
     Play("funLuck", "骰运", "active", kind="fun"),
     Play("funQuotes", "金句", "active", kind="fun"),
     Play("funSoup", "海龟汤", "active", kind="fun"),
+    Play("funAdventure", "一分钟冒险", "active", kind="fun"),
 )
 BY_KEY = {play.key: play for play in PLAYS}
 

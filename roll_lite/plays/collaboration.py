@@ -41,6 +41,28 @@ def open_vote(c: sqlite3.Connection, room_id: str) -> sqlite3.Row | None:
     return c.execute("SELECT * FROM votes WHERE room_id=? AND state='open' ORDER BY created_at DESC LIMIT 1", (room_id,)).fetchone()
 
 
+def void_open(c: sqlite3.Connection, room_id: str) -> str | None:
+    """The finale is being written: an open vote can no longer change the story.  Returns its title."""
+    vote = open_vote(c, room_id)
+    if vote is None:
+        return None
+    c.execute("UPDATE votes SET state='closed',result_json=?,updated_at=? WHERE id=?", (dumps({"void": "finale"}), now(), vote["id"]))
+    return vote["title"]
+
+
+def _winding(room: sqlite3.Row) -> str | None:
+    """Why no collective event starts now: the story is winding down, or 整备 is open."""
+    st = hosted.hosted_data(room).get("pacing") or {}
+    if st.get("closing"):
+        return "故事已经在收尾，不再发起集体事件；想全队一起行动可以 /团 全队 做法。"
+    if st.get("finale") or st.get("epilogue"):
+        return shared.ending_step(room, "集体事件")
+    from .. import economy
+    if economy.outfit(room) is not None:
+        return "现在是整备时间：等整备收起（主持人发送 /团 主持 整备 收起）后再发起集体事件。"
+    return None
+
+
 def vote_text(vote: sqlite3.Row, voters: int) -> Any:
     data = loads(vote["data_json"], {})
     span = (datetime.fromisoformat(vote["deadline_at"]) - datetime.fromisoformat(vote["created_at"])).total_seconds()
@@ -82,11 +104,16 @@ def tally(vote: sqlite3.Row, host_user: str, voters: dict[str, str]) -> str:
 
 async def close_vote(app: "LiteApp", vote_id: str) -> Reply:
     """Close a vote and act on its result (narration for passed proposals and events)."""
+    from .. import economy
     with app.store.tx() as c:
         vote = c.execute("SELECT * FROM votes WHERE id=?", (vote_id,)).fetchone()
         if vote is None or vote["state"] != "open":
             return Reply()
         room = c.execute("SELECT * FROM rooms WHERE id=?", (vote["room_id"],)).fetchone()
+        if economy.outfit(room) is not None:      # the story waits for 整备; so does the vote's result
+            return Reply().say(messages.notice(f"表决「{vote['title']}」等整备结束再结算",
+                                               "整备期间故事不往下写；票照常可以投、可以改。",
+                                               "整备收起后公布结果并接着写正文"))
         actors = hosted.eligible_actors(c, room["id"])
         voters = {a["id"]: a["user_id"] for a in actors}
         names = {a["id"]: shared.actor_label(a) for a in actors}
@@ -101,8 +128,16 @@ async def close_vote(app: "LiteApp", vote_id: str) -> Reply:
     options = loads(vote["options_json"], [])
     counts = [(o["label"], sum(1 for choice in ballots.values() if choice == o["key"])) for o in options]
     who = {o["label"]: [names.get(actor, "?") for actor, choice in ballots.items() if choice == o["key"]] for o in options}
-    reply = Reply().say(messages.vote_result(vote["title"], option["label"], counts, "" if passed else "全队提议未通过", voters=who))
-    if room["state"] != "running":
+    top = max((n for _, n in counts), default=0)
+    tie = ""
+    if top and sum(1 for _, n in counts if n == top) > 1:
+        host_ballot = next((ballots.get(a) for a, u in voters.items() if u == room["host_user_id"]), None)
+        tie = "平票，按主持人的票" if host_ballot == winner else "平票，按先列出的选项"
+    ending = shared.ending_step(room)
+    note = "；".join(x for x in (tie, "" if passed else "全队提议未通过",
+                                "故事已经走向终章，结果只做记录" if ending else "") if x)
+    reply = Reply().say(messages.vote_result(vote["title"], option["label"], counts, note, voters=who))
+    if room["state"] != "running" or ending:
         return reply
     if vote["kind"] == "proposal":
         if winner != "A":
@@ -157,7 +192,7 @@ def _snapshot(c: sqlite3.Connection, room: sqlite3.Row, leader: sqlite3.Row, par
 async def start_event(app: "LiteApp", room_id: str) -> Reply:
     with app.store.read() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
-        if room["state"] != "running" or open_vote(c, room_id) is not None:
+        if room["state"] != "running" or open_vote(c, room_id) is not None or _winding(room):
             return Reply()
         party = hosted.eligible_actors(c, room_id)
         if len(party) < 2:
@@ -171,6 +206,10 @@ async def start_event(app: "LiteApp", room_id: str) -> Reply:
     if host:
         fields["host_context"] = host
     proposal = await app.engine.call("propose_collective_event", fields, room_id=room_id, umo=room["umo"])
+    with app.store.read() as c:            # the story may have moved on while the event was written
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+    if room["state"] != "running" or _winding(room):
+        return Reply()
     options = [{"key": "ABC"[i], "label": d["label"], "description": d["description"], "risk": d["risk"], "cost": d["cost"]}
                for i, d in enumerate(proposal["directions"])]
     with app.store.tx() as c:
@@ -210,6 +249,11 @@ async def propose(app: "LiteApp", caller: Caller, args: str) -> Reply:
     shared.require_play(app, caller, "playCollaboration")
     actor = shared.require_actor(app, caller, room)
     text = args.strip()
+    if shared.ending_step(room, "全队行动"):
+        raise UserError(shared.ending_step(room, "全队行动"))
+    from .. import economy
+    if economy.outfit(room) is not None:
+        raise UserError("现在是整备时间，故事暂停：先私聊我 /团 商店 采买，整备收起后再提全队行动。")
     if not 2 <= len(text) <= 300:
         raise UserError("写法：/团 全队 <全队一起做的事>")
     with app.store.tx() as c:
@@ -235,7 +279,8 @@ async def ballot(app: "LiteApp", caller: Caller, args: str, announce: Any = None
         if vote is None:
             raise UserError("现在没有进行中的表决。")
         if choice not in {o["key"] for o in loads(vote["options_json"], [])}:
-            raise UserError("请投给列出的选项之一，例如 /团 投 A。")
+            listed = "、".join(f"{o['key']} {o['label']}" for o in loads(vote["options_json"], []))
+            raise UserError(f"可投：{listed}。例如 /团 投 A。")
         ballots = loads(vote["ballots_json"], {})
         ballots[actor["id"]] = choice
         c.execute("UPDATE votes SET ballots_json=?,updated_at=? WHERE id=?", (dumps(ballots), now(), vote["id"]))
@@ -260,7 +305,9 @@ async def host_event(app: "LiteApp", caller: Caller, args: str) -> Reply:
     shared.require_play(app, caller, "playCollaboration")
     with app.store.read() as c:
         if open_vote(c, room["id"]) is not None:
-            raise UserError("已有进行中的表决。")
+            raise UserError("已有进行中的表决：先投完它，或发送 /团 主持 结束表决。")
+    if _winding(room):
+        raise UserError(_winding(room))
     await caller.send("正在生成集体事件……")
     try:
         reply = await start_event(app, room["id"])
@@ -314,7 +361,8 @@ async def on_tick(*, app: "LiteApp") -> Reply:
     stamp = datetime.now(UTC).isoformat(timespec="seconds")
     with app.store.read() as c:
         due = c.execute("SELECT v.id,v.room_id,r.umo FROM votes v JOIN rooms r ON r.id=v.room_id WHERE v.state='open' "
-                        "AND r.state='running' AND v.deadline_at<=?", (stamp,)).fetchall()
+                        "AND r.state='running' AND v.deadline_at<=? AND json_extract(r.data_json,'$.outfit') IS NULL",
+                        (stamp,)).fetchall()
     for row in due:
         if app.lock(row["room_id"]).locked():
             continue

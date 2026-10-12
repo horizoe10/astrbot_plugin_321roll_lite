@@ -39,6 +39,7 @@ const SEAT_ACTIONS = [["主持 轮到", "轮到他"], ["主持 暂离", "设为�
 
 let lastLog = null;
 const remaining = (deadline) => (deadline ? Math.max(0, (new Date(deadline).getTime() - Date.now()) / 1000) : null);
+const WORLD_KINDS = { pace_push: "世界推进", world_pulse: "世界脉冲", host_advance: "主持人推进" };
 const limitText = (s) => (!s ? "不限时" : s % 60 ? s + " 秒" : s / 60 + " 分钟");
 
 export async function render(root, ctx) {
@@ -129,7 +130,7 @@ async function detail(root, ctx, id) {
       (r.acts.length ? '<div class="band-acts">' + acts(veiled(noted, reached), reached) + "</div>" : "") + "</header>" +
     statsSection(r) +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' + nowSection(r, actLine, leadLines) + storySection(story) + recordsSection(r, present.length) + timelineSection(r) + "</div>" +
-    '<div class="stack" style="gap:52px">' + (live ? hostSection(r) + narrationSection(r) + adjustSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
+    '<div class="stack" style="gap:52px">' + (live ? hostSection(r) + pacingSection(r) + narrationSection(r) + creationSection(r) + adjustSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
     '<div class="sec">' + seatsSection(r, present) + "</div>";
 
   root.querySelector("[data-export-story]")?.addEventListener("click", async (e) => {
@@ -145,7 +146,7 @@ async function detail(root, ctx, id) {
       if (slot) slot.innerHTML = ring(remaining(r.turn.deadline_at), r.turn_timeout_seconds, "剩余");
     });
   }
-  if (live) { bindHost(root, ctx, r); bindNarration(root, ctx, r); bindAdjust(root, ctx, r); }
+  if (live) { bindHost(root, ctx, r); bindPacing(root, ctx, r); bindNarration(root, ctx, r); bindCreation(root, ctx, r); bindAdjust(root, ctx, r); }
 }
 
 /** A small ring for a share, with the figure in the middle. */
@@ -172,7 +173,15 @@ function nowSection(r, actLine, leadLines) {
   const t = r.turn, v = r.vote;
   const states = { awaiting: "等待行动", resolving: "结算中", narration_failed: "正文待重试", review: "正文待主持人审阅" };
   let html = '<section>' + section("此刻", { meta: [r.scene?.title ? icon("map", 13) + " " + esc(r.scene.title) : "", r.goal ? icon("flag", 13) + " " + esc(r.goal) : ""].filter(Boolean).join('<i class="sep">·</i>') || esc(actLine || "") });
-  if (!t) {
+  const s = r.stage;
+  if (!t && s && (s.key === "epilogue" || s.key === "finale")) {
+    const epi = s.key === "epilogue";
+    const face = epi && s.deadline_at ? ring(remaining(s.deadline_at), 300, "剩余")
+      : '<div class="turn-face">' + avatar(epi ? "尾" : "终", "huge now") + "<small>" + icon(epi ? "pause" : "feather", 12) + (epi ? "暂停中" : "生成中") + "</small></div>";
+    html += '<div class="card"><div class="turn">' + face + '<div><div class="label">' + (epi ? "终章之后" : "故事收束") + '</div><div class="turn-who">' + esc(epi ? "征集尾声" : s.label) + "</div>" +
+      dot(epi ? "gold" : "warn", s.detail) + '<div class="hint" style="margin:8px 0 0">' + (epi ? "玩家发送 /团 尾声 一句话；全员写完或时间一到，故事自动落幕" : "写完后自动开始征集尾声") + "</div></div></div>" +
+      (epi ? '<div class="row" style="margin-top:14px"><button class="btn small" type="button" data-pace-cmd="完结" data-confirm="不等尾声，直接落幕？">' + icon("flag", 14) + "直接落幕</button></div>" : "") + "</div>";
+  } else if (!t) {
     html += '<div class="card">' + empty(r.state === "lobby" ? "还没开演" : "没有进行中的回合", r.state === "lobby" ? "主持人发送 /团 开演 后开始第一轮" : "") + "</div>";
   } else {
     const face = t.deadline_at ? '<div data-ring>' + ring(remaining(t.deadline_at), r.turn_timeout_seconds, "剩余") + "</div>"
@@ -180,6 +189,10 @@ function nowSection(r, actLine, leadLines) {
     html += '<div class="card"><div class="turn">' + face +
       '<div><div class="label">第 ' + t.round + ' 轮 · 轮到</div><div class="turn-who">' + esc(t.actor) + "</div>" + dot(t.state === "awaiting" ? "gold" : t.state === "narration_failed" ? "err" : "warn", states[t.state] || t.state) +
       '<div class="hint" style="margin:8px 0 0">回合限时 ' + limitText(r.turn_timeout_seconds) + (r.turn_timeout_own ? "（本桌设置）" : "（跟随全局）") + "</div></div></div>" +
+      (t.state === "narration_failed" ? '<div class="pace-stage"><b>' + icon("alert", 15) + (t.kind === "finale" ? "终章没写出来" : WORLD_KINDS[t.kind] ? WORLD_KINDS[t.kind] + "没写出来" : "正文没写出来") + "</b><span>" +
+        (t.kind === "finale" ? "重试终章，或跳过终章直接征集尾声" : WORLD_KINDS[t.kind] ? "重试，或跳过这段、直接轮到 " + esc(t.actor) : "重试，或跳过、直接轮到下一位") + "</span></div>" +
+        '<div class="row"><button class="btn small primary" type="button" data-pace-cmd="主持 重试">' + icon("refresh", 14) + "重试</button>" +
+        '<button class="btn small" type="button" data-pace-cmd="主持 跳过" data-confirm="' + (t.kind === "finale" ? "不写终章，直接征集尾声？" : "跳过这一段？") + '">跳过</button></div>' : "") +
       (t.choices.length ? '<div class="choices">' + t.choices.map((c) => '<div class="choice"><b>' + esc(c.label) + "</b><span>" + esc(c.text) + "</span>" + (c.tag ? '<span class="tag">' + esc(c.tag) + "</span>" : "") + "</div>").join("") + "</div>" : "") + "</div>";
     if (t.draft) {
       html += '<div class="card draft" style="margin-top:16px"><div class="panel-head"><h3 class="panel-title">' + icon("eye", 16) + ' 正文草稿 · 待审阅</h3><span class="hint">玩家还看不到这段</span></div>' +
@@ -234,7 +247,7 @@ function adjustSection(r) {
   const opts = (list) => list.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
   return '<section>' + section("主持调整", { meta: "提交后不会立刻生效，要等模型写完下一回合的正文后才生效，并在群里公布" }) + '<div class="card">' +
     '<form data-adjust class="adjust-form"><div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">' +
-    '<label class="field"><span class="label">调整什么</span><select class="select" name="kind"><option value="resource">资源</option><option value="item">物品数量</option>' +
+    '<label class="field"><span class="label">调整什么</span><select class="select" name="kind"><option value="resource">资源</option><option value="item">物品数量</option>' + (o.money ? '<option value="money">钱（' + esc(r.economy.currency) + '）</option>' : "") +
       '<option value="skill">技能（习得/失去）</option><option value="uses">剩余次数</option><option value="attitude">人物态度</option></select></label>' +
     '<label class="field" data-for="actor"><span class="label">角色</span><select class="select" name="actor">' + actors.map((a) => '<option value="' + esc(a.id) + '">' + esc(a.name || a.user_name) + "</option>").join("") + "</select></label>" +
     '<label class="field" data-for="resource"><span class="label">资源</span><select class="select" name="resource">' + opts(o.resources) + "</select></label>" +
@@ -256,6 +269,93 @@ function adjustSection(r) {
 }
 
 // Narration settings: each one follows the world value copied when the table opened, or is set for this table.
+
+// Pacing (roll_lite/plays/pacing.py): rounds in this scene, act and story; the same commands as /团 主持 节奏 and /团 主持 收尾.
+function paceTrack(label, sub, done, limit, extra, note, end = 0) {
+  if (!limit) return '<div class="pace-track off"><div class="pace-head"><b>' + esc(label) + "</b><span>" + esc(sub) + '</span><em class="num">' + done + " 轮 · 不催</em></div><div class=\"pace-bar\"></div></div>";
+  const last = end || limit + extra, top = Math.max(last, done, 1);
+  const cls = done >= last ? " over" : done >= limit ? " due" : "";
+  return '<div class="pace-track' + cls + '"><div class="pace-head"><b>' + esc(label) + "</b><span>" + esc(sub) + '</span><em class="num">' + done + "<small>/" + limit + " 轮</small></em></div>" +
+    '<div class="pace-bar"><i style="width:' + Math.min(100, (done / top) * 100).toFixed(1) + '%"></i><s style="left:' + ((limit / top) * 100).toFixed(1) + '%"></s></div>' +
+    '<div class="pace-note">' + esc(note) + "</div></div>";
+}
+
+function pacingSection(r) {
+  const p = r.pacing;
+  if (!p) return "";
+  const sc = p.scene, ac = p.act, st = p.story, g = p.grace;
+  const tracks = paceTrack("场景", sc.title, sc.done, sc.limit, g, "满 " + sc.limit + " 轮起正文让局面变化，" + (sc.limit + g) + " 轮世界自己推进") +
+    paceTrack("第 " + ac.number + " 幕", ac.title, ac.done, ac.limit, g, ac.last ? "最后一幕：满 " + ac.limit + " 轮提议收尾" : "满 " + ac.limit + " 轮提议换幕，" + (ac.limit + g) + " 轮自动进入") +
+    paceTrack("全程", "", st.done, st.target, 0, "满 " + st.target + " 轮提议收尾" + (st.hard ? "，" + st.hard + " 轮必定收尾" : ""), st.hard);
+  const presets = [["短", "短"], ["标准", "标准"], ["长", "长"]];
+  const at = presets.findIndex(([v]) => v === p.preset);
+  const notchHtml = '<div class="notch" style="--n:3;--from:0;--to:' + Math.max(0, at) + '"><div class="notch-track"><i class="notch-fill"></i>' +
+    presets.map(([v, l], i) => '<button type="button" class="' + (i === at ? "on" : i < at ? "past" : "") + '" data-pace-cmd="主持 节奏 ' + v + '" title="' + l + '"><span></span></button>').join("") +
+    '</div><div class="notch-labels">' + presets.map(([, l], i) => '<span class="' + (i === at ? "on" : "") + '">' + l + "</span>").join("") + "</div></div>";
+  const num = (name, label, value, top) => '<label class="field"><span class="label">' + label + '</span><input class="input num" type="number" min="0" max="' + top + '" name="' + name + '" value="' + value + '" /></label>';
+  const pending = p.state && (p.state.label === "本幕将尽" || (p.state.label === "局势在酝酿" && sc.limit && sc.done >= sc.limit));
+  let closing;
+  if (p.epilogue) {
+    closing = '<div class="pace-stage"><b>' + icon("feather", 15) + "征集尾声</b><span>" + (p.epilogue.title ? "结局「" + esc(p.epilogue.title) + "」 · " : "") + "已写 " + p.epilogue.written + " 人，到点自动落幕</span></div>" +
+      '<div class="row"><button class="btn small" type="button" data-pace-cmd="完结" data-confirm="不等尾声，直接落幕？">' + icon("flag", 14) + "直接落幕</button></div>";
+  } else if (p.closing) {
+    closing = '<div class="pace-stage"><b>' + icon("flag", 15) + "收尾阶段</b><span>" + (p.closing.title ? "结局「" + esc(p.closing.title) + "」 · " : "") + "第 " + p.closing.until + " 轮写终章</span></div>" +
+      '<div class="row"><button class="btn small primary" type="button" data-pace-cmd="主持 收尾 终章" data-confirm="现在就写终章？">立刻写终章</button><button class="btn small" type="button" data-pace-cmd="主持 收尾 取消">取消收尾</button></div>';
+  } else {
+    closing = (p.offer ? '<div class="pace-stage"><b>' + icon("vote", 15) + "收尾提议</b><span>" + (p.offer.title ? "「" + esc(p.offer.title) + "」 · " : "") + esc(p.offer.source) + " · 同意 " + p.offer.yes + " · 再玩 " + p.offer.no + "</span></div>" : "") +
+      '<form class="narr-style" data-pace-close><input class="input" maxlength="24" name="ending" value="' + esc(p.offer?.title || "") + '" placeholder="结局名（可不填，由故事决定）" /><button class="btn primary" type="submit">开始收尾</button>' +
+      (p.offer ? '<button class="btn" type="button" data-pace-cmd="主持 收尾 取消">驳回提议</button>' : "") + "</form>";
+  }
+  return "<section>" + section("节奏与收尾", { meta: "按轮计：在座的人各行动一次算一轮；结果发往群聊" }) + '<div class="card narr">' +
+    '<div class="pace-tracks">' + tracks + "</div>" +
+    (p.state ? '<div class="pace-stage soft"><b>' + icon("hourglass", 15) + esc(p.state.label) + "</b><span>" + esc(p.state.detail) + "</span></div>" : "") +
+    '<div class="narr-row"><div class="narr-head"><b>整体节奏</b><span class="now">' + esc(p.preset) + "档" + (p.off ? " · 自动推进已关闭" : "") + '</span><span class="spacer"></span><span class="narr-src">' + esc(p.source) + "</span></div>" + notchHtml +
+    '<p class="narr-hint">短档各层轮数约为四分之三，长档放长一半；主持人可以调长，也可以调短。</p></div>' +
+    '<div class="narr-row"><div class="narr-head"><b>各层轮数</b><span class="spacer"></span></div><form class="pace-nums" data-pace-nums>' +
+    num("场景", "场景", sc.limit, 100) + num("每幕", "每幕", ac.limit, 100) + num("全程", "全程", st.target, 1000) + num("上限", "上限", st.hard, 1000) +
+    '<button class="btn" type="submit">应用</button></form><p class="narr-hint">0 表示这一层不催。上限到了会直接进入收尾。</p>' +
+    '<div class="row" style="gap:8px;margin-top:10px">' + (pending ? '<button class="btn small" type="button" data-pace-cmd="主持 节奏 延后">' + icon("clock", 14) + "延后 " + g + " 轮</button>" : "") +
+    '<button class="btn small" type="button" data-pace-cmd="主持 节奏 ' + (p.off ? "开" : "关") + '">' + (p.off ? "开启自动推进" : "关闭自动推进") + "</button>" +
+    (p.source === "主持人调整" ? '<button class="btn small" type="button" data-pace-cmd="主持 节奏 默认">' + icon("refresh", 14) + "恢复世界设置</button>" : "") + "</div></div>" +
+    '<div class="narr-row"><div class="narr-head"><b>收尾</b><span class="spacer"></span><span class="narr-src">' + (p.ending ? "收尾提议开启" : "世界关闭了自动收尾提议") + "</span></div>" + closing + "</div>" +
+    "</div></section>";
+}
+
+function bindPacing(root, ctx, r) {
+  if (!r.pacing) return;
+  const run = async (button, command, done) => {
+    try {
+      await busy(button, () => ctx.api.post("room/command", { id: r.id, command }));
+      ctx.toast(done || "已执行：" + command);
+      ctx.refresh();
+    } catch (error) { ctx.toast(error.message, "error"); }
+  };
+  root.querySelectorAll("[data-pace-cmd]").forEach((b) => b.addEventListener("click", () => {
+    if (b.classList.contains("on")) return;
+    if (b.dataset.confirm && !window.confirm(b.dataset.confirm)) return;
+    run(b, b.dataset.paceCmd);
+  }));
+  const nums = root.querySelector("[data-pace-nums]");
+  nums?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const now = { 场景: r.pacing.scene.limit, 每幕: r.pacing.act.limit, 全程: r.pacing.story.target, 上限: r.pacing.story.hard };
+    const field = (k) => nums.elements.namedItem(k);
+    const changed = Object.keys(now).filter((k) => field(k).value !== "" && Number(field(k).value) !== now[k]);
+    if (!changed.length) return ctx.toast("轮数没有变化");
+    const button = nums.querySelector("[type=submit]");
+    try {
+      for (const k of changed) await busy(button, () => ctx.api.post("room/command", { id: r.id, command: "主持 节奏 " + k + " " + Number(field(k).value) }));
+      ctx.toast("已调整：" + changed.map((k) => k + " " + field(k).value + " 轮").join("、"));
+      ctx.refresh();
+    } catch (error) { ctx.toast(error.message, "error"); ctx.refresh(); }
+  });
+  const close = root.querySelector("[data-pace-close]");
+  close?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    run(close.querySelector("[type=submit]"), ("主持 收尾 " + close.elements.ending.value.trim()).trim(), "已开始收尾");
+  });
+}
+
 // Values are read when a narration starts, so a change lands from the next one.
 const FALLBACK = { improv: "均衡", dialogue: "dialogue_soft", length: "free" };
 function narrationSection(r) {
@@ -299,10 +399,78 @@ function bindNarration(root, ctx, r) {
   });
 }
 
+// Build limits: the host may lower the world's limits for this table (same as /团 主持 建卡 …), never raise them.
+let reachPick = 0;
+function ladder(kind, options, index) {
+  const n = options.length;
+  return '<div class="notch" style="--n:' + n + ";--from:0;--to:" + Math.max(0, index) + '"><div class="notch-track"><i class="notch-fill"></i>' +
+    options.map(([v, l], i) => '<button type="button" class="' + (i === index ? "on" : i < index ? "past" : "") + '" data-create="' + kind + '" data-value="' + esc(v) + '" title="' + esc(l) + '"><span></span></button>').join("") +
+    '</div><div class="notch-labels">' + options.map(([, l], i) => '<span class="' + (i === index ? "on" : "") + '">' + esc(l) + "</span>").join("") + "</div></div>";
+}
+
+// How far each attribute of one archetype can go when the move limit is used in full (shared with the world editor's look).
+function reachHtml(archetypes, move) {
+  const arch = archetypes[Math.min(reachPick, archetypes.length - 1)];
+  if (!arch) return "";
+  return '<div class="chips reach-pick">' + archetypes.map((a, i) => '<button type="button" class="chip small' + (a === arch ? " on" : "") + '" data-reach="' + i + '">' + esc(a.name) + "</button>").join("") + "</div>" +
+    '<div class="reach">' + arch.attrs.map((at) => {
+      const lo = Math.max(at.min, at.value - move), hi = Math.min(at.max, at.value + move), span = Math.max(1, at.max - at.min);
+      const pos = (v) => ((v - at.min) / span) * 100;
+      return '<div class="reach-row"><span>' + esc(at.name) + '</span><span class="reach-track"><i style="left:' + pos(lo) + "%;right:" + (100 - pos(hi)) + '%"></i><b style="left:' + pos(at.value) + '%"></b></span>' +
+        '<span class="num">' + (lo === hi ? at.value : lo + "–" + hi) + '</span><span class="faint num">' + at.min + "–" + at.max + "</span></div>";
+    }).join("") + "</div>";
+}
+
+function creationSection(r) {
+  const c = r.settings.creation;
+  const deepest = c.cap || c.modes[c.modes.length - 1].key;
+  const modeIndex = c.modes.findIndex((m) => m.key === deepest);
+  const counts = (top, unit) => Array.from({ length: top + 1 }, (_, i) => [String(i), i === top ? i + " " + unit + " · 上限" : String(i)]);
+  const src = (own) => '<span class="narr-src">' + (own ? "本桌调低" : "世界设置") + "</span>";
+  const row = (title, now, own, body, hint) => '<div class="narr-row"><div class="narr-head"><b>' + title + '</b><span class="now">' + esc(now) + '</span><span class="spacer"></span>' + src(own) + "</div>" +
+    body + '<p class="narr-hint">' + esc(hint) + "</p></div>";
+  const reach = '<div data-reach-box>' + reachHtml(c.archetypes, c.move) + "</div>";
+  const own = Boolean(c.cap) || c.move_own || c.swap_own;
+  const forgeNote = c.modes.some((m) => m.key === "forge") && !c.open.includes("forge") && c.cap !== "quick" && c.cap !== "custom" ? "故事已经开始，精雕暂时关闭。" : "";
+  return "<section>" + section("建卡设置", { meta: "只能在世界上限内调低；只影响之后建卡或重建的人，结果会发到群里" }) + '<div class="card narr">' +
+    row("模式最深", (c.modes.find((m) => m.key === deepest) || {}).label + (c.cap ? "" : "（不限）"), Boolean(c.cap), ladder("mode", c.modes.map((m) => [m.key, m.label]), modeIndex),
+      "这个世界开放 " + c.modes.map((m) => m.label).join("、") + "。" + forgeNote) +
+    (c.world_move ? row("属性最多挪", c.move + " 点", c.move_own, ladder("move", counts(c.world_move, "点"), c.move) + (c.move ? reach : ""),
+      c.move ? "定制和精雕可以在职业属性上加减各 " + c.move + " 点，每项仍不超出属性范围。上面是挪满时各属性能到的范围，圆点是职业原值。" : "调到 0 时不能挪属性，定制和精雕跳过“调整属性”这一步。")
+      : row("属性最多挪", "0 点", false, "", "这个世界不允许挪属性。")) +
+    (c.world_swap ? row("定制最多换技能", c.swap + " 项", c.swap_own, ladder("swap", counts(c.world_swap, "项"), c.swap),
+      c.swap ? "定制可以把职业自带的技能换成技能池里的另一项；精雕不受这项限制。" : "调到 0 时定制跳过“换技能”这一步；精雕仍可从技能池任选。")
+      : row("定制最多换技能", "0 项", false, "", "这个世界不允许定制换技能。")) +
+    (own ? '<div class="row" style="padding-top:16px"><button class="btn small" type="button" data-create="reset">' + icon("refresh", 14) + "恢复世界设置</button></div>" : "") +
+    "</div></section>";
+}
+
+function bindCreation(root, ctx, r) {
+  const c = r.settings.creation;
+  const deepest = c.modes[c.modes.length - 1].key;
+  const arg = (kind, value) => kind === "reset" ? "默认" : kind === "mode" ? (value === deepest ? "不限" : c.modes.find((m) => m.key === value).label)
+    : (kind === "move" ? "挪点 " : "换技能 ") + value;
+  root.querySelectorAll("[data-create]").forEach((b) => b.addEventListener("click", async () => {
+    if (b.classList.contains("on")) return;
+    try {
+      await busy(b, () => ctx.api.post("room/command", { id: r.id, command: "主持 建卡 " + arg(b.dataset.create, b.dataset.value) }));
+      ctx.toast(b.dataset.create === "reset" ? "已恢复世界的建卡设置" : "建卡设置已更新，之后建卡的人生效");
+      ctx.refresh();
+    } catch (error) { ctx.toast(error.message, "error"); }
+  }));
+  const box = root.querySelector("[data-reach-box]");
+  box?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-reach]");
+    if (!b) return;
+    reachPick = Number(b.dataset.reach);
+    box.innerHTML = reachHtml(c.archetypes, c.move);
+  });
+}
+
 function bindAdjust(root, ctx, r) {
   const form = root.querySelector("[data-adjust]");
   if (!form) return;
-  const fields = { resource: ["actor", "resource", "delta"], item: ["actor", "item", "delta"], skill: ["actor", "skill", "grant"], uses: ["actor", "uses", "value"], attitude: ["subject", "standing"] };
+  const fields = { resource: ["actor", "resource", "delta"], item: ["actor", "item", "delta"], money: ["actor", "delta"], skill: ["actor", "skill", "grant"], uses: ["actor", "uses", "value"], attitude: ["subject", "standing"] };
   const sync = () => form.querySelectorAll("[data-for]").forEach((el) => { el.hidden = !fields[form.kind.value].includes(el.dataset.for); });
   form.kind.addEventListener("change", sync);
   sync();
@@ -313,6 +481,7 @@ function bindAdjust(root, ctx, r) {
     if (k !== "attitude") change.actor = form.actor.value;
     if (k === "resource") Object.assign(change, { ref: form.resource.value, delta: Number(form.delta.value) });
     if (k === "item") Object.assign(change, { ref: form.item.value, delta: Number(form.delta.value) });
+    if (k === "money") change.delta = Number(form.delta.value);
     if (k === "skill") Object.assign(change, { ref: form.skill.value, grant: form.grant.value === "1" });
     if (k === "uses") { const [entry, ref] = form.entry.value.split(":"); Object.assign(change, { entry, ref, value: Number(form.value.value) }); }
     if (k === "attitude") Object.assign(change, { subject: form.subject.value.trim(), standing: Number(form.standing.value) });
@@ -368,7 +537,7 @@ function hostSection(r) {
   const hidden = { 暂停: r.state !== "running", 恢复: r.state !== "paused", "主持 全员准备": r.state !== "paused", 开演: r.state !== "paused",
     "主持 发布": true, "主持 重写": true };
   const notes = [["eye", "审稿 " + (s.review ? "开启" : "关闭")], ["door", "入座 " + (s.seating_locked ? "已关闭" : "开放")], ["hourglass", "表决 " + s.vote_minutes + " 分钟"],
-    ["refresh", "可回退 " + s.rewinds + " 步"], ["user", "人设卡 " + (s.personas_off ? "已关闭" : "开放")]].concat(s.handover ? [["key", "等待 " + s.handover + " 接棒"]] : [])
+    ["refresh", "可回退 " + s.rewinds + " 步"], ["user", "人设卡 " + (s.personas_off ? "已关闭" : "开放")]].concat(s.rush ? [["bolt", "快团 开启"]] : []).concat(s.xcards ? [["shield", "X 卡 " + s.xcards + " 次"]] : []).concat(s.handover ? [["key", "等待 " + s.handover + " 接棒"]] : [])
     .concat(s.removed.length ? [["user", "已请离 " + s.removed.join("、")]] : []);
   return '<section>' + section("主持操作", { meta: "以管理员身份执行，结果发往群聊" }) + '<div class="card">' +
     HOST.map(([group, items]) => '<div class="host-group">' + group + '</div><div class="host-actions">' + items.filter(([cmd]) => !hidden[cmd]).map(([cmd, label, ic]) =>
@@ -464,6 +633,7 @@ function seatsSection(r, actors) {
       (actions ? '<div class="seat-actions">' + actions + "</div>" : "") +
       persona +
       (a.archetype ? '<div class="sheet-grid"><div><div class="label">资源</div><div class="meters">' + a.resources.map((x, i) => meter(x.name, x.current, x.max, i)).join("") + "</div>" +
+        (a.money != null ? '<div class="label" style="margin-top:12px">钱包</div><div class="wallet-line">' + icon("coin", 15) + "<b>" + a.money + "</b><span>" + esc(r.economy.currency) + "</span></div>" : "") +
         '<div class="label" style="margin-top:12px">属性</div><div class="attrs">' + a.attributes.map((x, i) => {
           const range = r.attribute_ranges[i] || { min: 0, max: 20 }, share = range.max > range.min ? ((x.value ?? range.min) - range.min) / (range.max - range.min) : 0;
           return '<span style="--s:' + Math.max(0, Math.min(1, share)).toFixed(2) + '"><b>' + (x.value ?? "—") + "</b>" + esc(x.name) +
@@ -473,9 +643,13 @@ function seatsSection(r, actors) {
         (ties ? '<div class="label" style="margin-top:12px">对人物态度的影响</div><div class="chips">' + ties + "</div>" : "") + "</div>" +
         '<div><div class="label">技能 ' + skills.length + "</div>" + (skills.map(entry).join("") || '<div class="hint">无</div>') +
         '<div class="label" style="margin-top:12px">物品 ' + items.length + "</div>" + (items.map(entry).join("") || '<div class="hint">无</div>') + "</div></div>"
-        : '<div class="hint" style="margin-top:10px">还没有建卡。玩家可以私聊 bot 发送 /团 职业、/团 选职业 序号 角色名。</div>') + "</article>";
+        : '<div class="hint" style="margin-top:10px">还没有建卡。玩家可以私聊 bot 发送 /团 建卡，选快选、定制、精雕或 AI 起草。</div>') + "</article>";
   };
-  return '<section>' + section("同桌", { count: actors.length + "/" + r.seat_cap, meta: "角色、技能和物品只在这一桌有效；检定时句末写 [用 名称] 带上技能或物品" }) +
+  const of = r.economy?.outfit, built = actors.filter((a) => a.archetype && a.presence !== "left").length;
+  const outfit = of ? '<div class="outfit-banner">' + icon("coin", 16) + '<div><b>整备中</b><span>' + esc(of.place || "当前地点") + (of.shops.length ? " · " + esc(of.shops.join("、")) : "") +
+      "</span></div><div class=\"outfit-meta\"><span>好了 <b>" + of.done + "</b>/" + built + "</span><span>" + Math.max(0, Math.ceil((new Date(of.deadline) - Date.now()) / 60000)) + " 分钟后收起</span></div></div>"
+    : r.economy?.here?.length ? '<div class="outfit-banner idle">' + icon("coin", 16) + "<div><b>这里有店</b><span>" + esc(r.economy.here.join("、")) + "</span></div><div class=\"outfit-meta\"><span>主持人发送 /团 主持 整备 让大家买卖</span></div></div>" : "";
+  return '<section>' + section("同桌", { count: actors.length + "/" + r.seat_cap, meta: "角色、技能和物品只在这一桌有效；检定时句末写 [用 名称] 带上技能或物品" }) + outfit +
     (actors.length ? party(r, actors) + '<div class="stack" style="gap:16px">' + actors.map(card).join("") + "</div>" : empty("还没有人入座")) + "</section>";
 }
 

@@ -14,11 +14,15 @@ from typing import TYPE_CHECKING, Any
 
 from astrbot.api import logger
 
+from .render import KNOWN_VERBS
+
 if TYPE_CHECKING:
     from .app import LiteApp
 
 COMMAND_WORD = "团"
 _PREFIX = re.compile(r"^\s*[/／]?\s*团(?:\s+|$)")
+# A single option letter, half- or full-width, alone or followed by a flourish.
+CHOICE_SHORTHAND = re.compile(r"^[A-Da-dＡ-Ｄａ-ｄ](?:\s|$)")
 
 
 class UserError(Exception):
@@ -148,6 +152,7 @@ class Router:
             if key in self.commands:
                 raise ValueError(f"command already registered: {key}")
             self.commands[key] = Command(key, handler, summary, usage or f"/团 {key}", topic, admin, group_only, private)
+            KNOWN_VERBS.update((key, key.split()[0]))
 
     def resolve(self, body: str) -> tuple[Command, str] | None:
         words = body.split(maxsplit=2)
@@ -160,6 +165,11 @@ class Router:
     async def dispatch(self, app: "LiteApp", caller: Caller, body: str) -> Reply:
         if not body:
             body = "帮助"
+        name = app.display_name(caller.platform_id, caller.user_id, caller.user_name)
+        if name != caller.user_name:
+            caller = replace(caller, user_name=name)
+        if CHOICE_SHORTHAND.match(body):
+            body = "选 " + body      # /团 A … is /团 选 A …
         found = self.resolve(body)
         if found is None:
             return Reply().say(self.unknown(body))
@@ -172,7 +182,7 @@ class Router:
         private_room = None
         if command.group_only and not caller.in_group:
             if not command.private:
-                return Reply().say("这个指令只能在群聊里使用。")
+                return Reply().say(f"这个指令只能在群聊里使用，回到群里发送 /团 {command.verb}。")
             from .shared import private_room as find_private_room
             try:
                 private_room = find_private_room(app, caller)
@@ -206,6 +216,8 @@ class Router:
     def unknown(self, body: str) -> str:
         words = body.split()
         family = sorted(k for k in self.commands if " " in k and k.split()[0] == words[0])
+        if family and len(words) > 1 and words[1] in self.commands:
+            return f"{words[1]}不用加“{words[0]}”：直接发送 /团 {words[1]}。"
         if family and len(words) > 1:
             return (f"没有“{words[0]} {words[1]}”这个指令。可用的{words[0]}指令："
                     + "、".join(k.split()[1] for k in family) + f"。发送 /团 帮助 {self.commands[family[0]].topic} 查看写法。")

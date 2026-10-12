@@ -133,6 +133,24 @@ def validate_world(value: Any) -> dict[str, Any]:
             and text(initial.get("state"), 2000), "initial 无效")
     public = {e["id"] for e in value["entries"] if e["public"]}
     require(isinstance(initial.get("links"), list) and all(isinstance(r, str) and r in public for r in initial["links"]), "initial.links 只能引用公开条目")
+    if "creation" in value:
+        from .creation import validate_creation
+        try:
+            validate_creation(value["creation"], value)
+        except ValueError as exc:
+            raise WorldInvalid(str(exc)) from exc
+    if "economy" in value:
+        from .economy import validate as validate_economy
+        try:
+            validate_economy(value["economy"], value)
+        except ValueError as exc:
+            raise WorldInvalid(str(exc)) from exc
+    if "pacing" in value:
+        from .pacing import validate as validate_pacing
+        try:
+            validate_pacing(value["pacing"])
+        except ValueError as exc:
+            raise WorldInvalid(str(exc)) from exc
     return deepcopy(value)
 
 
@@ -331,7 +349,14 @@ class WorldCatalog:
     async def snapshot(self, entry: WorldEntry) -> tuple[dict[str, Any], dict[str, Any]]:
         """Frozen world snapshot and its compiled engine rules for a new room."""
         snapshot = {"source": entry.source, "pack": deepcopy(entry.pack), "presentation": deepcopy(entry.presentation)}
+        if entry.origin:
+            snapshot["origin"] = deepcopy(entry.origin)
+            snapshot["presentation"] = deepcopy(entry.origin.get("presentation") or entry.presentation)
+            snapshot["extensions"] = deepcopy(entry.origin.get("extensions") or {})
         snapshot["digest"] = digest({"pack": snapshot["pack"], "presentation": snapshot["presentation"]})
+        if snapshot.get("extensions"):
+            snapshot["digest"] = digest({"pack": snapshot["pack"], "presentation": snapshot["presentation"],
+                                         "extensions": snapshot["extensions"]})
         rules = await self.app.engine.compile_world(snapshot["pack"])
         return snapshot, rules
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING
 
-from .. import loadout, messages, people, shared
+from .. import economy, loadout, messages, people, shared
 from ..commands import Caller, Reply, UserError
 from ..storage import now
 from . import hosted
@@ -23,7 +23,7 @@ def _mine(app: "LiteApp", caller: Caller) -> tuple[sqlite3.Row, sqlite3.Row]:
     room = shared.require_room(app, caller, "lobby", "running", "paused")
     actor = shared.require_actor(app, caller, room)
     if not actor["archetype_id"]:
-        raise UserError("你还没有建卡。发送 /团 职业 查看职业，再用 /团 选职业 序号 角色名 建卡。")
+        raise UserError("你还没有建卡。发送 /团 建卡 选一种建卡方式。")
     return room, actor
 
 
@@ -49,17 +49,22 @@ async def show(app: "LiteApp", caller: Caller, args: str) -> Reply:
         else:
             actor = shared.actor_for(c, room["id"], caller.user_id)
     if actor is None:
-        raise UserError("没有找到这个角色。" if args.strip() else "你还没有加入这一桌。发送 /团 加入 入座。")
+        if not args.strip() and room["state"] == "ended":
+            raise UserError(shared.STATE_STEPS["ended"])
+        raise UserError("没有找到这个角色。发送 /团 阵容 查看入座的人。" if args.strip() else
+                        f"你还没有加入这一桌。{'' if caller.in_group else '在群里'}发送 /团 加入 入座。")
     resources = [(r["name"], v["current"], v["max"]) for r in shared.world(room)["pack"]["resources"]
                  for k, v in loadout.state(actor)["resources"].items() if k == r["id"]]
     return Reply().say(messages.loadout_card(shared.actor_label(actor), loadout.entries(room, actor), resources,
-                                             own=actor["user_id"] == caller.user_id))
+                                             own=actor["user_id"] == caller.user_id, wallet=economy.wallet_view(room, actor)))
 
 
 async def use(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room, actor = _mine(app, caller)
     if not args.strip():
-        raise UserError("写法：/团 使用 物品或技能名，例如 /团 使用 薄荷糖。检定时要加成，请在行动后写 [用 名称]。")
+        held = next((e["name"] for e in loadout.entries(room, actor) if e["usable"]), None)
+        example = f"，例如 /团 使用 {held}" if held else "；发送 /团 背包 看你手里有什么"
+        raise UserError(f"写法：/团 使用 物品或技能名{example}。检定时要加成，请在行动后写 [用 名称]。")
     _idle(app, room)
     entry = loadout.find(room, actor, args)
     async with app.lock(room["id"]):
@@ -125,6 +130,8 @@ async def new_scene(app: "LiteApp", caller: Caller, args: str) -> Reply:
     _idle(app, room)
     with app.store.tx() as c:
         count = loadout.refill(c, room, "scene")
+        from . import pacing
+        pacing.scene_reset(c, room)
         app.store.add_event(c, room["id"], "system", "主持人确认进入新场景，按场景恢复的技能与物品次数已恢复。")
         app.store.bump_room(c, room["id"])
     return Reply().say(f"进入新场景：按“每幕恢复”的技能与物品次数已恢复（{count} 名角色）。")

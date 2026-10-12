@@ -789,6 +789,10 @@ async def cmd_ending(app, caller, args):
     if not refs:
         words = args.split(maxsplit=1)
         if words and words[0] == "提出":
+            stage = (loads(room["data_json"], {}).get("hosted", {}).get("pacing") or {})
+            if stage.get("closing") or stage.get("finale") or stage.get("epilogue"):
+                raise UserError("故事已经在收尾了：接下来写终章、每人留一句尾声。想换个结局方向，主持人可以 "
+                                "/团 主持 收尾 取消 后再提分支，或 /团 主持 收尾 结局名 直接改。")
             title, description = split_title(_need(words[1] if len(words) > 1 else "", "/团 结局 提出 标题：走向"))
             return await perform(app, caller, "playBranchEndings", "propose_branch", {"title": title[:120], "description": description[:800]})
         reply = await list_records(app, caller, "结局")
@@ -799,7 +803,9 @@ async def cmd_ending(app, caller, args):
             items = [f"**{e['name']}**　{e['rule']}" if host else f"**{e['name']}**" for e in endings]
             reply.say(Msg().title("本世界预设的结局").gap().items(items)
                       .gap().hint(f"用 {messages.cmd('/团 结局 提出 结局名：走向')} 提出分支"
-                                  + ("" if host else "，结局名请用上面的名称；达成条件只有主持人能看到")))
+                                  + ("" if host else "，结局名请用上面的名称；达成条件只有主持人能看到")
+                                  + f"。也可以不走提案：正文选项里标着“收束”的一项选了就会发起收尾表决，"
+                                    f"{messages.cmd('/团 收尾')} 看当前提议"))
         reply.private_only = True
         return reply
     record = by_seq(app, room, refs[0], "branch", "ending")
@@ -807,13 +813,20 @@ async def cmd_ending(app, caller, args):
     if record["kind"] == "branch" and word == "支持":
         return await perform(app, caller, "playBranchEndings", "vote_branch", {"branch_ref": record["id"]})
     if record["kind"] == "branch" and word == "进入":
-        return await perform(app, caller, "playBranchEndings", "enter_ending", {"branch_ref": record["id"]})
+        reply = await perform(app, caller, "playBranchEndings", "enter_ending", {"branch_ref": record["id"]})
+        from . import pacing                 # the table's own wind-down stops proposing once an ending is entered
+        with app.store.tx() as c:
+            pacing.mark_branch(c, room["id"])
+        return reply
     if record["kind"] == "ending" and word == "完结":
         return await perform(app, caller, "playBranchEndings", "conclude_ending", {"ending_ref": record["id"]})
     raise UserError("写法：/团 结局 #分支 支持|进入，或 /团 结局 #结局 完结")
 
 
 async def cmd_epilogue(app, caller, args):
+    if "#" not in args and "＃" not in args:
+        from . import pacing                 # the wind-down's epilogues need no record number
+        return await pacing.epilogue(app, caller, args)
     room = _room(app, caller)
     seq, text = _one_ref(args, "结局")
     return await perform(app, caller, "playBranchEndings", "write_epilogue", {"ending_ref": by_seq(app, room, seq, "ending")["id"],
@@ -908,4 +921,5 @@ def install(app: "LiteApp") -> None:
     r.register("神谕", cmd_oracle, summary="向神谕问一个是非问题", usage="/团 神谕 [很可能|五五开|不太可能] 问题", topic="叙事", private="room")
     r.register("转变", cmd_change, summary="提出或确认角色转变", usage="/团 转变 角色名 名称：变化 | /团 转变 #转变 确认", topic="叙事", private="room")
     r.register("结局", cmd_ending, summary="查看、提出、支持、进入或完结结局", usage="/团 结局 提出 标题：走向 | /团 结局 #分支 支持", topic="叙事", private="room")
-    r.register("尾声", cmd_epilogue, summary="写下本人尾声", usage="/团 尾声 #结局 内容", topic="叙事", private="room")
+    r.register("尾声", cmd_epilogue, summary="写下本人尾声：终章之后一句话写角色的去向", usage="/团 尾声 一句话｜/团 尾声 #结局 内容",
+               topic="叙事", private="room")

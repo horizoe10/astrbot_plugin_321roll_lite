@@ -34,6 +34,7 @@ class LiteConfig:
     turn_timeout_seconds: int
     default_seat_cap: int
     max_seat_cap: int
+    bare_letter_choice: bool = False
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any] | None) -> "LiteConfig":
@@ -50,6 +51,7 @@ class LiteConfig:
             turn_timeout_seconds=_int(value.get("turn_timeout_seconds"), 300, 0, 86400),
             default_seat_cap=min(max_cap, _int(value.get("default_seat_cap"), 4, 1, 16)),
             max_seat_cap=max_cap,
+            bare_letter_choice=bool(value.get("bare_letter_choice", False)),
         )
 
     def group_allowed(self, group_id: str | None) -> bool:

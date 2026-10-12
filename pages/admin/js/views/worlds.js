@@ -113,6 +113,87 @@ export function download(w, pack, presentation, notify) {
 
 // A world's narration defaults: what new tables start with.  Preset and market worlds keep their package as is;
 // a change here is this machine's adjustment and can be undone back to the package's value.
+// Build settings the world ships (pack.creation); defaults and step order mirror roll_lite/rooms/build.py settings() and steps().
+const BUILD_MODES = [["quick", "快选", "挑职业、起名字就上桌"], ["custom", "定制", "在职业上微调，补一点来历"], ["forge", "精雕", "从头雕一个人"]];
+// The world's pacing (pack.pacing, or the defaults every world gets): roll_lite/worlds/pacing.py settings().
+function pacingSection(w) {
+  const p = w.pack.pacing || {}, pr = w.presentation || {}, core = pr.edition === "core", acts = (pr.acts || []).length;
+  const scene = p.sceneRounds ?? 4, act = p.actRounds ?? 8, grace = p.graceRounds ?? 2, count = core || !acts ? 3 : acts;
+  const per = (n) => p.acts?.[String(n)] ?? act;
+  const target = p.targetRounds ?? (act ? Array.from({ length: count }, (_, i) => per(i + 1)).reduce((a, b) => a + b, 0) : 0);
+  const hard = p.hardRounds ?? (target ? target + Math.max(2, Math.floor(target / 2)) : 0);
+  return "<section>" + section("节奏", { meta: w.pack.pacing ? "世界设置；主持人可以在团桌上调整" : "默认节奏；主持人可以在团桌上调整" }) + '<div class="wcre">' +
+    '<div class="figures wcre-figs">' + figure(scene || "—", "场景轮数", "small") + figure(act || "—", "每幕轮数", "small") + figure(target || "—", "全程目标", "small") + figure(hard || "—", "全程上限", "small") + "</div>" +
+    '<div class="hint">场景满 ' + (scene || "∞") + " 轮起正文让局面变化，再过 " + grace + " 轮世界自己推进；一幕走满提议换幕，" + grace + " 轮后自动进入；" +
+    (target ? "全程满 " + target + " 轮" + ((p.endingPrompt ?? true) ? "提议收尾" : "") + "，" + hard + " 轮必定收尾。" : "不设篇幅。") +
+    ((p.endingPrompt ?? true) ? "" : "这个世界关掉了自动收尾提议，只在玩家选收束选项或主持人发起时收尾。") + "</div></div></section>";
+}
+// The world's economy (pack.economy): money rules up top, then every shop with its place and wares.
+function economySection(w) {
+  const p = w.pack, e = p.economy;
+  if (!e) return "";
+  const item = (id) => p.items.find((x) => x.id === id)?.name || id, place = (id) => p.entries.find((x) => x.id === id)?.name || id, cur = esc(e.currency);
+  const shops = e.shops || [];
+  return "<section>" + section("钱与商店", { meta: "整备时在当前地点的店里买卖；故事里也会得钱失钱" }) + '<div class="wcre">' +
+    '<div class="figures wcre-figs">' + figure(e.initial || 0, "开局 " + cur, "small") + figure(e.wage || 0, "每幕工钱", "small") + figure(shops.length, "家店", "small") +
+      figure(Object.keys(e.prices || {}).length, "件有价", "small") + "</div>" +
+    '<div class="hint">回收按售价的 ' + (e.sell ?? 50) + "% · 一段正文最多得失 " + (e.storyLimit ?? 20) + " " + cur + (e.kitMoney ? " · 精雕可把装备包折成 " + e.kitMoney + " " + cur : "") +
+      (e.autoOutfit ? " · 走进有店的地点自动整备" : " · 整备由主持人发起") + "</div>" +
+    (shops.length ? '<div class="wcre-block"><div class="wcre-h"><b>商店</b><span class="sec-count">' + shops.length + '</span></div><div class="wcre-grid">' +
+      shops.map((s) => '<div class="wcre-card"><div class="wcre-card-h"><b>' + esc(s.name) + "</b>" + (s.kind ? '<span class="wcre-tags"><span class="tag">' + esc(s.kind) + "</span></span>" : "") + "</div>" +
+        (s.text ? '<div class="wcre-t">' + esc(s.text) + "</div>" : "") +
+        '<div class="chips">' + s.items.map((id) => '<span class="chip small">' + esc(item(id)) + " · " + (e.prices?.[id] ?? "?") + "</span>").join("") + "</div>" +
+        '<div class="wcre-foot">' + (s.place ? "开在 " + esc(place(s.place)) : "随处可买") + "</div></div>").join("") + "</div></div>"
+      : '<div class="wcre-block"><div class="wcre-h"><b>商店</b><span class="muted">没有商店，钱只在故事里得失、玩家之间转交</span></div></div>') +
+    "</div></section>";
+}
+
+function creationSection(w) {
+  const p = w.pack, cv = p.creation || {};
+  const modes = cv.modes || (w.edition === "core" ? ["quick", "custom"] : ["quick", "custom", "forge"]);
+  const move = cv.move ?? 4, swap = Math.min(cv.swap ?? 1, p.rules.skillSlots);
+  const authored = !!cv.origins?.length;
+  const origins = authored ? cv.origins : p.entries.filter((e) => e.public && (e.kind === "faction" || e.kind === "region")).slice(0, 12).map((e) => ({ name: e.name }));
+  const questions = (cv.questions || ["你为什么会来到" + shortTitle(p.title) + "？", "你欠谁一个人情？", "你最怕什么？"]).slice(0, 3);
+  const kits = cv.kits || [], details = cv.details || [], traits = cv.traits || [];
+  const item = (id) => (p.items.find((x) => x.id === id) || {}).name || id;
+  const flow = (mode) => mode === "quick" ? ["职业", "名字"] : ["职业", "名字", ...(move ? ["属性 ±" + move] : []),
+    ...(mode === "forge" ? ["技能任选"] : swap ? ["换 " + swap + " 项技能"] : []),
+    ...(traits.some((t) => (t.modes || ["forge"]).includes(mode)) ? ["特质"] : []), ...(origins.length ? ["出身"] : []),
+    ...(mode === "forge" && kits.length ? ["装备包"] : p.items.length ? ["多带一件"] : []),
+    ...details.filter((d) => (d.modes || ["forge"]).includes(mode)).map((d) => d.name),
+    ...(mode === "custom" ? ["背景 1 问"] : ["背景 " + questions.length + " 问", ...(cv.relation === false ? [] : ["开局关系"])])];
+  const dots = (n) => '<span class="cm-dots">' + [1, 2, 3].map((i) => "<i" + (i <= n ? ' class="on"' : "") + "></i>").join("") + "</span>";
+  const tile = ([k, label, desc], i) => {
+    const on = modes.includes(k), steps = flow(k);
+    return '<div class="wcre-mode' + (on ? "" : " off") + '"><div class="wcre-mode-h"><b>' + label + "</b>" + dots(i + 1) + '<span class="wcre-n">' + (on ? steps.length + " 步" : "未开放") + "</span></div>" +
+      '<div class="wcre-desc">' + desc + "</div>" + (on ? '<div class="cre-steps">' + steps.map((s) => "<span>" + esc(s) + "</span>").join("") + "</div>" : "") + "</div>";
+  };
+  const head = (title, n, note = "") => '<div class="wcre-h"><b>' + title + "</b>" + (n !== null ? '<span class="sec-count">' + n + "</span>" : "") + (note ? '<span class="muted">' + note + "</span>" : "") + "</div>";
+  const forModes = (list) => '<span class="wcre-tags">' + list.map((m) => '<span class="tag">' + (m === "custom" ? "定制" : "精雕") + "</span>").join("") + "</span>";
+  const block = (title, list, card, note = "") => list.length ? '<div class="wcre-block">' + head(title, list.length, note) + '<div class="wcre-grid">' + list.map(card).join("") + "</div></div>" : "";
+  return "<section>" + section("建卡", { meta: p.creation ? "世界作者设置" : "未设置，使用插件默认" }) + '<div class="wcre">' +
+    '<div class="wcre-modes">' + BUILD_MODES.map(tile).join("") + "</div>" +
+    '<div class="figures wcre-figs">' + figure(move, "属性最多挪", "small") + figure(swap, "定制换技能", "small") + figure(traits.length, "个特质", "small") + figure(details.length, "项人物细节", "small") + "</div>" +
+    block("特质", traits, (t) => '<div class="wcre-card trait"><div class="wcre-card-h"><b>' + esc(t.name) + "</b>" + forModes(t.modes || ["forge"]) + "</div>" + (t.text ? '<div class="wcre-t">' + esc(t.text) + "</div>" : "") +
+      '<span class="cre-side up">利 ' + esc(editor.traitEffect(t.up, p.attributes, 1)) + '</span><span class="cre-side dn">弊 ' + esc(editor.traitEffect(t.down, p.attributes, -1)) + "</span></div>",
+      "利弊一体，掷骰时自动计算") +
+    block("人物细节", details, (d) => '<div class="wcre-card"><div class="wcre-card-h"><b>' + esc(d.name) + "</b>" + forModes(d.modes || ["forge"]) + "</div>" +
+      (d.text ? '<div class="wcre-t">' + esc(d.text) + "</div>" : "") +
+      (d.options?.length ? '<div class="chips">' + d.options.map((o) => '<span class="chip small" title="' + esc(o.text || "") + '">' + esc(o.name) + "</span>").join("") + "</div>" : "") +
+      '<div class="wcre-foot">' + (!d.options?.length ? "玩家自己写一句" : d.free === false ? "只能从选项里挑" : "可挑选项，也可自己写") + "</div></div>", "只写进故事") +
+    (origins.length ? '<div class="wcre-block">' + head("出身", origins.length, authored ? "" : "取自公开的地区和势力") + '<div class="wcre-grid">' +
+      origins.map((o) => '<div class="wcre-card"><b>' + esc(o.name) + "</b>" + (o.text ? '<div class="wcre-t">' + esc(o.text) + "</div>" : "") +
+        (o.item || o.money ? '<div class="wcre-foot">' + [o.item ? "随身带 " + esc(item(o.item)) : "", o.money && p.economy ? "多带 " + o.money + " " + esc(p.economy.currency) : ""].filter(Boolean).join(" · ") + "</div>" : "") + "</div>").join("") + "</div></div>"
+      : '<div class="wcre-block">' + head("出身", null, "没有可选的出身，建卡跳过这一步") + "</div>") +
+    block("装备包", kits, (k) => '<div class="wcre-card"><b>' + esc(k.name) + "</b>" + (k.text ? '<div class="wcre-t">' + esc(k.text) + "</div>" : "") +
+      '<div class="chips">' + Object.entries(k.items).map(([id, n]) => '<span class="chip small">' + esc(item(id)) + " ×" + n + "</span>").join("") + "</div></div>", "精雕时代替多带一件") +
+    '<div class="wcre-block">' + head("背景问题", questions.length, cv.questions ? "" : "插件默认") + '<ol class="wcre-qs">' +
+      questions.map((q, i) => "<li><span>" + esc(q) + '</span><span class="tag' + (i ? "" : " gold") + '">' + (i ? "精雕" : "定制 · 精雕") + "</span></li>").join("") + "</ol></div>" +
+    "</div></section>";
+}
+
+
 function narrationSection(w) {
   const custom = w.source === "custom";
   const row = (field) => {
@@ -170,19 +251,20 @@ async function detail(root, ctx, id) {
       '<span class="kbd">/团 主持 即兴</span> 调整；想开新的一幕时发送 <span class="kbd">/团 主持 换幕 标题：引子</span>，收尾时发送 <span class="kbd">/团 完结 结局名</span>。</span></div></div>' : "") +
     (later ? '<section style="margin:0 0 56px">' + section("场景图", { count: w.scenes.length, meta: "随安装包附带 · 保存在插件数据目录" }) +
       spoiler("scenes", "封面之外另有 " + later + " 张场景图，开团后随剧情出现。", '<div class="scene-grid">' +
-        w.scenes.map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
-          esc(s.label) + "</figcaption></figure>").join("") + "</div>") + "</section>" : "") +
+        w.scenes.filter((s) => !s.place).map((s) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(s.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption title="' + esc(s.label) + '">' +
+          esc(s.label) + "</figcaption></figure>" + (s.key.startsWith("place:") && w.scenes.some((v) => v.place === s.key.slice(6)) ? '<details class="scene"><summary>' + esc(s.label) + ' · 季节与时段差分</summary><div class="scene-grid">' +
+          w.scenes.filter((v) => v.place === s.key.slice(6)).map((v) => '<figure class="scene"><div class="scene-frame" data-art="' + esc(id) + '" data-key="' + esc(v.key) + '" data-rev="' + esc(m.sha256) + '"></div><figcaption>' + esc(v.label) + '</figcaption></figure>').join('') + '</div></details>' : '')).join("") + "</div>") + "</section>" : "") +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' +
       "<section>" + section("世界观") + '<div class="prose initial">' + esc(p.worldview) + "</div>" + (p.seed ? '<p class="quote">' + esc(p.seed) + "</p>" : "") + "</section>" +
       (actList.length ? "<section>" + section("幕", { count: actList.length, meta: "故事的大段落，主持人用 /团 主持 换幕 推进" }) +
         spoiler("acts", "共 " + actList.length + " 幕。每一幕的标题和引言会在团桌推进到那一幕时揭晓。", '<div class="rows">' +
           actList.map((a) => '<div class="ri"><span class="opt-num">' + a.number + '</span><div style="min-width:0"><div class="ri-title">' + esc(a.title) + '</div><div class="ri-meta">' + esc(a.lead || "") + "</div></div><span></span></div>").join("") + "</div>") + "</section>" : "") +
-      "<section>" + section("职业", { count: p.archetypes.length, meta: "玩家用 /团 选职业 建角" }) + '<div class="rows">' +
+      "<section>" + section("职业", { count: p.archetypes.length, meta: "玩家用 /团 建卡 建角" }) + '<div class="rows">' +
         p.archetypes.map((a) => '<div class="ri">' + roundIcon("user") + '<div style="min-width:0"><div class="ri-title">' + esc(a.name) + "　<span class=\"muted\" style=\"font-weight:400\">" + esc(a.text || "") +
           '</span></div><div class="ri-meta">' + attrs.map((at) => esc(at.name) + " " + a.attributes[at.id]).join(" · ") + "</div></div>" +
           radar(attrs.map((at) => at.name), [{ values: attrs.map((at) => a.attributes[at.id]), strong: true }], lo, hi, 56, false) + "</div>").join("") + "</div></section>" +
     '</div><div class="stack" style="gap:52px">' +
-      narrationSection(w) +
+      narrationSection(w) + pacingSection(w) + creationSection(w) + economySection(w) +
       "<section>" + section("职业属性", { meta: "每列一项属性，颜色越深数值越高" }) + matrix(p.archetypes, attrs) +
         '<div class="figures" style="justify-content:space-between;margin-top:18px">' + figure(attrs.length, "项属性", "small") + figure(p.resources.length, "种资源", "small") + figure(p.skills.length, "项技能", "small") + figure(p.items.length, "件物品", "small") + "</div></section>" +
       (m ? "<section>" + section("安装信息", { meta: "在世界市场里更新或卸载" }) + '<dl class="kv"><dt>来源</dt><dd>' + esc(origin) + "</dd>" +

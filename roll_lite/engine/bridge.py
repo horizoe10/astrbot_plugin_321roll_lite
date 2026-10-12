@@ -72,10 +72,14 @@ def localize_schema(schema: dict[str, Any], rules: dict[str, Any] | None, omit: 
             out = {key: walk(value) for key, value in node.items()}
             props = out.get("properties")
             if isinstance(props, dict):
-                for name in omit:
+                omitted = set(omit)
+                # The latest full schema includes identity updates, but Lite sends no entity_catalog.
+                if "annotations" in omitted and {"npc_ref", "name", "description", "motivation"} <= set(props):
+                    omitted.update(("entity_ref", "aliases"))
+                for name in omitted:
                     props.pop(name, None)
                 if isinstance(out.get("required"), list):
-                    out["required"] = [name for name in out["required"] if name not in omit]
+                    out["required"] = [name for name in out["required"] if name not in omitted]
                 if rules:
                     for name, keys in (("attribute_ref", rules.get("attributes")), ("difficulty", rules.get("difficulties"))):
                         spec = props.get(name)
@@ -98,7 +102,17 @@ HOSTING_RULES = (NPC_VISIBILITY_RULE
                  + FOUR_CHOICES
                  + "\nfacts 只记关键节点：真相揭示、关键证据、人物转向、当众承诺与条款、行动进度、玩家对自己角色的声明；"
                    "主持指引规定了标签时，text 以该标签开头；其余情节不写成 facts。"
-                   "\n某个预设结局的条件已经满足时，在选项里提出这个结局，并使用结局条件里的名称。")
+                   "\n某个预设结局的条件已经满足，或故事的核心矛盾已经有了结果时，把其中一个选项写成收束选项："
+                   "以“收束：”开头，接结局名和走向（例如“收束：灰冠归位——带着契约回到地表”）；结局条件里列了结局时，"
+                   "结局名照抄其中一个名称，一字不改，结局名和走向之间用“——”隔开；"
+                   "本桌备注要求写收束选项时也照此写。其他时候不写收束选项。")
+# Text chat has no clickable options under a clarification, so ask only when guessing would be wrong.
+CLARIFY_POLICY = ("\n行动略含糊、但结合场景、目标和最近经过能找到最合理的理解时（例如“向前跑”理解为沿当前路线朝目标前进），"
+                  "按这个理解处理，不要 clarify；只有目标互相矛盾或完全无法判断时才 clarify。"
+                  "clarify 时 clarification 只写一个问题，可附两三个简短的方向，并说明选其中一个即可。"
+                  "行动末尾带有“（补充：…）”时，是玩家对刚才追问的回答：不得再 clarify，按最合理的理解处理。"
+                  "自由行动只要可能失败或有风险（逃离、强闯、对抗、潜行、说服、攀爬、抢夺、带人撤离等），选 check，"
+                  "按危险程度定属性、难度和 failure_cost；直接威胁身体的失败用 harm。narrative 只用于毫无阻碍、不会失败的小动作。")
 
 
 def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omit: tuple[str, ...] = ()) -> str:
@@ -114,6 +128,7 @@ def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omi
                  "\n正文字符串里的半角双引号、反斜杠和换行必须转义；角色对白可用中文引号“”。")
     if contract.startswith("se-hosted-intent-model-output/"):
         text += "\nkind 不是 check 时，attribute_ref、difficulty、failure_cost、risk_response 全部是空字符串。"
+        text += CLARIFY_POLICY
     if contract.startswith("se-hosted-narrative-model-output/"):
         text += ("\n先输出 paragraphs，再输出其他字段。facts.subject_ref 只能是 scene、goal、输入 npcs 的 npc_ref，"
                  "或本次 npcs 同时声明的新 npc_ref（npc. 后接字母数字、下划线、点或连字符）。"
@@ -220,6 +235,18 @@ class AstrBotModelBridge:
         started = now()
         system = (request.system_input + contract_instruction(request.output_contract, self.rules, self.omit)
                   + self._repair_hint(request.call_sequence))
+        if self.room_id and request.output_contract.startswith(("se-hosted-narrative-model-output/", "se-brief-start-model-output/")):
+            from ..storage import loads
+            with self.app.store.read() as c:
+                row = c.execute("SELECT world_json FROM rooms WHERE id=?", (self.room_id,)).fetchone()
+            places = loads(row["world_json"], {}).get("presentation", {}).get("places", []) if row else []
+            if places:
+                system += ("\n【当前场景与配图】每轮正文结束时，progress.scene 必须填写本轮末尾实际所在地点的 title 和 description；"
+                           "开场则填写顶层 scene。这里填写当前画面，不是仅登记新地点；不能沿用已经离开的输入地点，也不能填 null。"
+                           "标题写成“地点 · 时段”，时段只用清晨、白天、傍晚、夜晚；正在下雪再加“ · 下雪”。"
+                           "例如正文已从地点甲走进地点乙，就填写“地点乙 · 白天”，不能继续显示地点甲。"
+                           "同地点停留到晚上也填写新的时段。description 简要概括眼前场景；未登记地点如实命名。已登记地点："
+                           + "、".join(p["name"] for p in places) + "。")
 
         def open_call(provider_id: str) -> int:
             call_id = self._journal_start(request, provider_id, now())

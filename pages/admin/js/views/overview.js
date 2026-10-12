@@ -32,7 +32,7 @@ export function callChart(mode, week, hours, height = 120) {
 /** Table card used by the overview shelf and the tables page. */
 export function tableCard(r) {
   const actList = Array.from({ length: r.acts_total || 0 }, (_, i) => i + 1);
-  const turn = r.turn;
+  const turn = r.turn, stage = r.stage;
   const [actTitle] = String(r.act_heading || "").split("\n");
   return '<a class="tcard" href="#/rooms/' + encodeURIComponent(r.id) + '">' + '<div class="cover band tone-' + esc(r.cover.tone) + '"><span class="mark">' + esc(r.cover.mark) + "</span></div>" +
     '<div class="tcard-body"><div class="tcard-eyebrow"><span>群 ' + esc(r.group_id || "—") + " · " + esc(r.platform) + "</span>" + roomDot(r.state, r.state_label) + "</div>" +
@@ -41,9 +41,13 @@ export function tableCard(r) {
       : '<div class="tcard-act-top"><b>' + esc(actTitle || "第 " + r.act + " 幕") + "</b>" + (r.round ? "<span>第 " + r.round + " 轮</span>" : "") + "</div>" +
         (actList.length ? acts(actList, r.act, true) + '<div class="tcard-act-n">' + r.act + " / " + actList.length + " 幕</div>" : '<div class="tcard-act-n">即兴续写 · 不设幕数</div>')) + "</div>" +
     (r.excerpt ? '<div class="excerpt">' + esc(r.excerpt) + "</div>" : '<div class="excerpt">' + esc(subTitle(r.title)) + "</div>") +
-    '<div class="tcard-foot">' + (turn ? icon("feather", 14) + '<span class="turnline">轮到 <b>' + esc(turn.actor) + "</b>" + (turn.deadline_at ? " · " + esc(timeoutText(turn.deadline_at)) : "") + "</span>" : "<span>" + esc(when(r.updated_at)) + "更新</span>") +
-    (turn ? "" : '<span class="spacer"></span>') + avatars(r.names, 4) + '<span class="num">' + r.players + "/" + r.seat_cap + "</span></div></div></a>";
+    '<div class="tcard-foot">' + (stage ? stageChip(stage) : turn ? icon("feather", 14) + '<span class="turnline">轮到 <b>' + esc(turn.actor) + "</b>" + (turn.deadline_at ? " · " + esc(timeoutText(turn.deadline_at)) : "") + "</span>" : "<span>" + esc(when(r.updated_at)) + "更新</span>") +
+    (turn && !stage ? "" : '<span class="spacer"></span>') + avatars(r.names, stage ? 2 : 4) + '<span class="num">' + r.players + "/" + r.seat_cap + "</span></div></div></a>";
 }
+
+/** The wind-down at a glance: vote, closing rounds, finale, epilogues. */
+export const stageChip = (s) => '<span class="stage-chip ' + esc(s.tone || "") + '" title="' + esc(s.detail) + '">' + icon(s.icon || "flag", 13) + "<b>" + esc(s.label) + "</b>" +
+  (s.deadline_at ? "<span>" + (new Date(s.deadline_at).getTime() <= Date.now() ? "已到时间" : "剩 " + Math.max(1, Math.round((new Date(s.deadline_at).getTime() - Date.now()) / 60000)) + " 分") + "</span>" : s.key === "offer" ? "<span>" + s.yes + "/" + s.need + "</span>" : "") + "</span>";
 
 const seatsLine = (r) => '<div class="acts mini">' + Array.from({ length: Math.min(r.seat_cap || 0, 8) }, (_, i) => '<div class="act-seg ' + (i < r.players ? "now" : "") + '"><i></i></div>').join("") + "</div>";
 
@@ -65,8 +69,9 @@ function storyCard(f) {
     '<div class="story-glass"><div class="story-label">上 回</div><ul>' + recent + "</ul>" +
       (f.goal ? '<div class="goal"><div class="story-label">此 刻 的 目 标</div>' + esc(f.goal) + "</div>" : "") + "</div></div>" +
     '<div class="story-bar">' + (turn ? (turn.deadline_at ? ring(remaining(turn.deadline_at), f.turn_timeout_seconds, "", 54) : avatar(turn.actor, "big now")) : "") +
-      '<div class="who"><b>' + (turn ? "第 " + turn.round + " 轮 · 轮到 " + esc(turn.actor) : "没有进行中的回合") + "</b><span>" +
-      (turn ? (turn.deadline_at ? esc(timeoutText(turn.deadline_at)) + "，自动选风险最低的一项" : "不限时") : esc(f.state_label)) + "</span>" +
+      '<div class="who"><b>' + (turn ? "第 " + turn.round + " 轮 · 轮到 " + esc(turn.actor) : f.stage ? esc(f.stage.label) : "没有进行中的回合") + "</b><span>" +
+      (turn ? (turn.deadline_at ? esc(timeoutText(turn.deadline_at)) + "，自动选风险最低的一项" : "不限时") : f.stage ? esc(f.stage.detail) : esc(f.state_label)) + "</span>" +
+      (turn && f.stage ? '<div style="margin-top:6px">' + stageChip(f.stage) + "</div>" : "") +
       (turnActor ? '<div class="meters">' + turnActor.resources.slice(0, 2).map((x, i) => meter(x.name, x.current, x.max, i)).join("") + "</div>" : "") + "</div>" + '<span class="avatars">' + f.actors.map((a) => avatar(a.name || a.user_name, (a.name || a.user_name) === (turn && turn.actor) ? "now" : a.presence === "away" ? "away" : "")).join("") + "</span>" +
       '<a class="link" href="#/rooms/' + encodeURIComponent(f.id) + '">进入团桌' + icon("arrow", 14) + "</a></div></div>";
 }

@@ -122,6 +122,28 @@ async def on_resume(app: "LiteApp", room_id: str) -> Msg | None:
     return await build(app, room_id) if quiet_for(app, room_id, RESUME_GAP) else None
 
 
+def welcome(app: "LiteApp", caller: Caller, room_id: str) -> str:
+    """A card built mid-story: the recap goes to the newcomer's private chat in the background.
+
+    Returns the line for the card reply; empty when the story has not started yet.
+    """
+    with app.store.read() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        if _last_narration(c, room_id) is None:
+            return ""
+        target = caller.private_umo or shared.private_umo(c, room["platform"], caller.user_id)
+    if target is None:
+        return "想知道入座前发生了什么，发送 /团 前情 看一段前情提要。"
+
+    async def send() -> None:
+        recap = await build(app, room_id)
+        if recap is not None:
+            await app.notifier.send(target, ["你入座之前的故事：", recap])
+
+    app.spawn(send(), name=f"321roll-welcome-{room_id}-{caller.user_id}")
+    return "入座之前的故事会整理成一段前情提要，稍后私聊发给你。"
+
+
 async def show(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = shared.require_room(app, caller)
     recap = await build(app, room["id"])

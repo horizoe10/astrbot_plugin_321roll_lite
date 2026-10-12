@@ -14,7 +14,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import adjust, loadout, messages, narration, people, personas, shared, tavern
+from .. import adjust, economy, loadout, messages, narration, people, personas, shared, tavern
 from ..cards import cover
 from ..commands import Caller, UserError, strip_command
 from ..delivery import load_prefs, save_prefs
@@ -26,13 +26,13 @@ from ..fun import soup
 from .. import quota
 from .. import story_export
 from ..render import MARKDOWN_PLATFORMS, PLAIN, inline, render
-from ..rooms import lifecycle
+from ..rooms import build, lifecycle
 from ..storage import dumps, loads, now
 from ..version import DATABASE_SCHEMA, PLUGIN_VERSION, WORLD_FORMAT
 from ..worlds import market
 from ..worlds import tavern_import
 from ..worlds.catalog import COVER_TONES, WorldInvalid, validate_presentation, validate_world
-from ..worlds.package import MAX_PACKAGE, edition_of, label
+from ..worlds.package import MAX_PACKAGE, display_label, edition_of, label, required_plugin
 from . import insight
 from .preview import message_preview
 
@@ -43,7 +43,7 @@ ROOM_COMMANDS = ("暂停", "恢复", "开演", "主持 全员准备", "完结", 
                  "主持 选项", "主持 集体事件", "主持 结束表决", "主持 限时", "存档", "读档", "人数",
                  "主持 交棒", "主持 移出", "主持 放行", "主持 暂离", "主持 返回", "主持 入座", "主持 退回", "主持 顺序",
                  "主持 轮到", "主持 回退", "主持 篇幅", "主持 文风", "主持 即兴", "主持 检定", "主持 审稿", "主持 发布", "主持 重写",
-                 "主持 表决时限", "主持 人设")
+                 "主持 表决时限", "主持 人设", "主持 建卡", "主持 节奏", "主持 收尾")
 BACKUP_TABLES = ("settings", "worlds", "rooms", "actors", "records", "turns", "events", "facts", "npcs", "votes", "saves",
                  "personas", "outbox", "audit")
 
@@ -62,14 +62,14 @@ def _origin(entry: Any) -> dict[str, Any] | None:
     if not o:
         return None
     return {"source": o.get("source"), "file": o.get("file"), "revision": o.get("revision"), "edition": edition_of(o.get("edition")),
-            "label": label(o.get("edition"), o.get("revision")), "sha256": o.get("sha256"),
+            "label": display_label(required_plugin(entry.pack), o.get("edition"), o.get("revision")), "sha256": o.get("sha256"),
             "size": o.get("size"), "installed_at": o.get("installed_at"), "images": len(set((o.get("images") or {}).values())),
             "banner": bool(o.get("banner"))}
 
 
 def _label(entry: Any) -> str:
     """The version shown for a world: its tier (market package or a custom world's own), else Pro (P)."""
-    return label(entry.edition, entry.pack.get("revision", 1))
+    return display_label(required_plugin(entry.pack), entry.edition, entry.pack.get("revision", 1))
 
 
 def _edition(entry: Any) -> str:
@@ -84,7 +84,20 @@ def _scenes(entry: Any) -> list[dict[str, str]]:
     labels += [(f"act:{a['number']}", f"第 {a['number']} 幕 · {a['title']}") for a in pres.get("acts", [])]
     labels += [(f"place:{p['entry']}", p["name"]) for p in pres.get("places", [])]
     labels += [(f"ending:{e['id']}", f"结局 · {e['name']}") for e in pres.get("endings", [])]
-    return [{"key": key, "label": label} for key, label in labels if key in found]
+    result = [{"key": key, "label": label} for key, label in labels if key in found]
+    from ..worlds.scenes import variants
+    groups = variants((entry.origin or {}).get("extensions")).get("places", {})
+    names = {p["entry"]: p["name"] for p in pres.get("places", [])}
+    terms = {"spring": "春", "summer": "夏", "autumn": "秋", "winter": "冬", "snow": "下雪",
+             "morning": "清晨", "day": "白天", "dusk": "傍晚", "night": "夜晚"}
+    for place, group in groups.items():
+        for variant in group["variants"]:
+            conditions = [terms[variant[k]] for k in ("season", "time", "weather") if k in variant]
+            if variant.get("acts"):
+                conditions.append("第 " + "、".join(map(str, variant["acts"])) + " 幕")
+            result.append({"key": variant["image"], "label": " · ".join(conditions), "place": place,
+                           "place_name": names[place]})
+    return result
 
 
 async def _market(call: Any) -> Any:
@@ -107,8 +120,9 @@ def _room_summary(c: Any, room: Any) -> dict[str, Any]:
     turn = c.execute("SELECT * FROM turns WHERE room_id=? ORDER BY created_at DESC LIMIT 1", (room["id"],)).fetchone()
     narration = c.execute("SELECT text FROM events WHERE room_id=? AND kind='narration' ORDER BY id DESC LIMIT 1",
                           (room["id"],)).fetchone()
+    from ..plays import pacing
     turn_actor = next((a for a in actors if turn is not None and a["id"] == turn["actor_id"]), None)
-    live_turn = turn is not None and turn["state"] in ("awaiting", "resolving", "failed")
+    live_turn = turn is not None and turn["state"] in ("awaiting", "resolving", "narration_failed", "review")
     return {"id": room["id"], "title": room["title"], "world_id": room["world_id"], "group_id": room["group_id"],
             "platform": room["platform"], "state": room["state"], "state_label": lifecycle.STATE_LABELS.get(room["state"], room["state"]),
             "players": len(actors), "away": sum(a["presence"] == "away" for a in actors), "seat_cap": room["seat_cap"],
@@ -120,6 +134,7 @@ def _room_summary(c: Any, room: Any) -> dict[str, Any]:
             "turn": {"actor": shared.actor_label(turn_actor) if turn_actor else "", "state": turn["state"],
                      "deadline_at": turn["deadline_at"]} if live_turn else None,
             "excerpt": " ".join((narration["text"] if narration else "").split())[:140],
+            "stage": pacing.stage(c, room),
             "created_at": room["created_at"], "updated_at": room["updated_at"]}
 
 
@@ -140,6 +155,8 @@ PLAY_NOTES = {
     "playTransformation": ("角色的转变与传承，需要本人确认。", "/团 转变 …"),
     "playFortune": ("抽一支签，之后兑现。", "/团 机运 …"),
     "playBranchEndings": ("提出结局分支，全员支持后进入并写尾声。", "/团 结局 提出 …"),
+    "playAiBuild": ("玩家说一句想要的角色，AI 按世界规则起草，可再用自然语言改 5 次；每人每天起草 5 次。",
+                    "/团 建卡 AI …　/团 建卡 改 …"),
     "funDaily": ("每人每天一次 d20 与两宜两忌，附本群今日榜；不影响检定。", "/团 一掷　/团 一掷 全群"),
     "funDice": ("不开团也能掷的自由骰，私聊里是暗骰；两人掷 d20 比大小。", "/团 掷 2d6+1　/团 对决 @某人"),
     "funReport": ("每人每幕给同伴喝彩一次，换幕与终章公布最佳；随时生成战报卡。", "/团 喝彩 林晓　/团 战报"),
@@ -148,6 +165,7 @@ PLAY_NOTES = {
     "funLuck": ("统计每人在本群掷出的每一颗 d20，看平均点数和大成功大失败，附本月骰运榜。", "/团 骰运　/团 骰运 榜"),
     "funQuotes": ("收藏跑团正文里的好句子，随机重温，按收藏人数排出金句榜。", "/团 金句 几个字　/团 金句 +编号　/团 金句 榜"),
     "funSoup": ("AI 出一道海龟汤，全群问是非题、猜汤底；每群每天有碗数上限。", "/团 海龟汤　/团 问 …　/团 猜 …"),
+    "funAdventure": ("从已安装的世界里随机挑一个，三步选择、三次掷骰走完一段小冒险；每人每天一次。", "/团 冒险　/团 冒险 A"),
 }
 
 
@@ -185,8 +203,8 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
         plays["playCollaboration"] = c.execute("SELECT COUNT(*) FROM votes WHERE created_at>=?", (month,)).fetchone()[0]
         by_world = {r[0]: (r[1], r[2], r[3]) for r in c.execute(
             "SELECT world_id,COUNT(*),SUM(created_at>=?),MAX(created_at) FROM rooms GROUP BY world_id", (month,))}
-        failed_turns = c.execute("SELECT t.room_id,r.title FROM turns t JOIN rooms r ON r.id=t.room_id "
-                                 "WHERE t.state='failed' AND r.state IN ('running','paused')").fetchall()
+        failed_turns = c.execute("SELECT t.room_id,r.title,t.receipt_json FROM turns t JOIN rooms r ON r.id=t.room_id "
+                                 "WHERE t.state='narration_failed' AND r.state IN ('running','paused')").fetchall()
         votes = []
         for row in open_rows:
             vote = collaboration.open_vote(c, row["id"])
@@ -201,14 +219,20 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
 
     attention: list[dict[str, Any]] = []
     for row in failed_turns:
-        attention.append({"tone": "err", "icon": "alert", "title": "正文生成失败，等主持人重试", "detail": row["title"].split(" · ")[0],
-                          "action": "去处理", "link": "rooms/" + row["room_id"]})
+        finale = (loads(row["receipt_json"], {}) or {}).get("kind") == "finale"
+        attention.append({"tone": "err", "icon": "alert",
+                          "title": "终章没写出来，等主持人重试或跳过" if finale else "正文生成失败，等主持人重试",
+                          "detail": row["title"].split(" · ")[0], "action": "去处理", "link": "rooms/" + row["room_id"]})
     for vote in votes:
         attention.append({"tone": "gold", "icon": "vote", "title": "表决进行中：" + vote["title"],
                           "detail": f"{vote['room'].split(' · ')[0]} · 已投 {vote['ballots']}/{vote['voters']}", "deadline_at": vote["deadline_at"],
                           "action": "查看", "link": "rooms/" + vote["room_id"]})
     for item in active:
         name = item["title"].split(" · ")[0]
+        stage = item.get("stage") or {}
+        if stage.get("key") in ("offer", "epilogue"):
+            attention.append({"tone": stage["tone"], "icon": stage["icon"], "title": stage["label"], "detail": name + " · " + stage["detail"],
+                              "deadline_at": stage.get("deadline_at"), "action": "查看", "link": "rooms/" + item["id"]})
         if item["state"] == "paused":
             attention.append({"tone": "warn", "icon": "pause", "title": "团桌已暂停", "detail": name,
                               "action": "查看", "link": "rooms/" + item["id"]})
@@ -236,7 +260,7 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
     if lead is not None:
         feature = await room(app, {"id": lead["id"]}, username)
         feature = {k: feature[k] for k in ("id", "title", "state", "state_label", "cover", "act", "acts", "act_heading", "round", "clock",
-                                           "scene", "goal", "turn", "vote", "seat_cap", "turn_timeout_seconds")} | {
+                                           "scene", "goal", "turn", "vote", "seat_cap", "turn_timeout_seconds", "stage")} | {
             "actors": [a for a in feature["actors"] if a["presence"] != "left"],
             "story": next((e["text"] for e in feature["events"] if e["kind"] == "narration"), ""),
             "recent": [e for e in feature["events"] if e["kind"] in ("action", "play", "check", "vote")][:4]}
@@ -299,6 +323,7 @@ def _actor_dict(room: Any, actor: Any) -> dict[str, Any]:
     resources = loads(actor["resources_json"], {})
     attributes = loads(actor["attributes_json"], {})
     modifier = shared.rules(room).get("modifier") or {"baseline": 10, "divisor": 2}
+    wallet = economy.wallet_view(room, actor)
     return {"id": actor["id"], "user_id": actor["user_id"], "user_name": actor["user_name"], "name": actor["name"],
             "archetype": archetype["name"] if archetype else "", "presence": actor["presence"], "order": actor["order_index"],
             "attributes": [{"name": a["name"], "value": attributes.get(a["id"]),
@@ -308,7 +333,7 @@ def _actor_dict(room: Any, actor: Any) -> dict[str, Any]:
                           for r in pack["resources"]],
             "loadout": loadout.entries(room, actor) if actor["archetype_id"] else [],
             "traits": [t["title"] for t in loads(actor["traits_json"], [])],
-            "persona": personas.attached(actor)}
+            "persona": personas.attached(actor), "money": wallet[1] if wallet else None}
 
 
 PLAY_GROUPS = [("playInvestigation", "调查", ("clue", "hypothesis")), ("playTestimony", "证词", ("testimony",)),
@@ -319,7 +344,7 @@ PLAY_GROUPS = [("playInvestigation", "调查", ("clue", "hypothesis")), ("playTe
 
 
 async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
-    from ..plays import collaboration, custom, hosted
+    from ..plays import banter, collaboration, custom, hosted, pacing
     row = _room_row(app, str(payload.get("id") or ""))
     with app.store.read() as c:
         summary = _room_summary(c, row)
@@ -332,6 +357,11 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
                     "steps": [inline(s, PLAIN) for s in custom.record_steps(r)]}
                    for r in c.execute("SELECT * FROM records WHERE room_id=? AND kind<>'calendar' ORDER BY seq DESC", (row["id"],))]
         met = people.people(c, row["id"])
+        money, info = economy.of_room(row), economy.outfit(row)
+        wallets = None if money is None else {
+            "currency": money["currency"], "here": [s["name"] for s in economy.shops_here(row, money)],
+            "outfit": None if info is None else {"deadline": info["deadline"], "place": info.get("place", ""), "done": len(info["done"]),
+                                                 "shops": [s["name"] for s in money["shops"] if s["id"] in info["shops"]]}}
         history, per_act = insight.timeline(c, row, turn["round"] if turn is not None else None)
         events = history[::-1][:120]
         stats = insight.room_stats(c, row, per_act)
@@ -342,6 +372,7 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
         rewinds = c.execute("SELECT COUNT(*) FROM saves WHERE room_id=? AND created_by='auto'", (row["id"],)).fetchone()[0]
         usage = c.execute("SELECT COUNT(*),COALESCE(SUM(input_tokens+output_tokens),0) FROM model_calls WHERE room_id=?", (row["id"],)).fetchone()
         turn_actor = None if turn is None else c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        pace = pacing.view(row, pacing.current_round(c, row["id"])) if row["state"] in ("running", "paused") else None
     names = {a["id"]: (a["name"] or a["user_name"]) for a in actors}
     pack = shared.world(row)["pack"]
     scene = loads(row["scene_json"], {})
@@ -361,8 +392,14 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
                          "vote_minutes": collaboration.vote_seconds(row) // 60, "seating_locked": bool(table.get("seating_locked")),
                          "removed": [e["name"] for e in table.get("removed", [])],
                          "handover": (table.get("handover") or {}).get("name", ""), "rewinds": rewinds,
-                         "personas_off": bool(table.get("personas_off"))},
+                         "personas_off": bool(table.get("personas_off")), "xcards": banter.xcard_count(row),
+                         "rush": bool(hosting.get("rush")),
+                         "creation": {**build.limits_view(row), "archetypes": [
+                             {"name": a["name"], "attrs": [{"name": at["name"], "value": a["attributes"][at["id"]], "min": at["min"],
+                                                            "max": at["max"]} for at in pack["attributes"]]}
+                             for a in pack["archetypes"]]}},
             "turn": None if turn is None else {"round": turn["round"], "state": turn["state"], "deadline_at": turn["deadline_at"],
+                                               "kind": (loads(turn["receipt_json"], {}) or {}).get("kind", ""),
                                                "actor": shared.actor_label(turn_actor) if turn_actor else "",
                                                "draft": None if draft is None else {
                                                    "paragraphs": draft.get("paragraphs") or [],
@@ -379,7 +416,8 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
             "adjust_options": {"resources": [{"id": r["id"], "name": r["name"]} for r in pack["resources"]],
                                "items": [{"id": i["id"], "name": i["name"]} for i in pack["items"]],
                                "skills": [{"id": s["id"], "name": s["name"]} for s in pack["skills"]],
-                               "standing": list(adjust.STANDING)},
+                               "standing": list(adjust.STANDING), "money": money is not None},
+            "economy": wallets, "pacing": pace,
             "endings": shared.world(row).get("presentation", {}).get("endings") or []}
 
 
@@ -448,7 +486,8 @@ async def features(app: "LiteApp", payload: dict[str, Any], username: str) -> di
         usage["playCollaboration"] = c.execute("SELECT COUNT(*) FROM votes WHERE created_at>=?", (month,)).fetchone()[0]
         usage["funDaily"] = c.execute("SELECT COUNT(*) FROM daily_rolls WHERE rolled_at>=?", (month,)).fetchone()[0]
         usage["funReport"] = c.execute("SELECT COUNT(*) FROM cheers WHERE created_at>=?", (month,)).fetchone()[0]
-        for kind, key in (("dice", "funDice"), ("duel", "funDice"), ("relay", "funRelay"), ("soup", "funSoup")):
+        for kind, key in (("dice", "funDice"), ("duel", "funDice"), ("relay", "funRelay"), ("soup", "funSoup"),
+                          ("adventure", "funAdventure")):
             usage[key] = usage.get(key, 0) + c.execute("SELECT COUNT(*) FROM fun_log WHERE kind=? AND created_at>=?", (kind, month)).fetchone()[0]
         usage["funLuck"] = c.execute("SELECT COUNT(*) FROM d20_log WHERE created_at>=?", (month,)).fetchone()[0]
         usage["funQuotes"] = c.execute("SELECT COUNT(*) FROM quote_marks WHERE created_at>=?", (month,)).fetchone()[0]

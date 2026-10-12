@@ -11,17 +11,21 @@ from __future__ import annotations
 
 import base64
 import html
+import math
 import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from .messages import act_label, sentence
-from .render import _INLINE, BT, OUTCOMES, Block, Msg
+from .render import _INLINE, BT, OUTCOMES, Block, Msg, mark_commands
 from .worlds.catalog import COVER_TONES
 
 THEMES = ("light", "dark")
-TEMPLATE = "{{ html | safe }}"
+# AstrBot 4.29 prepends a 2.4 MB code-highlighting script to any template without this id, which makes every
+# card upload ~3 MB and pushes picture cards past the render time limit.  Cards have no code to highlight.
+SHIKI_MARK = "astrbot-t2i-shiki-runtime"
+TEMPLATE = "{{ html | safe }}<!-- " + SHIKI_MARK + " -->"
 # AstrBot's default is JPEG quality 40, too soft for small CJK text on a phone.
 RENDER_OPTIONS = {"type": "jpeg", "quality": 92, "full_page": True}
 # Covers are a colour field plus one large character; preset worlds get a hand-picked pair.
@@ -60,7 +64,7 @@ def e(value: Any) -> str:
 def rich(text: Any) -> str:
     """Escaped text where `code` becomes a key cap and **bold** stays bold."""
     out = []
-    for i, part in enumerate(_INLINE.split(str(text))):
+    for i, part in enumerate(_INLINE.split(mark_commands(str(text)))):
         if i % 2 == 0:
             out.append(e(part))
         elif part.startswith(BT):
@@ -71,6 +75,9 @@ def rich(text: Any) -> str:
 
 
 ICONS = {
+    "hourglass": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>',
+    "flag": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+    "wind": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/></svg>',
     "skill": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg>',
     "item": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
     "quill": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4-12 11l-2 5"/><path d="M8 15c4 0 8-2 10-6"/><path d="M11 11h5"/></svg>',
@@ -78,6 +85,15 @@ ICONS = {
     "vote": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
     "heart": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.3 0 5.6 3.1 4.4 6.6-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg>',
     "dice": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2.8 20.2 7.5v9L12 21.2 3.8 16.5v-9z"/><path d="M3.8 7.5 12 12l8.2-4.5M12 12v9.2"/></svg>',
+    "bolt": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2 4.5 13.5h6L9.5 22l9-11.5h-6z"/></svg>',
+    "hand": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.5h3.5l3 2.5h4a1.5 1.5 0 0 0 0-3H11"/><path d="M6.5 19H9l5.5 1.5L21 17a1.6 1.6 0 0 0-1.8-2.6L15 16"/><path d="M14 6.5c0-1.7 2.6-2.6 3.5-.6.9-2 3.5-1.1 3.5.6 0 2.2-3.5 4.4-3.5 4.4S14 8.7 14 6.5z"/></svg>',
+    "letter": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>',
+    "rewind": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4v4.5H8"/><path d="M12 7.5V12l3 2"/></svg>',
+    "link": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+    "eye": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    "coin": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><rect x="9.6" y="9.6" width="4.8" height="4.8"/></svg>',
+    "shop": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9l1.5-4.5h13L20 9"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 11.5v8h13v-8"/><path d="M10 19.5V15h4v4.5"/></svg>',
+    "gift": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.2"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-1.5-3.5-5-4-5-1.6C7 9 12 9 12 9zM12 9c1.5-3.5 5-4 5-1.6C17 9 12 9 12 9z"/></svg>',
 }
 
 
@@ -203,7 +219,7 @@ def _margin(d: dict[str, Any]) -> str:
     else:
         label, tone = f"差 {-gap} 点" + (" · 只差一点" if gap >= -2 else ""), "bad"
     return (f'<div class="margin {tone}"><div class="ruler"><span class="zone" style="left:{pct(dc):.0f}%"></span>'
-            f'<i class="dcl" style="left:{pct(dc):.0f}%"></i><b class="pt" style="left:{pct(total):.0f}%"></b></div>'
+            f'<i class="dcl" style="left:{pct(dc):.0f}%"></i><b class="rdot" style="left:{pct(total):.0f}%"></b></div>'
             f'<span class="ml">{e(label)}</span></div>')
 
 
@@ -346,7 +362,7 @@ def _moment(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
                 + f'<div class="seats"><div><span class="lab">席位</span><b class="num">0/{cap}</b>'
                 f'<span class="sm">最少 {e(d.get("min"))} 人可开演</span></div><div class="dots">{"<i></i>" * cap}</div></div>'
                 + f'<div class="uses"><span class="lab">主持</span>{_chip(d.get("host", ""), icon="quill")}</div>'
-                + _cmds(("入座", "/团 加入"), ("建卡", "/团 选职业 1 名字"), ("读设定", "/团 世界观"))), "开团招募"
+                + _hint({"note": "完整步骤见下一条入座指南", "cmds": [("入座", "/团 加入"), ("读设定", "/团 世界观")]})), "开团招募"
     if kind == "act":
         number, total = int(d.get("number") or 1), int(d.get("total") or 0)
         heading = act_label(number) + (f" · {d['act_title']}" if d.get("act_title") else "")
@@ -383,8 +399,15 @@ def _moment(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
                        for label, n in counts)
         return (_top(None, "表决结果", d.get("title", ""))
                 + f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["vote"]}</div></div>'
-                f'<div><div class="turn-t">结果：<b>{e(d.get("winner", ""))}</b></div><div class="turn-d">共 {total} 票</div></div></div>'
-                + f'<div class="bars" style="{cols}">{bars}</div>' + (f'<div class="hint">{rich(d["note"])}</div>' if d.get("note") else "")), "表决结果"
+                f'<div><div class="turn-t">结果：<b>{e(d.get("winner", ""))}</b></div><div class="turn-d">共 {total} 票'
+                + (f' · {e(d["note"])}' if d.get("note") else "") + '</div></div></div>'
+                + f'<div class="bars" style="{cols}">{bars}</div>'), "表决结果"
+    if kind == "letters_reveal":
+        return _letters_reveal(d)
+    if kind == "bonds":
+        return _bonds_card(d)
+    if kind == "rush":
+        return _rush_toggle_card(d)
     if kind == "ending":
         heading = "终章" + (f" · {d['ending']}" if d.get("ending") else "")
         return _ending(d, art, heading), d.get("title") or "终章"
@@ -409,6 +432,8 @@ def _ending(d: dict[str, Any], art: dict[str, Any] | None, heading: str) -> str:
         parts.append(_outcomes(rep.get("outcomes") or {}))
         if rep.get("best"):
             parts.append(f'<div class="mvp hero"><span class="stamp">最</span><div><b>{e(rep["best"])}</b><div class="sd">全场最佳</div></div></div>')
+        if rep.get("seer"):
+            parts.append(_seer_row(rep["seer"], hero=True))
         if rep.get("acts"):
             parts.append(_sect("旅程", _journey(rep["acts"], d.get("ending", ""))))
     epis = "".join(f'<div class="epi">{_avatar(n)}<div><b>{e(n)}</b><p>{e(t)}</p></div></div>' for n, t in d.get("epilogues") or [])
@@ -417,7 +442,8 @@ def _ending(d: dict[str, Any], art: dict[str, Any] | None, heading: str) -> str:
     if not rep:
         chips = "".join(_chip(s.strip(), icon="vote") for s in str(d.get("stats", "")).split("·") if s.strip())
         parts.append(f'<div class="uses">{chips}</div>' if chips else "")
-    return "".join(parts) + _cmds(("收桌", "/团 关闭"))
+    return "".join(parts) + _hint({"note": "喜欢哪句正文，用那句话里的几个字收进金句榜", "cmds": [
+        ("回顾", "/团 战报"), ("收藏金句", "/团 金句 几个字"), ("收桌", "/团 关闭")]})
 
 
 def _loadout(d: dict[str, Any]) -> tuple[str, str]:
@@ -425,6 +451,8 @@ def _loadout(d: dict[str, Any]) -> tuple[str, str]:
     parts = [f'<div class="eyebrow"><span>技能与物品</span><b>{e(d.get("name", ""))}</b></div>']
     if meters:
         parts.append(_vitals(meters))
+    if d.get("wallet"):
+        parts.append(_wallet(d["wallet"][1], d["wallet"][0], "整备时可在店里买卖"))
     for kind, label in (("skill", "技能"), ("item", "物品")):
         rows = [x for x in d.get("entries") or [] if x["kind"] == kind]
         if rows:
@@ -437,7 +465,8 @@ def _loadout(d: dict[str, Any]) -> tuple[str, str]:
     if not d.get("entries"):
         parts.append('<div class="line">没有技能或物品。</div>')
     if d.get("own"):
-        parts.append(_cmds(("检定加成", "[用 名称]"), ("直接使用", "/团 使用 名称")))
+        parts.append(_hint({"note": "检定时在行动后写 [用 名称] 加成；不掷骰的物品可以直接使用",
+                            "cmds": [("检定加成", f'/团 选 A [用 {d.get("sample") or "名称"}]'), ("直接使用", "/团 使用 名称")]}))
     return "".join(parts), d.get("name") or SEGMENT_LABELS["sheet"]
 
 
@@ -534,6 +563,8 @@ def _daily(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
     d = msg.data or {}
     if d.get("kind") == "board":
         return _daily_board(d)
+    if d.get("kind") in ("adventure", "adventure_end"):
+        return _adventure_card(d, art)
     if d.get("kind") in _DAILY_CARDS:
         return _DAILY_CARDS[d["kind"]](d)
     if d.get("kind") != "roll":
@@ -793,6 +824,53 @@ _DAILY_CARDS = {"dice": _dice_card, "duel": _duel_card, "relay": _relay_card, "l
                 "quote": _quote_card, "quote_board": _quote_board, "soup": _soup_card, "soup_end": _soup_end}
 
 
+def _adventure_track(results: list[dict[str, Any]], total: int, playing: bool) -> str:
+    pips = []
+    for i in range(total):
+        if i < len(results):
+            ok = results[i]["ok"]
+            pips.append(f'<span class="ap {"ok" if ok else "bad"}">{"✓" if ok else "✗"}</span>')
+        else:
+            pips.append(f'<span class="ap{" now" if playing and i == len(results) else ""}">{i + 1}</span>')
+    return '<div class="atrack">' + "<i></i>".join(pips) + "</div>"
+
+
+def _adventure_roll(r: dict[str, Any]) -> str:
+    verdict = "大成功" if r["crit"] else "大失败" if r["fumble"] else "成功" if r["ok"] else "失败"
+    sign = "≥" if r["total"] >= r["dc"] else "&lt;"
+    return (f'<div class="aroll {"ok" if r["ok"] else "bad"}"><div class="adie"><span class="num">{e(r["face"])}</span></div>'
+            f'<div><div class="ar-k">第 {e(r["step"])} 步 · {e(r["label"])}　{e(r["text"])}</div>'
+            f'<div class="ar-h">{verdict}<span class="ar-t num">d20 {e(r["face"])} {_signed(int(r["modifier"]))} = {e(r["total"])} {sign} {e(r["dc"])}'
+            f' · {e(r["attr"])}·{e(r["difficulty"])}</span></div><div class="ar-o">{e(r["outcome"])}</div></div></div>')
+
+
+def _adventure_card(d: dict[str, Any], art: dict[str, Any] | None) -> tuple[str, str]:
+    end = d.get("kind") == "adventure_end"
+    results, total = d.get("results") or [], int(d.get("total") or 3)
+    head = (_banner(art, d.get("title", ""), d.get("world", ""), slim=True) if art
+            else _top(None, "一分钟冒险", d.get("title", ""), d.get("world", "")))
+    hero = (f'<div class="ahero">{_avatar(d.get("hero", ""))}<div class="ah-n"><b>{e(d.get("hero", ""))}</b>'
+            f'<span>{e(d.get("role", ""))}</span></div>{_adventure_track(results, total, not end)}</div>')
+    if not end:
+        parts = [head, hero]
+        if d.get("fresh") and d.get("hook"):
+            parts.append(_paras(d["hook"]))
+        if results:
+            parts.append(_adventure_roll(results[-1]))
+        parts.append(f'<div class="ascene"><span class="lab">第 {int(d.get("step") or 0) + 1} 步</span><p>{e(d.get("scene", ""))}</p></div>')
+        parts.append('<div class="fates">' + "".join(_fate(o, False) for o in d.get("options") or []) + "</div>")
+        parts.append(_hint({"note": "选一项掷 d20；成功率按这个职业的属性计算", "cmds": [("选择", "/团 冒险 A"), ("放弃", "/团 冒险 放弃")]}))
+        return "".join(parts), f"第 {int(d.get('step') or 0) + 1}/{total} 步"
+    wins = int(d.get("wins") or 0)
+    tone = "dawn" if wins == total else "fair" if wins >= 2 else "cloud" if wins == 1 else "gale"
+    return (head + hero
+            + f'<div class="averdict t-{tone}"><span class="stamp">{e(str(d.get("tier", ""))[:1])}</span><div><b>{e(d.get("tier", ""))}</b>'
+            f'<div class="sd">{wins}/{total} 步成功</div></div></div>'
+            + '<div class="arolls">' + "".join(_adventure_roll(r) for r in results) + "</div>"
+            + f'<div class="box ending-box"><h4>结局</h4><div class="goal">{e(d.get("ending", ""))}</div></div>'
+            + _hint({"note": "每人每天一次，明天再来", "cmds": [("今日一掷", "/团 一掷"), ("明天再冒险", "/团 冒险")]})), "冒险结束"
+
+
 def _report_card(d: dict[str, Any], art: dict[str, Any] | None) -> tuple[str, str]:
     now_act = next((a for a in d.get("acts") or [] if a["number"] == d["act"]), None)
     heading = act_label(d["act"]) + (f" · {now_act['title']}" if now_act and now_act["title"] else "")
@@ -810,13 +888,19 @@ def _report_card(d: dict[str, Any], art: dict[str, Any] | None) -> tuple[str, st
     if d.get("cast"):
         parts.append(_sect("阵容", '<div class="cast">' + "".join(_cast_member(c) for c in d["cast"]) + "</div>"))
     bests = [a for a in d.get("acts") or [] if a.get("best")]
-    if d.get("best") or bests:
+    if d.get("best") or bests or d.get("seer"):
         rows = (f'<div class="mvp"><span class="stamp">最</span><div><b>{e(d["best"])}</b><div class="sd">全场最佳</div></div></div>' if d.get("best") else "")
+        rows += _seer_row(d["seer"]) if d.get("seer") else ""
         rows += "".join(f'<div class="memo"><b>{e(act_label(a["number"]))}</b><span>{e(a["title"])}</span><em>{e(a["best"])}</em></div>' for a in bests)
         parts.append(_sect("喝彩", rows))
     if d.get("quote"):
         parts.append(f'<blockquote class="rq">{e(d["quote"])}</blockquote>')
     return "".join(parts), "战报"
+
+
+def _seer_row(s: dict[str, Any], hero: bool = False) -> str:
+    return (f'<div class="mvp seer{" hero" if hero else ""}"><span class="stamp">{ICONS["eye"]}</span><div><b>{e(s["name"])}</b>'
+            f'<div class="sd">本局预言家 · 竞猜猜对 {e(s["right"])}/{e(s["total"])}</div></div></div>')
 
 
 def _cast_member(c: dict[str, Any]) -> str:
@@ -910,6 +994,35 @@ def _status(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
         elif k == "field" and d["label"] == "准备":
             chips = "".join(_chip(*_prep(p)) for p in str(d["value"]).split("、") if p)
             parts.append(f'<div class="uses"><span class="lab">本次准备</span>{chips}</div>')
+        elif k == "field" and d["label"] == "援手":
+            who, *rest = str(d["value"]).split("　")
+            name, _, bonus = who.rpartition(" ")
+            extra = "".join(_chip(r, icon="link") if r == "羁绊加成" else f'<span class="chip off">{e(r.strip("（）"))}</span>'
+                            for r in rest if r)
+            parts.append(f'<div class="uses"><span class="lab">同伴援手</span>{_chip(name or who, f"加值 {bonus}" if name else "", icon="hand")}'
+                         + extra + "</div>")
+        elif k == "field" and d["label"] == "闪回":
+            bonus, _, memory = str(d["value"]).partition("　")
+            short = memory if len(memory) <= 18 else memory[:17] + "…"
+            parts.append(f'<div class="uses"><span class="lab">闪回兑现</span>{_chip(short, "加值 " + bonus, icon="rewind")}</div>')
+        elif k == "field" and d["label"] == "特质":
+            name, _, bonus = str(d["value"]).rpartition(" ")
+            chip = _chip(name, ("减值 " if bonus.startswith("-") else "加值 ") + bonus, icon="skill")
+            if bonus.startswith("-"):
+                chip = chip.replace('class="chip"', 'class="chip trait dn"', 1)
+            parts.append(f'<div class="uses"><span class="lab">特质</span>{chip}</div>')
+        elif k == "field" and d["label"] == "竞猜":
+            parts.append(_wager_result((msg.data or {}).get("wager") or {}))
+        elif k == "field" and d["label"] == "钱包":
+            parts.append(f'<div class="uses"><span class="lab">钱包</span>{_chip(d["value"], icon="coin")}</div>')
+        elif k == "field" and d["label"] == "孤注":
+            ok = str(d["value"]).startswith("成功")
+            parts.append(f'<div class="uses"><span class="lab">孤注一掷</span><span class="chip allin {"ok" if ok else "bad"}">'
+                         f'{ICONS["bolt"]}{e(d["value"])}</span></div>')
+        elif k == "field" and d["label"] in ("援手未用", "孤注未用"):
+            icon = "hand" if d["label"] == "援手未用" else "bolt"
+            parts.append(f'<div class="uses"><span class="lab">{"同伴援手" if icon == "hand" else "孤注一掷"}</span>'
+                         f'<span class="chip off">{ICONS[icon]}{e(d["value"])}</span></div>')
         elif k == "meter":
             if not shown_meters:
                 parts.append(_vitals(meters))
@@ -926,6 +1039,14 @@ def _prep(text: str) -> tuple[str, str]:
 
 
 def _fate(item: dict[str, Any], vote: bool) -> str:
+    html = _fate_body(item, vote)
+    if not item.get("closing"):
+        return html
+    return (html.replace('<div class="fate">', '<div class="fate closing">', 1)
+            .replace('<div class="title">', f'<div class="title"><span class="fin">{ICONS["flag"]}收束</span>', 1))
+
+
+def _fate_body(item: dict[str, Any], vote: bool) -> str:
     tag = str(item.get("tag") or "")
     right, sub = "", ""
     if vote:
@@ -959,8 +1080,11 @@ def _choices(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
     blocks = _flat(msg)
     vote = any(b.kind == "heading" for b in blocks)
     data = msg.data or {}
+    if data.get("kind") == "rush":
+        return _rush_card(msg)
     ballot = data if data.get("kind") == "vote_open" else None
     parts, foot = [], SEGMENT_LABELS["choices"]
+    tips = False
     for block in blocks:
         d, k = block.data, block.kind
         if k in ("title", "heading"):
@@ -995,9 +1119,45 @@ def _choices(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
             parts.append(f'<div class="preps"><span class="lab">可准备</span>{chips}</div>')
         elif k == "hint" and ballot:
             parts.append(_hint({**d, "note": ""}))          # the turnout ring already says it
+        elif k == "caption" and d["text"] == "新手速查":
+            tips = True
+        elif k == "list" and tips and not parts[-1].startswith('<div class="tips">'):
+            parts.append('<div class="tips"><h4>新手速查</h4><ul>' + "".join(f"<li>{rich(i)}</li>" for i in d["items"]) + "</ul></div>")
+        elif k == "hint" and tips:
+            parts.append(_hint({**d, "note": ""}))          # the cheat sheet already says how to add skills and items
+        elif k == "field" and d["label"] in OTHERS_TITLES:
+            continue                                         # laid out below from data
+        elif k == "field" and d["label"] == "节奏":
+            label, _, detail = str(d["value"]).replace("**", "").partition("　")
+            parts.append(_pace_state({"label": label, "detail": detail}))
+        elif k == "text" and str(d["text"]).startswith("🏁"):
+            parts.append(f'<div class="fates-note fin-note">{e(str(d["text"])[1:].strip())}</div>')
         else:
             parts.append(_generic(block))
-    return "".join(parts), foot
+    return "".join(parts) + _others_panel(data.get("others")), foot
+
+
+OTHERS_TITLES = {"同桌队友": "crew", "围观群友": "crowd"}
+
+
+def _others_panel(others: dict[str, Any] | None) -> str:
+    """Teammates and the gallery, side by side: what each can do while this turn is open."""
+    groups = [(title, others.get(key) or []) for title, key in OTHERS_TITLES.items()] if others else []
+    groups = [(title, rows) for title, rows in groups if rows]
+    if not groups:
+        return ""
+    sub = {"同桌队友": "等待时可以", "围观群友": "没入座也能玩"}
+
+    def row(r: dict[str, Any]) -> str:
+        command = (f'<span class="kbd">{e(r["cmd"])}</span>' if r.get("cmd") else "")
+        return (f'<div class="orow{"" if r.get("cmd") else " off"}"><span class="pt-i">{ICONS.get(r.get("icon"), ICONS["skill"])}</span>'
+                f'<div class="ob"><div class="oh"><b>{e(r["name"])}</b>'
+                + ('<span class="pv">私聊</span>' if r.get("private") else "") + command
+                + f'</div><div class="od">{rich(r["desc"])}</div></div></div>')
+
+    cols = "".join(f'<div class="og"><h4>{e(title)}<small>{e(sub[title])}</small></h4>{"".join(row(r) for r in rows)}</div>'
+                   for title, rows in groups)
+    return f'<div class="others{" solo" if len(groups) == 1 else ""}">{cols}</div>'
 
 
 def _sheet(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
@@ -1008,8 +1168,13 @@ def _sheet(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
         return _persona(c)
     if c.get("kind") == "personas":
         return _personas(c)
+    if c.get("kind") == "build_modes":
+        return _build_modes(c)
+    if c.get("kind") == "build_draft":
+        return _build_draft(c)
     player = c.get("user_name") if c.get("user_name") and c.get("user_name") != c.get("name") else ""
-    tag = "　·　".join(x for x in (f"玩家 {player}" if player else "", "暂离" if c.get("away") else "") if x)
+    tag = "　·　".join(x for x in (f"玩家 {player}" if player else "", f"{c['mode']}建卡" if c.get("mode") else "",
+                                  "暂离" if c.get("away") else "") if x)
     meters = _meters(c.get("resources") or [])
     persona = c.get("persona") or {}
     parts = [f'<div class="eyebrow"><span>角色卡</span><b>{e(tag)}</b></div>',
@@ -1022,8 +1187,11 @@ def _sheet(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
         return "".join(parts), SEGMENT_LABELS["sheet"]
     attrs = c.get("attributes") or []
     if attrs:
+        shift = c.get("shift") or {}
         tiles = "".join(f'<div class="stat{" up" if mod > 0 else " down" if mod < 0 else ""}"><span class="sk">{e(n)}</span>'
-                        f'<span class="sv num">{e(v)}</span><span class="sm num">{"±0" if not mod else f"{mod:+d}".replace("-", "−")}</span></div>'
+                        f'<span class="sv num">{e(v)}</span><span class="sm num">{"±0" if not mod else f"{mod:+d}".replace("-", "−")}</span>'
+                        + (f'<span class="adj num{" neg" if shift[n] < 0 else ""}">调 {_signed(shift[n])}</span>' if shift.get(n) else "")
+                        + "</div>"
                         for n, v, mod in attrs)
         parts.append(f'<div class="stats" style="grid-template-columns:repeat({min(len(attrs), 5)},1fr)">{tiles}</div>')
     if meters:
@@ -1041,7 +1209,130 @@ def _sheet(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
         parts.append(_sect("物品", f'<div class="chips">{chips}</div>'))
     if c.get("traits"):
         parts.append(_sect("经历", '<div class="chips">' + "".join(_chip(t, icon="quill") for t in c["traits"]) + "</div>"))
+    profile = c.get("profile") or {}
+    if any(profile.get(k) for k in ("origin", "look", "answers", "relation", "details", "trait")):
+        parts.append(_sect("来历", _story_rows(profile)))
     return "".join(parts), c.get("archetype") or SEGMENT_LABELS["sheet"]
+
+
+def _story_rows(p: dict[str, Any]) -> str:
+    """Origin, looks, background answers and the opening relation, as the sheet and the draft show them."""
+    rows = []
+    if p.get("origin"):
+        o = p["origin"]
+        rows.append(f'<div class="srow"><span class="sl">出身</span><div><b>{e(o["name"])}</b>'
+                    + (f'<span class="sn">{e(o["text"])}</span>' if o.get("text") else "") + "</div></div>")
+    if p.get("look"):
+        rows.append(f'<div class="srow"><span class="sl">外貌</span><div>{e(p["look"])}</div></div>')
+    for name, value in p.get("details") or []:
+        rows.append(f'<div class="srow"><span class="sl">{e(name)}</span><div>{e(value)}</div></div>')
+    t = p.get("trait")
+    if t:
+        rows.append(f'<div class="srow"><span class="sl">特质</span><div><b>{e(t["name"])}</b>'
+                    + (f'<span class="sn">{e(t["text"])}</span>' if t.get("text") else "")
+                    + '<span class="tsides">' + (f'<i class="tu">利 {e(t["up_text"])}</i>' if t.get("up_text") else "")
+                    + (f'<i class="td">弊 {e(t["down_text"])}</i>' if t.get("down_text") else "") + "</span></div></div>")
+    for q, a in p.get("answers") or []:
+        rows.append(f'<div class="srow"><span class="sl">问</span><div><span class="sq">{e(q)}</span>{e(a)}</div></div>')
+    r = p.get("relation")
+    if r:
+        rows.append(f'<div class="srow"><span class="sl">{"羁绊" if r["kind"] == "teammate" else "旧识"}</span><div>'
+                    f'{ICONS["link"]}<b>{e(r["name"])}</b>' + (f'<span class="sn">{e(r["text"])}</span>' if r.get("text") else "")
+                    + "</div></div>")
+    return '<div class="srows">' + "".join(rows) + "</div>"
+
+
+def _build_modes(d: dict[str, Any]) -> tuple[str, str]:
+    tiles = []
+    for depth, r in enumerate(d.get("rows") or [], 1):
+        pips = "".join(f'<i class="{"on" if n <= depth else ""}"></i>' for n in range(1, 4))
+        tiles.append(f'<div class="mt{" off" if r.get("closed") else ""}"><div class="mt-h"><b>{e(r["label"])}</b>'
+                     f'<span class="pips">{pips}</span></div><div class="mt-m num">{e(r["steps"])} · 约 {e(r["time"])}</div>'
+                     f'<div class="mt-d">{e(r["desc"])}</div>'
+                     + (f'<div class="mt-x">{e(r["closed"])}</div>' if r.get("closed") else f'<span class="kbd">{e(r["cmd"])}</span>')
+                     + "</div>")
+    ai = d.get("ai") or {}
+    ai_box = ""
+    if ai.get("open"):
+        left = max(0, int(ai.get("left") or 0))
+        ai_box = (f'<div class="aib"><span class="pt-i">{ICONS["quill"]}</span><div class="aib-b"><b>AI 建卡</b>'
+                  '<div class="mt-d">说一句想要的角色，AI 按所选模式起草；之后能用自然语言再改 5 次，指令修改不限次数</div>'
+                  f'<span class="kbd">{e(ai.get("cmd") or "/团 建卡 AI 嘴硬心软、会修机器的老兵")}</span></div>'
+                  f'<div class="aib-n"><b class="num">{left}</b><small class="num">/{e(ai.get("per_day", ""))}</small><span>今日剩余</span></div></div>')
+    note = ("直接回复模式名就能开始，之后每一步也直接回复。" if d.get("private") else "建议私聊我来建卡，免得刷屏。") \
+        + "三种模式点数预算相同：越深越自由，不会更强。开演前随时可以重建。"
+    return (_top(None, "建卡", d.get("world", ""), d.get("facts", "")) + '<div class="mtiles">' + "".join(tiles) + "</div>"
+            + ai_box + _hint({"text": "", "note": note, "cmds": [("看职业", "/团 职业"), ("快选一步到位", "/团 选职业 序号 名字")]})), "建卡"
+
+
+def _build_draft(d: dict[str, Any]) -> tuple[str, str]:
+    private = bool(d.get("private"))
+
+    def say(words: str) -> str:
+        return words if private else "/团 建卡 " + words
+
+    steps = "".join(f'<span class="bs {e(s["state"])}"><i>{"✓" if s["state"] == "done" else n}</i>{e(s["label"])}</span>'
+                    for n, s in enumerate(d.get("steps") or [], 1))
+    q = d.get("question")
+    where = f'第 {e(d.get("position"))}/{e(d.get("total"))} 步' if q else "可以确认了"
+    parts = [f'<div class="eyebrow"><span>{e(d.get("head") or d.get("mode_label", "") + "建卡")}</span><b>{e(d.get("world", ""))} · {where}</b></div>',
+             f'<div class="bsteps">{steps}</div>',
+             _medal(d.get("name") or "？", d.get("archetype") or "未选职业", d.get("look", ""))]
+    ai = d.get("ai") or {}
+    if ai.get("understood") or ai.get("notes") or d.get("notes"):
+        lines = "".join(f'<div class="ai-c">{e(line)}</div>' for line in ai.get("changes") or [])
+        lines += "".join(f'<div class="ai-n">{e(n)}</div>' for n in [*(ai.get("notes") or []), *(d.get("notes") or [])])
+        parts.append('<div class="aibox">' + (f'<div class="ai-u"><span class="lab">AI 的理解</span>{e(ai["understood"])}</div>'
+                                               if ai.get("understood") else "")
+                     + lines + "</div>")
+    attrs = d.get("attributes") or []
+    if attrs:
+        tiles = "".join(
+            f'<div class="stat{" up" if a["delta"] > 0 else " down" if a["delta"] < 0 else ""}"><span class="sk">{e(a["name"])}</span>'
+            f'<span class="sv num">{e(a["value"])}</span><span class="sm num">{"职业 " + str(a["base"]) if not a["delta"] else _signed(a["delta"])}</span>'
+            f'<i class="rng"><b style="left:{(a["value"] - a["min"]) / max(1, a["max"] - a["min"]) * 100:.0f}%"></b></i></div>' for a in attrs)
+        moved, limit = int(d.get("moved") or 0), int(d.get("move_limit") or 0)
+        pips = "".join(f'<i class="{"on" if n <= moved else ""}"></i>' for n in range(1, limit + 1))
+        parts.append(f'<div class="stats" style="grid-template-columns:repeat({min(len(attrs), 5)},1fr)">{tiles}</div>'
+                     + (f'<div class="moved"><span>属性已挪</span><span class="pips">{pips}</span><b class="num">{moved}/{limit}</b></div>'
+                        if limit else ""))
+    if d.get("skills"):
+        parts.append(_sect("技能", '<div class="chips">' + "".join(
+            _chip(s["name"], "换入" if s.get("new") else "", "skill").replace('class="chip"', 'class="chip new"' if s.get("new") else 'class="chip"')
+            for s in d["skills"]) + "</div>"))
+    gear = ([("装备", d["kit"] + "：" + "、".join(d["items"]))] if d.get("kit") else [("多带", "、".join(d["items"]))] if d.get("items") else [])
+    story = {"origin": {"name": d["origin"], "text": ""} if d.get("origin") else None,
+             "answers": [[a["q"], a["a"]] for a in d.get("answers") or []],
+             "details": [[x["name"], x["value"]] for x in d.get("details") or []], "trait": d.get("trait")}
+    if d.get("relation"):
+        name, _, text_ = d["relation"].partition("：")
+        story["relation"] = {"kind": d.get("relation_kind") or "npc", "name": name, "text": text_}
+    if gear or story["origin"] or story["answers"] or story.get("relation") or story["details"] or story["trait"]:
+        parts.append(_sect("来历与随身", "".join(f'<div class="srow"><span class="sl">{e(k)}</span><div>{e(v)}</div></div>' for k, v in gear)
+                           + _story_rows(story)))
+    if q:
+        answer = q.get("answer") or str(q["example"]).removeprefix("/团 建卡 ")
+        options = "".join(f'<div class="bo{" on" if o.get("on") else ""}"><span class="bo-n num">{n}</span><div><b>{e(o["name"])}</b>'
+                          + ('<em>已有</em>' if o.get("on") else "")
+                          + (f'<div class="bo-d">{e(o["note"])}</div>' if o.get("note") else "")
+                          + (f'<div class="bo-m num">{e(o["meta"])}</div>' if o.get("meta") else "") + "</div></div>"
+                          for n, o in enumerate(q.get("options") or [], 1))
+        parts.append(f'<div class="bq"><div class="bq-h"><span class="bq-k">{e(q["label"])}</span><b>{e(q["title"])}</b></div>'
+                     f'<div class="bq-t">{e(q["text"])}</div>' + (f'<div class="bopts">{options}</div>' if options else "")
+                     + f'<div class="bq-e"><span class="ck">{"私聊直接回复" if private else "这样回复"}</span>'
+                       f'<span class="kbd">{e(say(answer))}</span>'
+                     + ('<span class="ck">序号或名字都行</span>' if private and options else "") + "</div></div>")
+        cmds = ([("跳过", say("跳过"))] if q.get("skip") else []) + [("返回", say("返回"))]
+        if d.get("ready"):
+            cmds.append(("直接确认", say("确认")))
+        note = "后面没填的步骤按默认处理。" if d.get("ready") else "职业和名字必须填，其余都能跳过。"
+    else:
+        cmds = [("确认入座", say("确认")), ("改某一项", say("属性 …"))]
+        note = f"都填好了。自己动手改不限次数，例如 {say('名字 新名字')}。"
+    if ai.get("understood") and ai.get("left") is not None:
+        cmds.append((f"让 AI 改 · 剩 {ai['left']} 次", say("改 你的要求")))
+    parts.append(_hint({"text": "", "note": note, "cmds": cmds}))
+    return "".join(parts), f"{d.get('mode_label', '')}建卡"
 
 
 def _persona_band(p: dict[str, Any]) -> str:
@@ -1098,10 +1389,655 @@ def _personas(d: dict[str, Any]) -> tuple[str, str]:
     return "".join(parts), "人设卡"
 
 
+# ---------------------------------------------------------------- group-chat plays
+def _crowd(members: list[dict[str, Any]]) -> str:
+    """Rush-round members as pills: submitted ones in gold, the rest waiting."""
+    return '<div class="crowd">' + "".join(
+        f'<span class="cm{" done" if m.get("done") else ""}">{_avatar(m["name"])}<b>{e(m["name"])}</b>'
+        f'<em>{"已交" if m.get("done") else "未交"}</em></span>' for m in members) + "</div>"
+
+
+def _rush_head(members: list[dict[str, Any]]) -> str:
+    done, total = sum(1 for m in members if m.get("done")), max(1, len(members))
+    return (f'<div class="rushbar"><div class="pie{" hi" if done == len(members) else " mid"}" style="--p:{done / total:.2f}">'
+            f'<b class="num">{done}<small>/{len(members)}</small></b></div>{_crowd(members)}</div>')
+
+
+def _line_card(d: dict[str, Any]) -> tuple[str, str]:
+    reply = f'<div class="reply">回应 · {e(d["reply_to"])}</div>' if d.get("reply_to") else ""
+    return (f'<div class="eyebrow"><span>场上台词</span><b>下一段正文回应</b></div>'
+            f'<div class="speech"><span class="ava lg">{e(str(d.get("actor", ""))[:1])}</span><div class="sp">'
+            f'<div class="sp-name">{e(d.get("actor", ""))}</div>{reply}'
+            f'<div class="bubble {_quote_size(d.get("text", ""))}">“{e(d.get("text", ""))}”</div></div></div>'
+            + _hint({"note": "在场的人会在下一段正文里接这句话；原话照录，不会被改写", "cmds": [("再说一句", "/团 说 台词")]})), "台词"
+
+
+def _heckle_card(d: dict[str, Any]) -> tuple[str, str]:
+    rows, left, cap = d.get("rows") or [], int(d.get("left") or 0), int(d.get("cap") or 0)
+    top = max([int(r["votes"]) for r in rows] + [1])
+    lead = next((r["index"] for r in rows if int(r["votes"]) == top), None) if rows and left else None
+    quota = (f'<div class="quota"><span>本幕采纳名额</span><div class="dots">'
+             + "".join(f'<i class="{"on" if i < left else ""}"></i>' for i in range(cap)) + f'</div><b class="num">{left}/{cap}</b></div>')
+    body = "".join(
+        f'<div class="hk{" lead" if r["index"] == lead else ""}"><span class="hn num">{e(r["index"])}</span><div class="hb">'
+        f'<div class="ht">{e(r["text"])}</div><div class="hm">'
+        + (f'{e(r["by"])} 提议' if r.get("by") else "") + ('<span class="hl">领先 · 下一段采纳</span>' if r["index"] == lead else "")
+        + f'</div><div class="track"><i style="width:{int(r["votes"]) / top * 100:.0f}%"></i></div></div>'
+        f'<span class="hv">{ICONS["heart"]}<b class="num">{e(r["votes"])}</b></span></div>' for r in rows)
+    state = "下一段正文采纳附和最多的一条" if left else "这一幕的起哄名额已经用完"
+    foot = ('<div class="hint"><div class="note">每人每段各起哄一次、附和一次；起哄只写成小插曲，不替角色行动</div>'
+            + '<div class="cmds">' + "".join(f'<span class="cmd"><span class="ck">{a}</span><span class="kbd">{b}</span></span>'
+                                             for a, b in (("起哄", "/团 起哄 点子"), ("附和", "/团 起哄 +1 序号"))) + "</div></div>"
+            if left else '<div class="hint">换幕后名额恢复，再来起哄</div>')
+    return (f'<div class="eyebrow"><span>起哄板</span><b>{e(state)}</b></div>' + quota
+            + (f'<div class="hks">{body}</div>' if rows else '<div class="empty-note">还没有人起哄，没入座的群友也能提点子</div>')
+            + foot), "起哄板"
+
+
+def _heckle_adopted_card(d: dict[str, Any]) -> tuple[str, str]:
+    return (f'<div class="eyebrow"><span>起哄采纳</span><b>写进了本段正文</b></div>'
+            f'<div class="adopt"><span class="stamp">已采纳</span><div class="ad-t">“{e(d.get("text", ""))}”</div>'
+            f'<div class="qmeta"><span class="qpill">{ICONS["heart"]}<b class="num">{e(d.get("votes", 1))}</b> 人附和</span>'
+            f'<span>围观群众</span></div></div>'), "起哄"
+
+
+def _aid_card(d: dict[str, Any]) -> tuple[str, str]:
+    helper, target, bonus = d.get("helper", ""), d.get("target", ""), int(d.get("bonus") or 0)
+    person = lambda name, role, cls: (f'<div class="aid-p {cls}"><span class="ava lg">{e(str(name)[:1])}</span>'
+                                      f'<b>{e(name)}</b><span class="state {"ok" if cls == "to" else "wait"}">{role}</span></div>')
+    quote = f'<div class="quote"><div class="who">{e(helper)} 的做法</div><div class="t">{e(d["text"])}</div></div>' if d.get("text") else ""
+    bond = (f'<div class="uses"><span class="lab">羁绊</span>{_chip(d["bond"], f"援手 {_signed(bonus)}", icon="link")}</div>'
+            if d.get("bond") else "")
+    return (f'<div class="eyebrow"><span>援手</span><b>每人每幕一次</b></div>'
+            f'<div class="aid">{person(helper, "出手", "from")}<div class="aid-link"><i></i><span class="aid-b">{ICONS["hand"]}'
+            f'<b class="num">{_signed(bonus)}</b></span><i></i></div>{person(target, "行动中", "to")}</div>' + quote + bond
+            + f'<div class="duo"><div class="box"><h4>检定加值</h4><div class="goal">{e(target)} 这次检定修正 <b class="num">{_signed(bonus)}</b></div></div>'
+            f'<div class="box warn"><h4>风险共担</h4><div class="goal">失败时 {e(helper)} 一起承担后果</div></div></div>'), "援手"
+
+
+def _letter_passed_card(d: dict[str, Any]) -> tuple[str, str]:
+    who = lambda name, role: f'<div class="lp-p"><span class="ava lg">{e(str(name)[:1])}</span><b>{e(name)}</b><span class="sd">{role}</span></div>'
+    delivered = d.get("delivered", True)
+    note = ("纸条内容只有收信人能看到，终章时全部公开" if delivered
+            else f'<b>{e(d.get("target", ""))}</b> 私聊我发送 <span class="kbd">/团 密信</span> 就能看到；终章时全部公开')
+    return (f'<div class="eyebrow"><span>密信</span><b>内容保密</b></div>'
+            f'<div class="lpass">{who(d.get("sender", ""), "递出")}<div class="lp-way"><i></i><span class="env">{ICONS["letter"]}</span><i></i></div>'
+            f'{who(d.get("target", ""), "收到" if delivered else "待领取")}</div>'
+            f'<div class="hint">{note}</div>'), "密信"
+
+
+def _letter_card(d: dict[str, Any]) -> tuple[str, str]:
+    sender = d.get("sender", "")
+    return (f'<div class="eyebrow"><span>密信 · 只有你能看到</span><b>来自 {e(sender)}</b></div>'
+            f'<div class="paper"><div class="pp-to">致 {e(d.get("target", ""))}：</div><div class="pp-t">{e(d.get("text", ""))}</div>'
+            f'<div class="pp-from">—— {e(sender)}</div></div>'
+            + _hint({"note": "所有纸条会在终章公开", "cmds": [("回信", f"/团 密信 {sender} 内容")]})), "密信"
+
+
+def _letter_sent_card(d: dict[str, Any]) -> tuple[str, str]:
+    delivered = bool(d.get("delivered"))
+    detail = "已经私聊转给对方" if delivered else "对方还没私聊过我，TA 私聊发送 /团 密信 就能看到"
+    return (f'<div class="eyebrow"><span>密信</span><b>已递出</b></div>'
+            f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["letter"]}</div></div>'
+            f'<div><div class="turn-t">纸条已递给 <b>{e(d.get("target", ""))}</b></div><div class="turn-d">{e(detail)}</div></div>'
+            f'<span class="state {"ok" if delivered else "wait"}" style="margin-left:auto">{"已送达" if delivered else "待领取"}</span></div>'
+            '<div class="hint">群里只会看到你递了纸条；所有纸条会在终章公开</div>'), "密信"
+
+
+def _letters_card(d: dict[str, Any]) -> tuple[str, str]:
+    rows = d.get("rows") or []
+    body = "".join(f'<div class="lt"><span class="way {"in" if r["way"] == "收到" else "out"}">{e(r["way"])}</span>'
+                   f'<b>{e(r["who"])}</b><div class="lt-t">{e(r["text"])}</div></div>' for r in rows)
+    return (f'<div class="eyebrow"><span>{e(d.get("actor", ""))} 的纸条</span><b>共 {len(rows)} 张</b></div>'
+            + (f'<div class="lts">{body}</div>' if rows else '<div class="empty-note">还没有收到或递出纸条</div>')
+            + _cmds(("写纸条", "/团 密信 角色名 内容"))), "密信"
+
+
+def _letters_reveal(d: dict[str, Any]) -> tuple[str, str]:
+    rows = d.get("rows") or []
+    notes = "".join(f'<div class="nt"><div class="nt-h"><b>{e(r["from"])}</b><span>{ICONS["letter"]}</span><b>{e(r["to"])}</b></div>'
+                    f'<div class="nt-t">{e(r["text"])}</div></div>' for r in rows)
+    return (_top(None, "终章 · 纸条公开", "这一局的纸条", f"共 {len(rows)} 张，按递出的先后排列")
+            + f'<div class="notes{" one" if len(rows) == 1 else ""}">{notes}</div>'), "纸条公开"
+
+
+def _xcard_card(d: dict[str, Any]) -> tuple[str, str]:
+    from .messages import XCARD_ENDING
+    stage = d.get("stage") or ""
+    last = {"finale": "主持人会看到", "epilogue": "主持人可以直接落幕"}.get(stage, "下一段正文转开")
+    chips = "".join(f'<span class="chip">{t}</span>' for t in ("匿名举卡", "不追问是谁", last))
+    text = XCARD_ENDING.get(stage) or "接下来的故事会避开刚才的内容，不再提起，也不追问是谁。"
+    return ('<div class="eyebrow"><span>安全工具</span><b>X 卡</b></div>'
+            '<div class="xcard"><div class="xmark">X</div><div><div class="xt">有人举了 X 卡</div>'
+            f'<div class="xd">{e(text)}</div></div></div>'
+            f'<div class="uses">{chips}</div>' + _cmds(("匿名举卡", "私聊 /团 X"))), "X 卡"
+
+
+def _rush_progress_card(d: dict[str, Any]) -> tuple[str, str]:
+    members = d.get("members") or []
+    done = sum(1 for m in members if m.get("done"))
+    return (f'<div class="eyebrow"><span>快团</span><b>已交 {done}/{len(members)}</b></div>' + _rush_head(members)
+            + '<div class="hint">' + (f'还等 <b>{e("、".join(m["name"] for m in members if not m.get("done")))}</b>；' if done < len(members) else "")
+            + '全员交齐或时间一到，就把这一轮写成一段正文</div>'), "快团"
+
+
+def _rush_remind_card(d: dict[str, Any]) -> tuple[str, str]:
+    members = d.get("members") or []
+    return (f'<div class="turn urgent"><div class="orb"><div class="r"></div><div class="f">{ICONS["bolt"]}</div></div>'
+            '<div><div class="turn-t">快团还剩 <b>1 分钟</b></div><div class="turn-d">时间到没交的人这一轮旁观</div></div>'
+            '<div class="clock num">1 分钟</div></div>' + _rush_head(members).replace('class="crowd"', 'class="crowd urgent"', 1)
+            + _cmds(("选择", "/团 A"), ("自由行动", "/团 行动 描述"), ("旁观", "/团 跳过"))), "快团"
+
+
+def _rush_toggle_card(d: dict[str, Any]) -> tuple[str, str]:
+    if not d.get("on"):
+        return (_top(None, "快团", "快团关闭", "回到轮流行动") + '<div class="line" style="margin-top:1rem">按座位顺序一人一回合，援手重新可用。</div>'
+                + _cmds(("再次开启", "/团 主持 快团 开"))), "快团"
+    steps = (("共用选项", "每轮一组选项，人人可选"), ("各自交行动", "交了就掷骰，不用排队"),
+             ("合写一段", f"交齐或 {e(d.get('minutes', ''))} 分钟到，写成一段正文"))
+    flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><b>{a}</b><span>{b}</span></div>' for i, (a, b) in enumerate(steps, 1))
+    return (_top(None, "快团", "快团开启", "从这一轮起，全队同时行动")
+            + f'<div class="flow">{flow}</div>'
+            + '<div class="box" style="margin:1rem 1.75rem 0"><h4>注意</h4><div class="goal">没交的人这一轮旁观；援手留到普通回合再用。</div></div>'
+            + _cmds(("关闭", "/团 主持 快团 关"))), "快团"
+
+
+def _rush_card(msg: Msg) -> tuple[str, str]:
+    d = msg.data or {}
+    members = d.get("members") or []
+    minutes = d.get("minutes")
+    parts = [f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["bolt"]}</div></div>'
+             f'<div><div class="turn-t">快团 · 第 <b class="num">{e(d.get("round", ""))}</b> 轮</div>'
+             '<div class="turn-d">全队同时行动 · 共用这一组选项</div></div>'
+             + (f'<div class="clock num">{e(minutes)} 分钟</div>' if minutes else "") + "</div>", _rush_head(members)]
+    for block in _flat(msg):
+        if block.kind == "choices":
+            parts.append('<div class="fates">' + "".join(_fate(i, False) for i in block.data["items"]) + "</div>")
+        elif block.kind == "text" and str(block.data["text"]).startswith("🏁"):
+            parts.append(f'<div class="fates-note fin-note">{e(str(block.data["text"])[1:].strip())}</div>')
+        elif block.kind == "field" and block.data["label"] == "节奏":
+            label, _, detail = str(block.data["value"]).replace("**", "").partition("　")
+            parts.append(_pace_state({"label": label, "detail": detail}))
+        elif block.kind == "hint":
+            parts.append(_hint(block.data))
+    return "".join(parts) + _others_panel(d.get("others")), f"快团 · 第 {d.get('round', '')} 轮"
+
+
+def _plays_intro_card(d: dict[str, Any]) -> tuple[str, str]:
+    icons = {"说": "quill", "援手": "hand", "孤注": "bolt", "起哄": "heart", "密信": "letter", "闪回": "rewind", "羁绊": "link",
+             "竞猜": "dice"}
+    tiles = "".join(f'<div class="pt"><div class="pt-h"><span class="pt-i{" x" if name == "X 卡" else ""}">'
+                    f'{"X" if name == "X 卡" else ICONS[icons.get(name, "skill")]}</span><b>{e(name)}</b></div>'
+                    f'<span class="kbd">{e(command)}</span><div class="pt-d">{e(text)}</div></div>' for name, command, text in d.get("rows") or [])
+    return (_top(None, "群聊玩法", "不轮到你时也能玩", "开场正在生成，先看看这些写法")
+            + f'<div class="ptiles three">{tiles}</div>' + _cmds(("全部写法", "/团 帮助 互动"))), "群聊玩法"
+
+
+def _table_guide_card(d: dict[str, Any]) -> tuple[str, str]:
+    flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><span class="fk">{e(label)}</span>'
+                   + (f'<span class="kbd">{e(command)}</span>' if command else f'<b>{e(d.get("min"))} 人起</b>')
+                   + f'<span>{e(desc)}</span></div>' for i, (label, command, desc) in enumerate(d.get("steps") or [], 1))
+    tiles = "".join(f'<div class="pt"><div class="pt-h"><span class="pt-i">{ICONS[icon]}</span><b>{e(name)}</b></div>'
+                    f'<span class="kbd">{e(command)}</span><div class="pt-d">{e(desc)}</div></div>'
+                    for icon, name, command, desc in d.get("after") or [])
+    return (_top(None, "入座指南", d.get("title", ""), f'{d.get("min")} 人起开演 · 最多 {d.get("cap")} 人')
+            + f'<div class="flow four">{flow}</div>'
+            + f'<section class="sect guide-after"><h4>开演后</h4><div class="ptiles three">{tiles}</div></section>'
+            + _hint({"note": "第一次玩先看上手页，一页看懂一局怎么玩", "cmds": [("上手", "/团 帮助 上手"), ("阵容", "/团 阵容")]})), "入座指南"
+
+
+def _wager_result(w: dict[str, Any]) -> str:
+    """The bets of a turn as settled by its roll, on the personal status card."""
+    if "void" in w:
+        return f'<div class="uses"><span class="lab">竞猜</span><span class="chip off">{ICONS["dice"]}这次没有掷骰，竞猜作废</span></div>'
+    side = lambda cls, mark, label, names: (f'<span class="wg {cls}"><i>{mark}</i>{label}{_avatars(names, 5)}'
+                                            f'<b>{e("、".join(names))}</b></span>' if names else "")
+    right, wrong = w.get("right") or [], w.get("wrong") or []
+    return ('<div class="uses wres"><span class="lab">竞猜揭晓</span>'
+            + (side("ok", "✓", "猜对", right) or '<span class="chip off">没人猜对</span>') + side("bad", "✗", "猜错", wrong) + "</div>")
+
+
+def _flashback_card(d: dict[str, Any]) -> tuple[str, str]:
+    actor, text = d.get("actor", ""), str(d.get("text", ""))
+    steps = (("付出", f'{d.get("resource", "")} {_signed(int(d.get("delta") or -1))}', f'剩 {d.get("current", "")}/{d.get("maximum", "")}'),
+             ("写成真", "下一段正文", "用一两句回忆补进故事"), ("兑现", f'下次检定 {_signed(int(d.get("bonus") or 2))}', "留到你下一次掷骰"))
+    flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><span class="fk">{a}</span><b>{e(b)}</b><span>{e(c)}</span></div>'
+                   for i, (a, b, c) in enumerate(steps, 1))
+    return ('<div class="eyebrow"><span>闪回</span><b>每人每幕一次</b></div>'
+            f'<figure class="memory"><div class="mem-k">{ICONS["rewind"]}过去 · {e(actor)} 的回忆</div>'
+            f'<blockquote class="{_quote_size(text)}">{e(text)}</blockquote><figcaption>—— {e(actor)}</figcaption></figure>'
+            f'<div class="flow">{flow}</div>'
+            + _hint({"note": "闪回不能推翻已经发生的事；和已知事实冲突时，正文会写成部分成真或另有隐情",
+                     "cmds": [("闪回说明", "/团 闪回")]})), "闪回"
+
+
+def _flashback_guide_card(d: dict[str, Any]) -> tuple[str, str]:
+    flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><span class="fk">{a}</span><b>{e(b)}</b><span>{e(c)}</span></div>'
+                   for i, (a, b, c) in enumerate(d.get("steps") or [], 1))
+    return (_top(None, "闪回", "补写一段过去", "说一件角色“早就做过”的事，让它现在派上用场")
+            + f'<div class="flow">{flow}</div>'
+            + (f'<div class="box" style="margin:1rem 1.75rem 0"><h4>你的闪回</h4><div class="goal">{e(d["left"])}</div></div>'
+               if d.get("left") else "")
+            + _hint({"note": "每人每幕一次；不能推翻已经发生的事", "cmds": [
+                ("闪回", "/团 闪回 我早就把钥匙藏在戏箱里"), ("指定资源", "/团 闪回 理智 回忆")]})), "闪回"
+
+
+def _tie(a: str, b: str, live: bool) -> str:
+    who = lambda name, cls, state: (f'<div class="tie-p {cls}"><span class="ava lg">{e(str(name)[:1])}</span><b>{e(name)}</b>'
+                                     f'<span class="state {"ok" if state == "已结下" else "wait"}">{state}</span></div>')
+    return (f'<div class="tie{" live" if live else ""}">{who(a, "from", "已结下" if live else "提出")}'
+            f'<div class="tie-link"><i></i><span class="tie-b">{ICONS["link"]}</span><i></i></div>'
+            f'{who(b, "to", "已结下" if live else "待确认")}</div>')
+
+
+def _bond_proposed_card(d: dict[str, Any]) -> tuple[str, str]:
+    a, b = d.get("a", ""), d.get("b", "")
+    return (f'<div class="eyebrow"><span>羁绊</span><b>{"改写 · 待确认" if d.get("renewing") else "待确认"}</b></div>'
+            + _tie(a, b, False) + f'<div class="tie-t">“{e(d.get("text", ""))}”</div>'
+            + _hint({"note": f"**{b}** 回应后生效；拒绝也不会有任何影响", "cmds": [("接受", "/团 羁绊 同意"), ("拒绝", "/团 羁绊 拒绝")]})), "羁绊"
+
+
+def _bond_card(d: dict[str, Any]) -> tuple[str, str]:
+    a, b, bonus = d.get("a", ""), d.get("b", ""), int(d.get("bonus") or 3)
+    tiles = (("quill", "正文记得", "两人同场时，带出这层关系的默契或张力"), ("hand", f"援手 {_signed(bonus)}", "互相援手时检定加值更高（平时 +2）"),
+             ("link", "关系图", "终章时画进这一局的人物关系图"))
+    return ('<div class="eyebrow"><span>羁绊</span><b>已结下</b></div>' + _tie(a, b, True)
+            + f'<div class="tie-t">“{e(d.get("text", ""))}”</div>'
+            + '<div class="ptiles three">' + "".join(f'<div class="pt"><div class="pt-h"><span class="pt-i">{ICONS[i]}</span><b>{e(t)}</b></div>'
+                                                   f'<div class="pt-d">{e(x)}</div></div>' for i, t, x in tiles) + "</div>"
+            + _cmds(("关系图", "/团 羁绊"), ("解开", "/团 羁绊 解除 角色名"))), "羁绊"
+
+
+MAP_W, MAP_H = 100, 56
+
+
+def _bond_graph(cast: list[dict[str, Any]], bonds: list[dict[str, Any]], pending: list[dict[str, Any]]) -> str:
+    """Characters on an ellipse, bonds as gold lines (pending ones dashed) with numbered badges that match the list."""
+    tied = {x for r in bonds + pending for x in (r["a_id"], r["b_id"])}
+    nodes = [c for c in cast if c["id"] in tied] + [c for c in cast if c["id"] not in tied]
+    nodes = nodes[:max(8, len([c for c in cast if c["id"] in tied]))]
+    n = len(nodes)
+    if n == 0:
+        return ""
+    if n == 1:
+        spots = [(50.0, 27.0)]
+    elif n == 2:
+        spots = [(22.0, 27.0), (78.0, 27.0)]
+    else:
+        spots = [(50 + 37 * math.cos(-math.pi / 2 + 2 * math.pi * i / n), 27 + 18 * math.sin(-math.pi / 2 + 2 * math.pi * i / n))
+                 for i in range(n)]
+    at = {c["id"]: spots[i] for i, c in enumerate(nodes)}
+    edges = [(i, row, live) for i, (row, live) in enumerate([(r, True) for r in bonds] + [(r, False) for r in pending])
+             if row["a_id"] in at and row["b_id"] in at]
+    segments = [(at[row["a_id"]], at[row["b_id"]]) for _, row, _ in edges]
+
+    def off_line(x: float, y: float, own: int) -> float:
+        """Distance from (x, y) to the nearest other bond line, so a badge never sits where two lines cross."""
+        best = 99.0
+        for j, ((ax, ay), (bx, by)) in enumerate(segments):
+            if j == own:
+                continue
+            dx, dy = bx - ax, by - ay
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1)))
+            best = min(best, math.hypot(x - ax - t * dx, y - ay - t * dy))
+        return best
+
+    lines, badges, placed = [], [], list(at.values())
+    for own, (index, row, live) in enumerate(edges):
+        (x1, y1), (x2, y2) = segments[own]
+        lines.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" class="{"live" if live else "wait"}" />')
+        spots_on = [(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t) for t in (0.5, 0.4, 0.6, 0.32, 0.68, 0.25, 0.75)]
+        bx, by = max(spots_on, key=lambda p: (min([math.hypot(p[0] - qx, p[1] - qy) for qx, qy in placed] + [99]) >= 7
+                                                and off_line(p[0], p[1], own) >= 4,
+                                                min(off_line(p[0], p[1], own), 8)))
+        placed.append((bx, by))
+        badges.append(f'<span class="bm-n{"" if live else " wait"}" style="left:{bx:.1f}%;top:{by / MAP_H * 100:.1f}%">{index + 1}</span>')
+    people = "".join(f'<div class="bm-p{" on" if c["id"] in tied else ""}" style="left:{at[c["id"]][0]:.1f}%;top:{at[c["id"]][1] / MAP_H * 100:.1f}%">'
+                     f'<span class="ava">{e(str(c["name"])[:1])}</span><b>{e(c["name"])}</b>'
+                     + (f'<em>{e(c["role"])}</em>' if c.get("role") else "") + "</div>" for c in nodes)
+    return (f'<div class="bmap"><svg viewBox="0 0 {MAP_W} {MAP_H}" preserveAspectRatio="none">{"".join(lines)}</svg>'
+            f'{"".join(badges)}{people}</div>')
+
+
+def _bonds_card(d: dict[str, Any]) -> tuple[str, str]:
+    bonds, pending, finale = d.get("bonds") or [], d.get("pending") or [], d.get("finale")
+    rows = "".join(f'<div class="bl{"" if live else " wait"}"><span class="bl-n">{i + 1}</span>'
+                   f'<b>{e(r["a"])}</b><span class="bl-x">{"⟷" if live else "→"}</span><b>{e(r["b"])}</b>'
+                   f'<span class="bl-t">{e(r["text"])}</span>' + ("" if live else '<span class="state wait">待确认</span>') + "</div>"
+                   for i, (r, live) in enumerate([(r, True) for r in bonds] + [(r, False) for r in pending]))
+    head = (_top(None, "终章 · 人物关系", "这一局的人物关系", f"共 {len(bonds)} 条羁绊") if finale
+            else f'<div class="eyebrow"><span>人物关系图</span><b>{len(bonds)} 条羁绊' + (f" · {len(pending)} 条待确认" if pending else "") + "</b></div>")
+    body = (_bond_graph(d.get("cast") or [], bonds, pending)
+            + (f'<div class="bls">{rows}</div>' if rows else '<div class="empty-note">还没有人结下羁绊：提一条，对方同意后就会出现在图上</div>'))
+    note = f'<div class="line" style="margin-top:.8rem">{e(d["note"])}</div>' if d.get("note") else ""
+    foot = "" if finale else _hint({"note": "有羁绊的两人互相援手 +3；正文会在两人同场时带出这层关系", "cmds": [
+        ("提出", "/团 羁绊 角色名 关系"), ("接受", "/团 羁绊 同意")]})
+    return head + note + body + foot, "人物关系"
+
+
+def _wager_card(d: dict[str, Any]) -> tuple[str, str]:
+    rows, seers = d.get("rows") or [], d.get("seers") or []
+    ranks = ""
+    if seers:
+        ranks = ('<div class="board-h"><span>本局预言家</span><em>猜对 / 竞猜次数</em></div><div class="ranks">' + "".join(
+            f'<div class="rank seer{" top" if i == 0 else ""}"><span class="no num">{i + 1}</span>{_avatar(s["name"])}'
+            f'<div class="rn"><b>{e(s["name"])}</b><div class="track"><i style="width:{s["right"] / max(1, s["total"]) * 100:.0f}%"></i></div></div>'
+            f'<span class="rf">{round(s["right"] / max(1, s["total"]) * 100)}%</span>'
+            f'<span class="face num">{s["right"]}<small>/{s["total"]}</small></span></div>'
+            for i, s in enumerate(seers[:3])) + "</div>")
+    if not d.get("open"):
+        return ('<div class="eyebrow"><span>竞猜</span><b>等下一轮</b></div>'
+                '<div class="empty-note">现在没有等待掷骰的回合，轮到下一位行动时再押</div>' + ranks
+                + _cmds(("押成", "/团 押 成"), ("押败", "/团 押 败"))), "竞猜"
+    yes = [r["name"] for r in rows if r["pick"] == "success"]
+    no = [r["name"] for r in rows if r["pick"] == "failure"]
+    total = len(yes) + len(no)
+    share = len(yes) / total * 100 if total else 50
+    side = lambda cls, label, names: (f'<div class="wside {cls}"><div class="wk"><b class="num">{len(names)}</b>{label}</div>'
+                                      + (f'<div class="wn">{_avatars(names, 6)}<span>{e("、".join(names))}</span></div>' if names
+                                         else '<div class="wn"><span class="faint">还没人押</span></div>') + "</div>")
+    return (f'<div class="eyebrow"><span>竞猜 · 第 {e(d.get("round", ""))} 轮</span><b>掷骰时揭晓</b></div>'
+            f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["dice"]}</div></div>'
+            f'<div><div class="turn-t">押 <b>{e(d.get("actor", ""))}</b> 这一掷</div>'
+            f'<div class="turn-d">{e(d.get("note") or "掷骰前都可以改押；行动的人自己不能押")}</div></div></div>'
+            f'<div class="tug{" empty" if not total else ""}"><span class="tg y">成</span><div class="tb"><i class="y" style="width:{share:.0f}%"></i>'
+            f'<i class="n" style="width:{100 - share:.0f}%"></i></div><span class="tg n">败</span></div>'
+            f'<div class="wsides">{side("y", "人押成", yes)}{side("n", "人押败", no)}</div>' + ranks
+            + _cmds(("押成", "/团 押 成"), ("押败", "/团 押 败"))), "竞猜"
+
+
+# ---------------------------------------------------------------- economy
+def _price(amount: int, back: int = 0) -> str:
+    return (f'<span class="price">{ICONS["coin"]}<span class="num">{e(amount)}</span>'
+            + (f'<em class="back">回收 {e(back)}</em>' if back else "") + "</span>")
+
+
+def _wallet(amount: Any, unit: str, note: str = "") -> str:
+    return (f'<div class="wallet"><span class="coin">{ICONS["coin"]}</span><div><div class="wk">钱包</div>'
+            f'<div class="wv num">{e(amount)}<small>{e(unit)}</small></div></div>'
+            + (f'<div class="wn">{e(note)}</div>' if note else "") + "</div>")
+
+
+def _delta(value: int, label: str = "") -> str:
+    return f'<span class="delta {"up" if value > 0 else "down"}">{e(label)}<b class="num">{_signed(value)}</b></span>'
+
+
+def _shops_card(d: dict[str, Any]) -> tuple[str, str]:
+    shops, unit, sell = d.get("shops") or [], d.get("unit", ""), int(d.get("sell") or 0)
+    here = [s for s in shops if s.get("open")]
+    title = shops[0]["name"] if d.get("single") and shops else "商店"
+    parts = [f'<div class="eyebrow"><span>{"整备 · 采买中" if d.get("outfit") else "商店"}</span><b>{e(d.get("place") or "")}</b></div>']
+    if d.get("wallet") is not None:
+        parts.append(_wallet(d["wallet"], unit, f"这里能进 {len(here)} 家店" if not d.get("single") else ""))
+    for s in shops:
+        wares = "".join(f'<div class="ware"><div><b>{e(w["name"])}</b>' + (f'<span class="own">已有 ×{e(w["owned"])}</span>' if w.get("owned") else "")
+                        + f'</div>{_price(w["price"], w["sell"] if sell else 0)}'
+                        + (f'<div class="wt">{e(w["text"])}</div>' if w.get("text") else "") + "</div>" for w in s.get("wares") or [])
+        where = "就在这里" if s.get("open") else (f'在{s["place"]}' if s.get("place") else "")
+        parts.append(f'<section class="shop{"" if s.get("open") else " closed"}"><div class="shop-h"><span class="si">{ICONS["shop"]}</span>'
+                     f'<b>{e(s["name"])}</b>' + (f'<span class="kind">{e(s["kind"])}</span>' if s.get("kind") else "")
+                     + f'<span class="where">{e(where)}</span></div>'
+                     + (f'<div class="shop-t">{e(s["text"])}</div>' if s.get("text") else "") + f'<div class="wares">{wares}</div></section>')
+    if d.get("outfit"):
+        parts.append(_hint({"note": "只能在当前地点的店里买；同伴之间可以 /团 给 名字 物品",
+                            "cmds": [("买", "/团 买 物品 数量"), ("卖", "/团 卖 物品"), ("好了", "/团 整备 好了")]}))
+    else:
+        parts.append(_hint({"note": "买卖在整备时进行：主持人发送 /团 主持 整备 开启后私聊采买",
+                            "cmds": [("转交", "/团 给 名字 物品"), ("背包", "/团 背包")]}))
+    return "".join(parts), title
+
+
+def _outfit_crowd(members: list[dict[str, Any]]) -> str:
+    done, total = sum(1 for m in members if m.get("done")), max(1, len(members))
+    pills = "".join(f'<span class="cm{" done" if m.get("done") else ""}">{_avatar(m["name"])}<b>{e(m["name"])}</b>'
+                    f'<em>{"好了" if m.get("done") else "采买中"}</em></span>' for m in members)
+    return (f'<div class="rushbar"><div class="pie{" hi" if done == len(members) else " mid"}" style="--p:{done / total:.2f}">'
+            f'<b class="num">{done}<small>/{len(members)}</small></b></div><div class="crowd">{pills}</div></div>')
+
+
+def _outfit_card(d: dict[str, Any]) -> tuple[str, str]:
+    shops = d.get("shops") or []
+    steps = (("私聊看货", "/团 商店 看当前地点的店"), ("买卖转交", "买、卖，或交给同伴"), ("说一声好了", "全员好了就继续"))
+    flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><b>{a}</b><span>{b}</span></div>' for i, (a, b) in enumerate(steps, 1))
+    shop_row = ("".join(_chip(s, icon="shop") for s in shops) if shops else '<span class="chip off">这里没有店，可以互相转交</span>')
+    return (f'<div class="eyebrow"><span>整备</span><b>回合暂停</b></div>'
+            f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["shop"]}</div></div>'
+            f'<div><div class="turn-t">{e(d.get("title", ""))}</div><div class="turn-d">{e(d.get("place") or "")}</div></div>'
+            f'<div class="clock num">{e(d.get("minutes", ""))} 分钟</div></div>'
+            + _outfit_crowd(d.get("members") or [])
+            + f'<div class="uses"><span class="lab">能进的店</span>{shop_row}</div>'
+            + f'<div class="flow">{flow}</div>'
+            + _hint({"note": "私聊采买，群里只显示谁好了；结束时公开汇总，并写进下一段正文",
+                     "cmds": [("看货", "/团 商店"), ("买", "/团 买 物品 数量"), ("好了", "/团 整备 好了")]})), "整备"
+
+
+def _outfit_summary_card(d: dict[str, Any]) -> tuple[str, str]:
+    rows, unit = d.get("rows") or [], d.get("unit", "")
+    spent, earned = sum(r["spent"] for r in rows), sum(r["earned"] for r in rows)
+    cells = _stat_cells((("合计花费", spent, " down" if spent else ""), ("合计卖出", earned, " up" if earned else ""),
+                         ("次转交", len(d.get("gifts") or []), "")))
+    body = "".join(
+        f'<div class="ty{"" if r["bought"] or r["sold"] else " idle"}">{_avatar(r["name"])}<div><b>{e(r["name"])}</b>'
+        + (f'<span class="sd"> · {e("、".join(r["shops"]))}</span>' if r.get("shops") else "")
+        + '<div class="bag">' + ("".join(_chip(x, icon="item") for x in r["bought"])
+                                 + "".join(_chip(x, "卖出", icon="coin", off=True) for x in r["sold"])
+                                 or '<span class="sd">没有买卖</span>') + "</div></div>"
+        + '<div class="sum">' + (f'<span class="out">−{e(r["spent"])}</span> ' if r["spent"] else "")
+        + (f'<span class="in">+{e(r["earned"])}</span>' if r["earned"] else "")
+        + f'<b class="num">{e(r["after"])}</b><span class="sd">{e(unit)}</span></div></div>' for r in rows)
+    gifts = "".join(f'<div class="chg">{ICONS["gift"]} {e(g)}</div>' for g in d.get("gifts") or [])
+    return (f'<div class="eyebrow"><span>整备汇总</span><b>{e(d.get("why", ""))}</b></div>' + cells.replace('class="rstats"', 'class="rstats three"', 1)
+            + f'<div class="orows">{body}</div>'
+            + (f'<div class="box" style="margin-top:1rem"><h4>转交</h4>{gifts}</div>' if gifts else "")
+            + '<div class="hint">这些采买会写进下一段正文；回合从暂停处继续</div>'), "整备汇总"
+
+
+def _trade_card(d: dict[str, Any]) -> tuple[str, str]:
+    buy = d.get("trade") == "buy"
+    unit = d.get("unit", "")
+    return (f'<div class="eyebrow"><span>{"采买" if buy else "卖出"}</span><b>{e(d.get("shop", ""))}</b></div>'
+            f'<div class="turn"><div class="orb"><div class="r"></div><div class="f">{ICONS["shop" if buy else "coin"]}</div></div>'
+            f'<div><div class="turn-t">{"买下" if buy else "卖掉"} <b>{e(d.get("item", ""))}</b> ×{e(d.get("count", 1))}</div>'
+            f'<div class="turn-d">{e(d.get("who", ""))} · 背包里现有 ×{e(d.get("held", 0))}</div></div>'
+            f'{_delta(int(d.get("delta") or 0))}</div>'
+            + _wallet(d.get("after", 0), unit, "买好了发送 /团 整备 好了")
+            + _hint({"cmds": [("接着挑", "/团 商店"), ("好了", "/团 整备 好了")]})), "整备"
+
+
+def _gift_card(d: dict[str, Any]) -> tuple[str, str]:
+    person = lambda name, role, cls: (f'<div class="aid-p {cls}"><span class="ava lg">{e(str(name)[:1])}</span>'
+                                      f'<b>{e(name)}</b><span class="state {"ok" if cls == "to" else "wait"}">{role}</span></div>')
+    return (f'<div class="eyebrow"><span>转交</span><b>随时可用</b></div>'
+            f'<div class="aid">{person(d.get("from", ""), "交出", "from")}<div class="aid-link"><i></i><span class="aid-b">{ICONS["gift"]}</span>'
+            f'<i></i></div>{person(d.get("to", ""), "收下", "to")}</div>'
+            f'<div class="gift-what">{e(d.get("what", ""))}</div>'
+            + (_wallet(d["after"], d.get("unit", ""), f'{d.get("from", "")} 的余额') if d.get("after") is not None else "")
+            + _hint({"cmds": [("背包", "/团 背包"), ("转交", "/团 给 名字 物品")]})), "转交"
+
+
+def _ledger_card(d: dict[str, Any]) -> tuple[str, str]:
+    unit = d.get("unit", "")
+    rows = "".join(f'<div class="lgr">{_avatar(x["who"])}<div><b>{e(x["who"])}</b><div class="lr">{e(x["reason"])}</div></div>'
+                   f'<div>{_delta(int(x["delta"]), x["name"] + " ")}<div class="after">现有 '
+                   + (f'{e(x["after"])} {e(unit)}' if x["kind"] == "money" else f'×{e(x["after"])}') + "</div></div></div>"
+                   for x in d.get("entries") or [])
+    return (f'<div class="eyebrow"><span>故事里的得失</span><b>本段正文</b></div><div class="ledger">{rows}</div>'
+            + _hint({"note": "钱和物品的变化由故事决定，每笔都有上限", "cmds": [("背包", "/团 背包")]})), "得失"
+
+
+def _shops_nearby_card(d: dict[str, Any]) -> tuple[str, str]:
+    shops = "".join(f'<section class="shop"><div class="shop-h"><span class="si">{ICONS["shop"]}</span><b>{e(s)}</b>'
+                    f'<span class="where">就在这里</span></div></section>' for s in d.get("shops") or [])
+    return (f'<div class="eyebrow"><span>这里有店</span><b>{e(d.get("place") or "")}</b></div>{shops}'
+            + _hint({"note": "主持人可以停下来整备，让大家私聊采买；不停也行，故事照常继续",
+                     "cmds": [("整备", "/团 主持 整备"), ("看货", "/团 商店")]})), "这里有店"
+
+
+def _wage_card(d: dict[str, Any]) -> tuple[str, str]:
+    unit = d.get("unit", "")
+    rows = "".join(f'<div class="lgr">{_avatar(r["name"])}<div><b>{e(r["name"])}</b><div class="lr">工钱</div></div>'
+                   f'<div>{_delta(int(d.get("amount") or 0), unit + " ")}<div class="after">现有 {e(r["after"])} {e(unit)}</div></div></div>'
+                   for r in d.get("rows") or [])
+    return (f'<div class="eyebrow"><span>新的一幕</span><b>工钱</b></div><div class="ledger">{rows}</div>'
+            + _hint({"note": "遇到有店的地点，主持人可以开整备采买", "cmds": [("背包", "/团 背包")]})), "工钱"
+
+
+def _ledger_draft_card(d: dict[str, Any]) -> tuple[str, str]:
+    lines = d.get("lines") or []
+    rows = "".join(f'<div class="lgr"><span class="ava lg">{i}</span><div><b>{e(line)}</b></div><div></div></div>'
+                   for i, line in enumerate(lines, 1)) or '<div class="lgr"><div></div><div><b>没有钱物变化</b></div><div></div></div>'
+    removed = f'<div class="gift-what">已撤回：{e(d["removed"])}</div>' if d.get("removed") else ""
+    return (f'<div class="eyebrow"><span>审稿 · 钱物变化</span><b>{len(lines)} 笔</b></div>{removed}<div class="ledger">{rows}</div>'
+            + _hint({"note": "撤回的那笔不会生效；发布后其余变化随正文生效",
+                     "cmds": [("撤回", "/团 主持 记账 撤回 序号"), ("发布", "/团 主持 发布")]})), "钱物变化"
+
+
+
+# ---------------------------------------------------------------- pacing (plays/pacing.py)
+def _ptrack(label: str, sub: str, done: int, limit: int, grace: int, note: str, end: int = 0) -> str:
+    """One pacing track: a bar to the last round before something happens, a tick where the nudge starts."""
+    if not limit:
+        return (f'<div class="ptk off"><div class="ptk-h"><b>{e(label)}</b><span>{e(sub)}</span><em class="num">{done} 轮</em></div>'
+                f'<div class="ptk-bar"></div><div class="ptk-d">不催</div></div>')
+    top = max(end or limit + grace, done, 1)
+    state = "over" if done >= (end or limit + grace) else "due" if done >= limit else ""
+    return (f'<div class="ptk {state}"><div class="ptk-h"><b>{e(label)}</b><span>{e(sub)}</span>'
+            f'<em class="num">{done}<small>/{limit}</small></em></div>'
+            f'<div class="ptk-bar"><i style="width:{min(100, done / top * 100):.1f}%"></i><s style="left:{limit / top * 100:.1f}%"></s></div>'
+            f'<div class="ptk-d">{e(note)}</div></div>')
+
+
+def _pace_state(d: dict[str, Any] | None) -> str:
+    if not d:
+        return ""
+    return (f'<div class="paceband"><span class="pb-i">{ICONS["hourglass"]}</span><div><b>{e(d["label"])}</b>'
+            f'<span>{e(d["detail"])}</span></div></div>')
+
+
+def _pacing_card(d: dict[str, Any]) -> tuple[str, str]:
+    scene, act, story, grace = d["scene"], d["act"], d["story"], d.get("grace", 2)
+    tracks = (_ptrack("场景", scene.get("title") or "", scene["done"], scene["limit"], grace,
+                      f"满 {scene['limit']} 轮起局面要变 · {scene['limit'] + grace} 轮世界自己推进" if scene["limit"] else "")
+              + _ptrack(f"第 {act['number']} 幕", act.get("title") or "", act["done"], act["limit"], grace,
+                        (f"满 {act['limit']} 轮提议收尾" if act.get("last") else f"满 {act['limit']} 轮提议换幕 · {act['limit'] + grace} 轮自动进入")
+                        if act["limit"] else "")
+              + _ptrack("全程", "", story["done"], story["target"], 0,
+                        (f"满 {story['target']} 轮提议收尾" + (f" · {story['hard']} 轮必定收尾" if story["hard"] else "")) if story["target"] else "",
+                        end=story["hard"] or 0))
+    said = f'<div class="gift-what" style="font-size:1rem">{e(d["said"])}</div>' if d.get("said") else ""
+    stage = d.get("stage") or ""
+    cmds = ([("放长", "/团 主持 节奏 长"), ("延后", "/团 主持 节奏 延后"), ("收尾", "/团 主持 收尾")] if d.get("host")
+            else [("同意", "/团 收尾 同意"), ("再玩", "/团 收尾 再玩")] if stage == "offer"
+            else [("写尾声", "/团 尾声 一句话")] if stage == "epilogue"
+            else [("看回合", "/团 回合")])
+    return (f'<div class="eyebrow"><span>本桌节奏</span><b>{e(d["source"])} · {e(d["preset"])}档</b></div>{said}'
+            f'<div class="ptracks">{tracks}</div>' + _pace_state(d.get("state"))
+            + _hint({"note": "按轮计：在座的人各行动一次算一轮" + ("；自动推进已关闭" if d.get("off") else ""), "cmds": cmds})), "节奏"
+
+
+def _act_offer_card(d: dict[str, Any]) -> tuple[str, str]:
+    grace = int(d.get("grace") or 0)
+    pips = "".join('<i></i>' for _ in range(grace))
+    title = d.get("title") or ("新的一幕" if d.get("core") else f"第 {d.get('number')} 幕")
+    return (f'<div class="eyebrow"><span>本幕将尽</span><b>已走 {e(d.get("done"))} 轮</b></div>'
+            f'<div class="nextact"><div class="na-k">即将进入 · 第 {e(d.get("number"))} 幕</div><div class="na-t">{e(title)}</div>'
+            + (f'<div class="na-l">{e(d["lead"])}</div>' if d.get("lead") else "")
+            + f'<div class="countdown"><span class="cd-pips">{pips}</span><span>{grace} 轮后自动进入</span></div></div>'
+            '<div class="line" style="margin-top:.9rem">接下来的正文会把局面慢慢引向下一幕；想在这一幕做完的事，抓紧这几轮。</div>'
+            + (_hint({"note": "主持人可以给新的一幕起名并现在进入；不起名就由故事自己接下去",
+                      "cmds": [("起名换幕", "/团 主持 换幕 标题：引子"), ("延后", "/团 主持 节奏 延后")]})
+               if d.get("core") and not d.get("title") else
+               _hint({"note": "主持人可以现在就换幕，或再留几轮", "cmds": [("现在换幕", "/团 主持 换幕"), ("延后", "/团 主持 节奏 延后")]}))), "本幕将尽"
+
+
+def _votes_meter(yes: int, need: int, total: int) -> str:
+    cells = "".join(f'<i class="{"on" if i < yes else ""}{" need" if i == need - 1 else ""}"></i>' for i in range(max(total, need)))
+    return f'<div class="vmeter"><span class="vm-cells">{cells}</span><span class="num"><b>{yes}</b>/{need} 人同意即收尾</span></div>'
+
+
+def _closing_flow(rounds: int = 2) -> str:
+    steps = (("收拢", f"再走 {rounds} 轮，不开新支线"), ("终章", "AI 按已发生的事写结局"), ("尾声", "每人一句写角色的去向"))
+    return '<div class="flow">' + "".join(f'<div class="fs"><span class="fn num">{i}</span><b>{a}</b><span>{b}</span></div>'
+                                          for i, (a, b) in enumerate(steps, 1)) + "</div>"
+
+
+def _closing_offer_card(d: dict[str, Any]) -> tuple[str, str]:
+    yes, no, waiting = d.get("yes") or [], d.get("no") or [], d.get("waiting") or []
+    total = len(yes) + len(no) + len(waiting)
+    name = f"「{d['title']}」" if d.get("title") else "这个故事"
+    group = lambda label, cls, names: (f'<div class="vg {cls}"><span class="vg-k">{label}</span>'
+                                      + ("".join(f'<span class="vp">{_avatar(n)}<b>{e(n)}</b></span>' for n in names) or '<span class="vg-n">—</span>')
+                                      + "</div>")
+    return (_top(None, "收尾提议", f"要给{name}收尾吗", d.get("reason") or "")
+            + _votes_meter(len(yes), int(d.get("need") or 1), total)
+            + f'<div class="vgroups">{group("同意", "yes", yes)}{group("再玩", "no", no)}{group("未表态", "wait", waiting) if waiting else ""}</div>'
+            + _closing_flow()
+            + (f'<div class="line" style="margin-top:.9rem">还剩 <b class="num">{e(d["left"])}</b> 轮表决，到期没过半就继续冒险。</div>'
+               if d.get("left") else "")
+            + _hint({"note": "表决期间照常行动；主持人可以直接开始收尾或取消",
+                     "cmds": [("同意", "/团 收尾 同意"), ("再玩", "/团 收尾 再玩")]})), "收尾提议"
+
+
+def _closing_kept_card(d: dict[str, Any]) -> tuple[str, str]:
+    voters = d.get("voters") or []
+    return (_top(None, "收尾表决", "继续冒险", "表决到期，同意的人没过半" if d.get("expired") else "过半的人想再玩一会儿")
+            + ('<div class="crowd" style="margin:1rem 1.75rem 0">' + "".join(f'<span class="vp">{_avatar(n)}<b>{e(n)}</b></span>' for n in voters)
+               + "</div>" if voters else "")
+            + f'<div class="line" style="margin-top:.9rem">{e(("「" + d["title"] + "」") if d.get("title") else "收尾")}先放一放，故事照常继续；过几轮还会再问一次。</div>'
+            + _hint({"note": "想收尾时，主持人可以随时发起", "cmds": [("看节奏", "/团 节奏"), ("主持收尾", "/团 主持 收尾")]})), "继续冒险"
+
+
+def _closing_start_card(d: dict[str, Any]) -> tuple[str, str]:
+    title = d.get("title") or ""
+    sub = ("到了篇幅上限 · " if d.get("forced") else "") + (d.get("reason") or "")
+    return (_top(None, "进入收尾", f"结局方向：{title}" if title else "结局由接下来的故事决定", sub.strip(" ·"))
+            + _closing_flow(int(d.get("rounds") or 2))
+            + '<div class="box" style="margin:1rem 1.75rem 0"><h4>这几轮</h4><div class="goal">选项都朝收尾的方向写；'
+              '还有想交代的事、想说的话，趁现在。</div></div>'
+            + _hint({"note": "终章之后每人发送 /团 尾声 一句话",
+                     "cmds": [("立刻终章", "/团 主持 收尾 终章"), ("取消", "/团 主持 收尾 取消")]})), "进入收尾"
+
+
+def _world_push_card(d: dict[str, Any]) -> tuple[str, str]:
+    return (f'<div class="eyebrow"><span>世界推进</span><b>{e(d.get("scene") or "")}</b></div>'
+            f'<div class="push"><span class="push-i">{ICONS["wind"]}</span><div><div class="push-t">世界动了一步</div>'
+            f'<div class="push-d">这个场景已经停留 <b class="num">{e(d.get("rounds"))}</b> 轮，局势不会一直等人</div></div></div>'
+            + ('<div class="line" style="margin-top:.9rem">这一轮快团的正文会写进世界自己的变化，大家照常同时行动。</div>' if d.get("rush") else
+               f'<div class="line" style="margin-top:.9rem">AI 正在写一段世界自己的变化，写完后轮到 <b>{e(d.get("actor") or "")}</b> 行动。</div>')
+            + _hint({"note": "主持人想多留几轮，可以把节奏放长", "cmds": [("看节奏", "/团 节奏"), ("放长", "/团 主持 节奏 长")]})), "世界推进"
+
+
+def _epilogue_card(d: dict[str, Any]) -> tuple[str, str]:
+    written, waiting = d.get("written") or [], d.get("waiting") or []
+    rows = "".join(f'<div class="epi">{_avatar(n)}<div><b>{e(n)}</b><p>{e(t)}</p></div></div>' for n, t in written)
+    wait = "".join(f'<span class="vp dim">{_avatar(n)}<b>{e(n)}</b></span>' for n in waiting)
+    return (_top(None, "尾声", (f"结局：{d['title']}" if d.get("title") else "终章已写完"), f"{d.get('minutes')} 分钟内 · 已写 {len(written)}/{len(written) + len(waiting)}")
+            + (f'<div class="line" style="margin-top:.9rem">{e(d["note"])}</div>' if d.get("note") else "")
+            + (f'<div class="epis">{rows}</div>' if rows else "")
+            + (f'<div class="vg wait" style="margin:1rem 1.75rem 0"><span class="vg-k">还在等</span>{wait}</div>' if wait else "")
+            + _hint({"note": "一句话写下自己角色最后的去向；全员写完或时间一到，故事落幕",
+                     "cmds": [("写尾声", "/团 尾声 一句话"), ("直接落幕", "/团 完结")]})), "尾声"
+
+
+_BANTER_RECEIPTS = {"line": _line_card, "heckles": _heckle_card, "heckle_adopted": _heckle_adopted_card, "aid": _aid_card,
+                    "letter_passed": _letter_passed_card, "letter": _letter_card, "letter_sent": _letter_sent_card,
+                    "letters": _letters_card, "xcard": _xcard_card, "rush_progress": _rush_progress_card,
+                    "rush_remind": _rush_remind_card, "plays_intro": _plays_intro_card, "flashback": _flashback_card,
+                    "flashback_guide": _flashback_guide_card, "bond_proposed": _bond_proposed_card, "bond": _bond_card,
+                    "bonds": _bonds_card, "wager": _wager_card, "table_guide": _table_guide_card,
+                    "shops": _shops_card, "outfit": _outfit_card, "outfit_summary": _outfit_summary_card, "trade": _trade_card,
+                    "gift": _gift_card, "ledger": _ledger_card, "shops_nearby": _shops_nearby_card, "wage": _wage_card,
+                    "ledger_draft": _ledger_draft_card, "pacing": _pacing_card, "act_offer": _act_offer_card,
+                    "closing_offer": _closing_offer_card, "closing_kept": _closing_kept_card,
+                    "closing_start": _closing_start_card, "world_push": _world_push_card, "epilogue": _epilogue_card}
+
+
 def _receipt(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
     kind = (msg.data or {}).get("kind")
     if kind in ("people", "person", "record"):
         return {"people": _people, "person": _person, "record": _record_card}[kind](msg.data)
+    if kind in _BANTER_RECEIPTS:
+        return _BANTER_RECEIPTS[kind](msg.data)
     parts, changes, steps = [], [], False
 
     def close_changes() -> None:
@@ -1366,6 +2302,7 @@ body.dark .pie::before{background:#141210}
 .vt.risk{color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger);background:transparent}
 .preps .lab{margin-right:.2rem}
 .hint{margin:.9rem 1.5rem 0;padding:.8rem 0 .3rem;border-top:1px solid var(--line);font-size:.76rem;color:var(--muted);line-height:1.7}
+.fates+.hint{margin-top:0;border-top:0}
 .uses+.hint,.preps+.hint{margin-top:1rem}
 .hint .note{margin-bottom:.55rem}
 .cmds{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.15rem}
@@ -1703,8 +2640,8 @@ body.dark .spread{box-shadow:inset 0 0 0 1px rgba(210,166,103,.14)}
 .ruler{position:relative;flex:1;max-width:13rem;height:.4rem;border-radius:.2rem;background:var(--line-strong)}
 .ruler .zone{position:absolute;top:0;bottom:0;right:0;border-radius:0 .2rem .2rem 0;background:var(--ok);opacity:.28}
 .ruler .dcl{position:absolute;top:-.25rem;bottom:-.25rem;width:2px;margin-left:-1px;background:var(--text-2)}
-.ruler .pt{position:absolute;top:50%;width:.8rem;height:.8rem;margin:-.4rem 0 0 -.4rem;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--bg)}
-.margin.bad .ruler .pt{background:var(--danger)}
+.ruler .rdot{position:absolute;top:50%;width:.8rem;height:.8rem;margin:-.4rem 0 0 -.4rem;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--bg)}
+.margin.bad .ruler .rdot{background:var(--danger)}
 .margin .ml{font-size:.74rem;color:var(--ok);white-space:nowrap}.margin.bad .ml{color:var(--danger)}
 .rec .rk{display:inline-block;padding:.02rem .45rem;border-radius:.3rem;letter-spacing:.08em;margin-bottom:.15rem}
 .rk.g-inv{color:#3F6797;background:rgba(63,103,151,.1)}.rk.g-soc{color:#3F7A5E;background:rgba(63,122,94,.1)}
@@ -1789,6 +2726,67 @@ body.dark .h0{--pc:#E08B73}body.dark .h1{--pc:#86A8D4}body.dark .h2{--pc:#86BC9C
 .avatar img,.ava img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
 .ava{overflow:hidden}
 .pbox{margin:0 1.75rem .2rem;padding:.8rem 1rem;border-radius:.75rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px rgba(205,176,120,.32)}
+.stat .adj{margin-top:.3rem;font-size:.62rem;line-height:1.5;color:var(--gold-ink);background:var(--gold-soft);padding:0 .4rem;border-radius:999px;white-space:nowrap}
+.stat .adj.neg{color:var(--danger);background:rgba(162,67,58,.08)}
+.stat .rng{position:relative;display:block;width:78%;height:.22rem;margin:.35rem 0 .1rem;border-radius:999px;background:var(--line)}
+.stat .rng b{position:absolute;top:50%;width:.5rem;height:.5rem;margin-left:-.25rem;border-radius:50%;background:var(--gold-solid);transform:translateY(-50%)}
+.srows{display:flex;flex-direction:column;gap:.5rem}
+.srow{display:grid;grid-template-columns:3rem minmax(0,1fr);gap:.6rem;font-size:.86rem;line-height:1.65;color:var(--text-2)}
+.srow .sl{font-size:.72rem;letter-spacing:.14em;color:var(--muted);padding-top:.12rem}
+.srow b{font-weight:600;color:var(--text)}
+.srow svg{width:.85rem;height:.85rem;color:var(--gold);vertical-align:-.1rem;margin-right:.3rem}
+.srow .sn{display:block;font-size:.76rem;color:var(--muted)}
+.srow .sq{display:block;font-size:.74rem;color:var(--gold)}
+.srow .tsides{display:flex;flex-wrap:wrap;gap:.3rem .45rem;margin-top:.25rem}
+.srow .tsides i{font-style:normal;font-size:.72rem;line-height:1.5;padding:0 .5rem;border-radius:999px;border:1px solid currentColor}
+.srow .tsides .tu{color:var(--ok)}.srow .tsides .td{color:var(--danger)}
+.mtiles{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin:1.1rem 1.75rem 0}
+.mt{display:flex;flex-direction:column;align-items:flex-start;gap:.4rem;padding:.95rem 1rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.mt-h{display:flex;align-items:center;justify-content:space-between;width:100%}
+.mt-h b{font-family:var(--serif);font-size:1.25rem}
+.pips{display:inline-flex;gap:.22rem}
+.pips i{width:.5rem;height:.5rem;border-radius:50%;box-shadow:inset 0 0 0 1px var(--gold-line)}
+.pips i.on{background-image:var(--gold-grad);box-shadow:none}
+.mt-m{font-size:.72rem;color:var(--gold)}
+.mt-d{font-size:.78rem;line-height:1.6;color:var(--muted);flex:1}
+.mt .kbd{font-size:.72rem}
+.mt.off{opacity:.55}
+.mt-x{font-size:.72rem;color:var(--danger)}
+.aib{display:flex;align-items:center;gap:.9rem;margin:.6rem 1.75rem 0;padding:.9rem 1.1rem;border-radius:.8rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.aib .pt-i{flex:none}
+.aib-b{flex:1;display:flex;flex-direction:column;gap:.3rem;align-items:flex-start}
+.aib-b b{font-family:var(--serif);font-size:1.05rem}
+.aib-n{display:flex;flex-direction:column;align-items:center;flex:none}
+.aib-n b{font-family:var(--serif);font-size:1.6rem;line-height:1.1;color:var(--gold-ink)}
+.aib-n small{font-size:.7rem;color:var(--faint)}
+.aib-n span{font-size:.66rem;color:var(--muted)}
+.bsteps{display:flex;flex-wrap:wrap;gap:.35rem;margin:.75rem 1.75rem 0}
+.bs{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;padding:.16rem .55rem .16rem .2rem;border-radius:999px;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line)}
+.bs i{width:1.05rem;height:1.05rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:.62rem;background:var(--surface-2)}
+.bs.done{color:var(--text-2)}.bs.done i{background:var(--gold-soft);color:var(--gold-ink)}
+.bs.now{color:var(--gold-ink);background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}.bs.now i{background-image:var(--gold-grad);color:var(--on-gold)}
+.aibox{margin:0 1.75rem .5rem;padding:.7rem 1rem;border-radius:.75rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);font-size:.8rem;line-height:1.65}
+.aibox .ai-u{color:var(--text-2)}
+.aibox .ai-c{color:var(--gold-ink)}.aibox .ai-c::before{content:"改动　";color:var(--gold)}
+.aibox .ai-n{color:var(--muted)}.aibox .ai-n::before{content:"注意　";color:var(--danger)}
+.moved{display:flex;align-items:center;gap:.6rem;margin:.55rem 1.75rem 0;font-size:.74rem;color:var(--muted)}
+.moved b{color:var(--gold-ink)}
+.chip.new{background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line);color:var(--gold-ink)}
+.bq{margin:1rem 1.5rem 0;padding:.95rem 1.1rem;border-radius:.8rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.bq-h{display:flex;align-items:center;gap:.55rem}
+.bq-h b{font-family:var(--serif);font-size:1.12rem}
+.bq-k{font-size:.66rem;letter-spacing:.14em;padding:.08rem .5rem;border-radius:999px;background-image:var(--gold-grad);color:var(--on-gold)}
+.bq-t{font-size:.8rem;color:var(--muted);line-height:1.65;margin:.35rem 0 .2rem}
+.bopts{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin:.55rem 0 .2rem}
+.bo{display:flex;gap:.55rem;align-items:flex-start;padding:.55rem .7rem;border-radius:.6rem;background:var(--surface)}
+.bo.on{box-shadow:inset 0 0 0 1px var(--gold-line)}
+.bo-n{flex:none;width:1.35rem;height:1.35rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;background:var(--gold-soft);color:var(--gold-ink)}
+.bo b{font-size:.86rem}
+.bo em{font-style:normal;font-size:.62rem;color:var(--gold);margin-left:.35rem}
+.bo-d{font-size:.72rem;line-height:1.5;color:var(--muted)}
+.bo-m{font-size:.66rem;color:var(--faint);margin-top:.15rem}
+.bq-e{display:flex;align-items:center;gap:.5rem;margin-top:.55rem}
+.bq-e .ck{font-size:.72rem;color:var(--faint)}
 .pb-head{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 .pb-head b{font-family:var(--serif);font-size:1rem}
 .pb-tag{font-size:.66rem;letter-spacing:.18em;color:var(--on-gold);background-color:var(--gold-solid);background-image:var(--gold-grad);padding:.08rem .5rem;border-radius:.3rem}
@@ -1816,6 +2814,351 @@ body.dark .h0{--pc:#E08B73}body.dark .h1{--pc:#86A8D4}body.dark .h2{--pc:#86BC9C
 .prow .sd{font-size:.76rem;color:var(--muted);margin-top:.25rem;line-height:1.55}
 .prow .pl{font-size:.72rem;color:var(--ok)}
 .prow .pl.over{color:var(--danger)}
+/* group-chat plays */
+.ava.lg{width:3.2rem;height:3.2rem;font-size:1.3rem}
+.empty-note{margin:1.2rem 1.75rem 0;padding:1.4rem 1rem;border-radius:.8rem;text-align:center;font-size:.82rem;color:var(--faint);box-shadow:inset 0 0 0 1px dashed var(--line-strong);border:1px dashed var(--line-strong)}
+.speech{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1rem;align-items:start;margin:1.2rem 1.75rem 0}
+.speech>.ava{background-color:var(--gold-solid);background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 .8rem var(--glow)}
+.sp-name{font-family:var(--serif);font-size:1rem;font-weight:600;color:var(--gold-ink);margin:.15rem 0 .45rem}
+.reply{display:inline-block;font-size:.74rem;color:var(--muted);background:var(--surface-2);padding:.15rem .6rem;border-radius:.4rem;margin-bottom:.5rem;box-shadow:inset 2px 0 0 var(--gold-line)}
+.bubble{position:relative;padding:1rem 1.2rem;border-radius:.2rem 1rem 1rem 1rem;background:linear-gradient(160deg,var(--gold-soft),transparent 85%),var(--surface);box-shadow:inset 0 0 0 1px var(--gold-line);font-family:var(--serif);font-weight:600;letter-spacing:.03em;line-height:1.7;color:var(--text)}
+.bubble.q-l{font-size:1.45rem;line-height:1.6}.bubble.q-m{font-size:1.2rem}.bubble.q-s{font-size:1.02rem;line-height:1.85}
+body.dark .bubble{background:linear-gradient(160deg,rgba(196,146,82,.16),transparent 85%),#1A1712}
+.quota{display:flex;align-items:center;gap:.7rem;margin:1rem 1.75rem 0;padding:.6rem 1rem;border-radius:.7rem;background:var(--gold-soft);font-size:.76rem;color:var(--muted)}
+.quota .dots i{width:.8rem;height:.8rem}
+.quota b{margin-left:auto;font-family:var(--serif);font-size:1rem;color:var(--gold-ink)}
+.hks{margin:.7rem 1.75rem 0;display:flex;flex-direction:column;gap:.45rem}
+.hk{display:grid;grid-template-columns:1.6rem minmax(0,1fr) auto;align-items:center;gap:.8rem;padding:.7rem .9rem;border-radius:.75rem;box-shadow:inset 0 0 0 1px var(--line-strong)}
+.hk .hn{width:1.5rem;height:1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.74rem;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.hk .ht{font-family:var(--serif);font-size:.98rem;line-height:1.55;color:var(--text)}
+.hk .hm{display:flex;align-items:center;gap:.5rem;font-size:.7rem;color:var(--faint);margin:.2rem 0 .4rem;min-height:.9rem}
+.hk .hl{color:var(--gold-ink);background:var(--gold-soft);padding:0 .45rem;border-radius:.3rem}
+.hk .track{height:.36rem;border-radius:.2rem}
+.hk .track i{border-radius:.2rem;background:var(--line-strong)}
+.hk .hv{display:flex;align-items:center;gap:.25rem;font-size:.95rem;color:var(--muted)}
+.hk .hv svg{width:.8rem;height:.8rem}
+.hk.lead{background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--gold-line),0 0 1.2rem var(--glow)}
+.hk.lead .hn{background-image:var(--gold-grad);color:var(--on-gold);box-shadow:none}
+.hk.lead .track i{background-image:var(--gold-grad)}
+.hk.lead .hv{color:var(--gold-ink)}
+.adopt{position:relative;margin:1.2rem 1.75rem 0;padding:1.6rem 1.6rem 1rem;border-radius:1rem;background:linear-gradient(160deg,var(--gold-soft),transparent 75%);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.adopt .stamp{position:absolute;white-space:nowrap;right:1.2rem;top:1rem;padding:.2rem .7rem;border:2px solid var(--gold);border-radius:.4rem;color:var(--gold);font-size:.8rem;font-weight:600;letter-spacing:.3em;transform:rotate(-8deg);opacity:.85}
+.adopt .ad-t{font-family:var(--serif);font-size:1.3rem;font-weight:600;line-height:1.65;padding-right:5rem}
+.adopt .qmeta{margin:1rem 0 0}
+.aid{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:1.2rem 1.75rem 0;padding:1.1rem .5rem;border-radius:1rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.aid-p{display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.aid-p b{font-family:var(--serif);font-size:1.05rem}
+.aid-p.to .ava{background-color:var(--gold-solid);background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 .8rem var(--glow)}
+.aid-link{display:flex;align-items:center;gap:.4rem;width:11rem}
+.aid-link i{flex:1;height:2px;background:linear-gradient(90deg,var(--gold-line),var(--gold-solid))}
+.aid-link i:last-child{background:linear-gradient(90deg,var(--gold-solid),var(--gold-line))}
+.aid-b{display:flex;flex-direction:column;align-items:center;justify-content:center;width:3.6rem;height:3.6rem;border-radius:50%;background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 1rem var(--glow)}
+.aid-b svg{width:1.25rem;height:1.25rem}
+.aid-b b{font-family:var(--serif);font-size:1.1rem;line-height:1.1}
+.aid+.quote{margin-top:1rem}
+.box.warn{background:rgba(162,67,58,.07)}
+.box.warn h4{color:var(--danger)}
+body.dark .box.warn{background:rgba(217,139,128,.08);box-shadow:inset 0 0 0 1px rgba(217,139,128,.18)}
+.lpass{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:1.2rem 1.75rem 0;padding:1.1rem .5rem;border-radius:1rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.lp-p{display:flex;flex-direction:column;align-items:center;gap:.35rem}
+.lp-p b{font-family:var(--serif);font-size:1.05rem}
+.lp-p .sd{font-size:.72rem;color:var(--faint)}
+.lp-way{display:flex;align-items:center;gap:.4rem;width:11rem}
+.lp-way i{flex:1;height:0;border-top:2px dashed var(--gold-line)}
+.env{display:flex;align-items:center;justify-content:center;width:3.2rem;height:3.2rem;border-radius:.8rem;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--gold-line);color:var(--gold);transform:rotate(-6deg)}
+.env svg{width:1.4rem;height:1.4rem}
+.paper{position:relative;margin:1.2rem 1.75rem 0;padding:1.4rem 1.6rem 1.1rem;border-radius:.4rem;background-color:#FBF5E6;background-image:repeating-linear-gradient(180deg,transparent 0 1.95rem,rgba(129,99,47,.16) 1.95rem calc(1.95rem + 1px));background-position:0 calc(1.4rem - 1px);box-shadow:0 .4rem 1.2rem rgba(60,40,14,.12),inset 0 0 0 1px rgba(129,99,47,.22);color:#2A2014}
+.paper::before{content:"";position:absolute;left:50%;top:-.45rem;width:4.5rem;height:.9rem;transform:translateX(-50%) rotate(-2deg);background:rgba(205,176,120,.55)}
+.pp-to{font-family:var(--serif);font-size:.92rem;color:#81632F;line-height:1.95rem}
+.pp-t{font-family:var(--serif);font-size:1.1rem;line-height:1.95rem}
+.pp-from{text-align:right;font-family:var(--serif);font-size:.92rem;color:#81632F;line-height:1.95rem}
+body.dark .paper{background-color:#2A241A;background-image:repeating-linear-gradient(180deg,transparent 0 1.95rem,rgba(210,166,103,.16) 1.95rem calc(1.95rem + 1px));box-shadow:0 .4rem 1.2rem rgba(0,0,0,.45),inset 0 0 0 1px rgba(210,166,103,.25);color:#EDE6D8}
+body.dark .pp-to,body.dark .pp-from{color:#D9B079}
+.lts{margin:1rem 1.75rem 0;display:flex;flex-direction:column}
+.lt{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:baseline;gap:.6rem;padding:.75rem 0;border-bottom:1px solid var(--line)}
+.lt .way{font-size:.7rem;padding:.08rem .5rem;border-radius:.3rem}
+.lt .way.in{color:var(--on-gold);background-image:var(--gold-grad)}
+.lt .way.out{color:var(--gold-ink);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.lt b{font-family:var(--serif);font-size:.95rem}
+.lt .lt-t{font-family:var(--serif);font-size:.95rem;line-height:1.7;color:var(--text-2)}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:1.2rem 1.75rem 0}
+.notes.one{grid-template-columns:1fr}
+.nt{padding:.9rem 1.1rem 1rem;border-radius:.6rem;background:linear-gradient(170deg,var(--gold-soft),transparent 80%),var(--surface);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.nt-h{display:flex;align-items:center;gap:.45rem;padding-bottom:.55rem;margin-bottom:.55rem;border-bottom:1px dashed var(--gold-line)}
+.nt-h b{font-family:var(--serif);font-size:.92rem;color:var(--gold-ink)}
+.nt-h span{display:flex;color:var(--gold)}
+.nt-t{font-family:var(--serif);font-size:.95rem;line-height:1.75;color:var(--text)}
+body.dark .nt{background:linear-gradient(170deg,rgba(196,146,82,.14),transparent 80%),#1A1712}
+.xcard{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.2rem;align-items:center;margin:1.2rem 1.75rem 0;padding:1.3rem 1.4rem;border-radius:1rem;background:rgba(162,67,58,.06);box-shadow:inset 0 0 0 1px rgba(162,67,58,.24)}
+.xmark{width:3.6rem;height:3.6rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:1.9rem;font-weight:700;color:#FFF7F2;background:linear-gradient(180deg,#C2665B,#963A31);box-shadow:0 0 1rem rgba(162,67,58,.3)}
+.xt{font-family:var(--serif);font-size:1.3rem;font-weight:600;color:var(--danger)}
+.xd{font-size:.88rem;line-height:1.75;color:var(--text-2);margin-top:.3rem}
+body.dark .xcard{background:rgba(217,139,128,.07);box-shadow:inset 0 0 0 1px rgba(217,139,128,.24)}
+body.dark .xmark{background:linear-gradient(180deg,#B4594E,#7E2F27);color:#FBE9E4}
+.rushbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1rem;align-items:center;margin:.8rem 1.75rem 0}
+.rushbar .pie{width:3.6rem;height:3.6rem}
+.rushbar .pie b{font-size:1.1rem}
+.crowd{display:flex;flex-wrap:wrap;gap:.4rem}
+.crowd .cm{display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .7rem .2rem .2rem;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line-strong);font-size:.82rem}
+.crowd .cm .ava{width:1.6rem;height:1.6rem;font-size:.78rem;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--faint)}
+.crowd .cm b{font-weight:500;color:var(--text-2)}
+.crowd .cm em{font-style:normal;font-size:.68rem;color:var(--faint)}
+.crowd .cm.done{background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.crowd .cm.done .ava{background-image:var(--gold-grad);color:var(--on-gold);box-shadow:none}
+.crowd .cm.done em{color:var(--ok)}
+.turn.urgent{background:rgba(162,67,58,.07);box-shadow:inset 0 0 0 1px rgba(162,67,58,.22)}
+.turn.urgent .turn-t b{color:var(--danger)}
+.turn.urgent .clock{color:var(--danger);box-shadow:inset 0 0 0 1px rgba(162,67,58,.4)}
+.turn.urgent .orb .r{background:rgba(162,67,58,.45)}.turn.urgent .orb .f{background:linear-gradient(180deg,#C2665B,#963A31);color:#FFF7F2}
+.crowd.urgent .cm:not(.done){box-shadow:inset 0 0 0 1.5px rgba(162,67,58,.55)}.crowd.urgent .cm:not(.done) em{color:var(--danger)}
+body.dark .turn.urgent{background:rgba(217,139,128,.07);box-shadow:inset 0 0 0 1px rgba(217,139,128,.22)}
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin:1.2rem 1.75rem 0;counter-reset:fs}
+.fs{position:relative;display:flex;flex-direction:column;gap:.3rem;padding:.9rem 1rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.fs .fn{width:1.6rem;height:1.6rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;background-image:var(--gold-grad);color:var(--on-gold);margin-bottom:.2rem}
+.fs b{font-family:var(--serif);font-size:1rem}
+.fs span:last-child{font-size:.76rem;line-height:1.6;color:var(--muted)}
+.fs:not(:last-child)::after{content:"";position:absolute;right:-.5rem;top:50%;width:.4rem;height:.4rem;border-top:2px solid var(--gold-line);border-right:2px solid var(--gold-line);transform:translateY(-50%) rotate(45deg)}
+.uses .chip.allin.ok{color:var(--ok)}.uses .chip.allin.bad{color:var(--danger)}
+.uses .chip.trait.dn{color:var(--danger)}
+.tips{margin:1rem 1.5rem 0;padding:.85rem 1.1rem .7rem;border-radius:.75rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.others{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin:1rem 1.5rem 0}
+.og{padding:.75rem .95rem .55rem;border-radius:.75rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.og h4{display:flex;align-items:baseline;gap:.5rem;font-size:.74rem;letter-spacing:.2em;color:var(--gold);font-weight:500;margin-bottom:.2rem}
+.og h4 small{font-size:.66rem;letter-spacing:.06em;color:var(--faint)}
+.orow{display:flex;gap:.6rem;align-items:flex-start;padding:.45rem 0}
+.orow+.orow{border-top:1px dashed var(--line)}
+.orow .pt-i{flex:none;width:1.5rem;height:1.5rem;margin-top:.05rem}
+.orow .pt-i svg{width:.75rem;height:.75rem}
+.orow.off .pt-i{filter:grayscale(1);opacity:.55}
+.ob{min-width:0}
+.oh{display:flex;align-items:center;flex-wrap:wrap;gap:.25rem .45rem}
+.oh b{font-size:.86rem;font-weight:600}
+.oh .kbd{font-size:.7rem}
+.oh .pv{font-size:.64rem;color:var(--muted);padding:.05rem .4rem;border-radius:.3rem;box-shadow:inset 0 0 0 1px var(--line)}
+.od{font-size:.74rem;line-height:1.55;color:var(--muted);margin-top:.15rem}
+.others.solo{grid-template-columns:1fr}
+.others.solo .og{display:grid;grid-template-columns:repeat(3,1fr);column-gap:1rem}
+.others.solo .og h4{grid-column:1/-1}
+.others.solo .orow+.orow{border-top:0}
+.tips h4{font-size:.74rem;letter-spacing:.2em;color:var(--gold);font-weight:500;margin-bottom:.35rem}
+.tips ul{list-style:none}
+.tips li{position:relative;padding:.3rem 0 .3rem 1rem;font-size:.86rem;line-height:1.65;color:var(--text-2)}
+.tips li::before{content:"";position:absolute;left:.1rem;top:.85rem;width:.34rem;height:.34rem;border-radius:50%;background:var(--gold-solid)}
+.ptiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1.2rem 1.75rem 0}
+.pt{display:flex;flex-direction:column;align-items:flex-start;gap:.45rem;padding:.85rem 1rem .9rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.pt-h{display:flex;align-items:center;gap:.5rem}
+.pt-h b{font-family:var(--serif);font-size:1.02rem}
+.pt-i{width:1.7rem;height:1.7rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background-image:var(--gold-grad);color:var(--on-gold)}
+.pt-i svg{width:.85rem;height:.85rem}
+.pt-i.x{background:linear-gradient(180deg,#C2665B,#963A31);color:#FFF7F2;font-family:var(--serif);font-weight:700;font-size:.85rem}
+.pt .kbd{font-size:.72rem}
+.pt-d{font-size:.78rem;line-height:1.6;color:var(--muted)}
+.ptiles.three{grid-template-columns:repeat(3,1fr)}
+.flow.four{grid-template-columns:repeat(4,1fr)}
+.flow .kbd{align-self:flex-start;margin:.05rem 0 .1rem}
+.guide-after .ptiles{margin:0}
+.fs .fk{font-size:.7rem;letter-spacing:.2em;color:var(--gold)}
+/* flashback */
+.memory{position:relative;margin:1.2rem 1.75rem 0;padding:1.15rem 1.6rem 1.05rem 2.7rem;border-radius:1rem;background:linear-gradient(135deg,rgba(181,140,82,.17),rgba(181,140,82,.04) 72%);box-shadow:inset 0 0 0 1px var(--gold-line);overflow:hidden}
+.memory::before{content:"";position:absolute;left:.95rem;top:.5rem;bottom:.5rem;width:.62rem;background:repeating-linear-gradient(180deg,var(--gold-line) 0 .42rem,transparent .42rem .85rem);opacity:.6;border-radius:.15rem}
+body.dark .memory{background:linear-gradient(135deg,rgba(196,146,82,.15),rgba(196,146,82,.03) 72%)}
+.mem-k{display:flex;align-items:center;gap:.4rem;font-size:.74rem;letter-spacing:.2em;color:var(--gold)}
+.memory blockquote{margin:.55rem 0 0;font-family:var(--serif);font-weight:600;color:var(--text);line-height:1.7;letter-spacing:.03em;text-align:justify}
+.memory blockquote.q-l{font-size:1.45rem}.memory blockquote.q-m{font-size:1.2rem}.memory blockquote.q-s{font-size:1.02rem;line-height:1.85}
+.memory figcaption{margin-top:.55rem;text-align:right;font-size:.78rem;color:var(--gold-ink);letter-spacing:.1em}
+/* bonds */
+.tie{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:1.2rem 1.75rem 0;padding:1.1rem .5rem;border-radius:1rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.tie-p{display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.tie-p b{font-family:var(--serif);font-size:1.05rem}
+.tie.live .ava{background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 .8rem var(--glow)}
+.tie-link{display:flex;align-items:center;gap:.4rem;width:11rem}
+.tie-link i{flex:1;height:0;border-top:2px dashed var(--gold-line)}
+.tie.live .tie-link i{border-top:2px solid var(--gold-solid)}
+.tie-b{width:3rem;height:3rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--gold-line);color:var(--gold)}
+.tie.live .tie-b{background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 1rem var(--glow)}
+.tie-b svg{width:1.2rem;height:1.2rem}
+.tie-t{margin:1rem 1.75rem 0;text-align:center;font-family:var(--serif);font-size:1.25rem;font-weight:600;letter-spacing:.04em;line-height:1.6;color:var(--text)}
+.bmap{position:relative;margin:1.1rem 1.75rem 0;height:0;padding-top:56%;border-radius:1rem;background:radial-gradient(55% 60% at 50% 50%,var(--gold-soft),transparent 80%);box-shadow:inset 0 0 0 1px var(--line)}
+.bmap svg{position:absolute;inset:0;width:100%;height:100%}
+.bmap line{vector-effect:non-scaling-stroke;stroke-width:2.5px;stroke-linecap:round}
+.bmap line.live{stroke:var(--gold-solid)}
+.bmap line.wait{stroke:var(--gold-line);stroke-dasharray:6 5}
+.bm-p{position:absolute;transform:translate(-50%,-1.5rem);display:flex;flex-direction:column;align-items:center;gap:.12rem;width:7.5rem;text-align:center}
+.bm-p .ava{width:3rem;height:3rem;font-size:1.2rem;background:var(--surface)}
+.bm-p.on .ava{background-image:var(--gold-grad);color:var(--on-gold);box-shadow:0 0 .7rem var(--glow)}
+.bm-p:not(.on){opacity:.5}
+.bm-p b{font-family:var(--serif);font-size:.9rem;line-height:1.35;max-width:7.5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-p em{font-style:normal;font-size:.66rem;color:var(--muted)}
+.bm-n,.bl-n{width:1.45rem;height:1.45rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.72rem;font-weight:600;background:var(--surface);color:var(--gold-ink);box-shadow:inset 0 0 0 1.5px var(--gold-solid)}
+.bm-n{position:absolute;transform:translate(-50%,-50%)}
+.bm-n.wait,.bl.wait .bl-n{color:var(--faint);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.bls{margin:1rem 1.75rem 0;border-top:1px solid var(--line)}
+.bl{display:grid;grid-template-columns:1.45rem auto auto auto minmax(0,1fr) auto;align-items:center;gap:.5rem;padding:.6rem .2rem;border-bottom:1px solid var(--line);font-size:.88rem}
+.bl b{font-family:var(--serif);font-size:.98rem}
+.bl-x{color:var(--gold)}
+.bl-t{color:var(--text-2);line-height:1.55;padding-left:.4rem}
+.bl.wait .bl-t{color:var(--muted)}
+/* bets */
+.tug{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.7rem;margin:1rem 1.75rem 0}
+.tug .tg{font-family:var(--serif);font-size:1.1rem;font-weight:700;color:var(--ok)}.tug .tg.n{color:var(--danger)}
+.tb{display:flex;gap:3px;height:.8rem;border-radius:999px;overflow:hidden}
+.tb i{display:block;height:100%}
+.tb i.y{background:var(--ok)}.tb i.n{background:var(--danger)}
+.tug.empty .tb i{background:var(--line-strong)}
+.wsides{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.8rem 1.75rem 0}
+.wside{padding:.75rem .9rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.wside.y{box-shadow:inset 0 0 0 1px rgba(73,113,87,.38)}.wside.n{box-shadow:inset 0 0 0 1px rgba(162,67,58,.32)}
+.wk{display:flex;align-items:baseline;gap:.35rem;font-size:.8rem;color:var(--muted)}
+.wk b{font-family:var(--serif);font-size:1.6rem;line-height:1.1}
+.wside.y .wk b{color:var(--ok)}.wside.n .wk b{color:var(--danger)}
+.wn{display:flex;align-items:center;flex-wrap:wrap;gap:.2rem;margin-top:.4rem;font-size:.8rem;color:var(--text-2);line-height:1.6}
+.faint{color:var(--faint)}
+.rank.seer .face{color:var(--gold-ink)}.rank.seer .face small{font-size:.7rem;color:var(--faint)}
+.rank.seer .rn .track{margin-top:.35rem;width:85%}
+.rank.seer .rf{font-size:.78rem;color:var(--muted)}
+.uses.wres{gap:.5rem}
+.wg{display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;padding:.2rem .7rem .2rem .45rem;border-radius:999px;background:var(--surface-2)}
+.wg i{font-style:normal;font-weight:700}
+.wg.ok{color:var(--ok);box-shadow:inset 0 0 0 1px rgba(73,113,87,.42)}.wg.bad{color:var(--danger);box-shadow:inset 0 0 0 1px rgba(162,67,58,.36)}
+.wg b{font-weight:500;color:var(--text-2)}
+.wg .avs{margin-right:0}
+.mvp.seer .stamp{background:var(--surface);color:var(--gold);box-shadow:inset 0 0 0 1.5px var(--gold-line)}.mvp.seer .stamp svg{width:1.3rem;height:1.3rem}
+/* one-minute adventure */
+.ahero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.8rem;margin:1rem 1.75rem 0;padding:.7rem .9rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.ah-n b{display:block;font-family:var(--serif);font-size:1.05rem}
+.ah-n span{font-size:.74rem;color:var(--gold-ink)}
+.atrack{display:flex;align-items:center}
+.atrack>i{width:1.4rem;height:2px;background:var(--line-strong)}
+.ap{width:1.75rem;height:1.75rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line-strong);background:var(--surface)}
+.ap.now{color:var(--gold-ink);box-shadow:inset 0 0 0 2px var(--gold-solid),0 0 .6rem var(--glow)}
+.ap.ok{color:#fff;background:var(--ok);box-shadow:none}.ap.bad{color:#fff;background:var(--danger);box-shadow:none}
+body.dark .ap.ok,body.dark .ap.bad{color:#14110C}
+.aroll{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.9rem;align-items:start;margin:1rem 1.75rem 0;padding:.8rem 1rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.aroll.ok{box-shadow:inset 3px 0 0 var(--ok),inset 0 0 0 1px var(--line)}.aroll.bad{box-shadow:inset 3px 0 0 var(--danger),inset 0 0 0 1px var(--line)}
+.adie{width:3.1rem;height:3.1rem;background:var(--die) center/contain no-repeat;display:flex;align-items:center;justify-content:center;padding-top:.1rem}
+.adie span{font-family:var(--serif);font-size:1.1rem;font-weight:700;color:#2A2012;text-shadow:0 0 .3rem rgba(255,250,240,.9)}
+.ar-k{font-size:.74rem;color:var(--muted);letter-spacing:.04em}
+.ar-h{display:flex;align-items:baseline;gap:.6rem;font-family:var(--serif);font-size:1.15rem;font-weight:700;margin-top:.1rem}
+.aroll.ok .ar-h{color:var(--ok)}.aroll.bad .ar-h{color:var(--danger)}
+.ar-t{font-family:var(--mono);font-size:.7rem;font-weight:400;color:var(--faint)}
+.ar-o{font-family:var(--serif);font-size:.92rem;line-height:1.75;color:var(--text-2);margin-top:.2rem}
+.ascene{margin:1rem 1.75rem .2rem;padding:.2rem 0 .2rem 1rem;border-left:2px solid var(--gold-line)}
+.ascene .lab{font-size:.72rem;letter-spacing:.2em;color:var(--gold)}
+.ascene p{font-family:var(--serif);font-size:1rem;line-height:1.85;color:var(--text);margin-top:.15rem}
+.averdict{display:flex;align-items:center;gap:1rem;margin:1rem 1.75rem 0;padding:.9rem 1.1rem;border-radius:.9rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.averdict .stamp{width:3.2rem;height:3.2rem;font-size:1.7rem;background:var(--tc);color:var(--bg)}
+.averdict.t-dawn .stamp{background-image:var(--gold-grad);color:var(--on-gold)}
+.averdict b{font-family:var(--serif);font-size:1.6rem;letter-spacing:.12em;color:var(--tc)}
+.averdict .sd{font-size:.76rem;color:var(--muted)}
+.arolls .aroll{margin-top:.6rem}
+.arolls{margin-bottom:.8rem}
+/* economy */
+.wallet{display:flex;align-items:center;gap:.8rem;margin:1rem 1.75rem 0;padding:.75rem 1.1rem;border-radius:.85rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.wallet .coin{width:2.3rem;height:2.3rem;flex:none;border-radius:50%;background-image:var(--gold-grad);color:var(--on-gold);display:flex;align-items:center;justify-content:center;box-shadow:0 0 .9rem var(--glow)}
+.wallet .coin svg{width:1.15rem;height:1.15rem}
+.wallet .wk{font-size:.72rem;letter-spacing:.18em;color:var(--muted)}
+.wallet .wv{font-family:var(--serif);font-size:1.55rem;font-weight:600;color:var(--gold-ink);line-height:1.15}
+.wallet .wv small{font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.35rem}
+.wallet .wn{margin-left:auto;font-size:.74rem;color:var(--muted);text-align:right;max-width:55%}
+.shop{margin:1rem 1.5rem 0;border-radius:.9rem;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-strong);overflow:hidden}
+body.dark .shop{background:var(--surface-2);box-shadow:inset 0 0 0 1px rgba(210,166,103,.16)}
+.shop.closed{opacity:.5}
+.shop-h{display:flex;align-items:center;gap:.65rem;padding:.7rem 1rem;background:var(--gold-soft);border-bottom:1px solid var(--line)}
+.shop-h .si{width:2rem;height:2rem;flex:none;border-radius:.6rem;background-image:var(--gold-grad);color:var(--on-gold);display:flex;align-items:center;justify-content:center}
+.shop-h .si svg{width:1.05rem;height:1.05rem}
+.shop-h b{font-family:var(--serif);font-size:1.05rem}
+.shop-h .kind{font-size:.68rem;color:var(--gold-ink);padding:.04rem .5rem;border-radius:999px;box-shadow:inset 0 0 0 1px var(--gold-line)}
+.shop-h .where{margin-left:auto;font-size:.72rem;color:var(--muted)}
+.shop:not(.closed) .shop-h .where{color:var(--ok)}
+.shop-t{padding:.55rem 1rem 0;font-size:.78rem;color:var(--muted);line-height:1.6}
+.wares{display:grid;grid-template-columns:1fr 1fr;gap:0 1.3rem;padding:.35rem 1rem .7rem}
+.ware{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.2rem .5rem;padding:.45rem 0;border-bottom:1px dashed var(--line)}
+.ware b{font-size:.88rem;font-weight:500}
+.ware .own{font-size:.66rem;color:var(--ok);margin-left:.4rem}
+.ware .wt{grid-column:1/-1;font-size:.7rem;color:var(--faint);line-height:1.45}
+.price{display:inline-flex;align-items:center;gap:.25rem;font-family:var(--mono);font-size:.86rem;font-weight:600;color:var(--gold-ink);white-space:nowrap}
+.price svg{width:.82rem;height:.82rem}
+.price .back{font-style:normal;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:.64rem;font-weight:400;color:var(--faint);margin-left:.35rem}
+.delta{display:inline-flex;align-items:baseline;gap:.25rem;padding:.22rem .7rem;border-radius:999px;font-size:.78rem;white-space:nowrap}
+.delta b{font-family:var(--mono);font-size:.98rem}
+.delta.up{color:var(--ok);background:rgba(73,113,87,.11)}
+.delta.down{color:var(--danger);background:rgba(162,67,58,.09)}
+body.dark .delta.up{background:rgba(141,181,149,.12)}body.dark .delta.down{background:rgba(217,139,128,.11)}
+.turn .delta{margin-left:auto}
+.ledger{margin:1.1rem 1.5rem 0;display:grid;gap:.55rem}
+.lgr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.8rem;padding:.7rem .95rem;border-radius:.85rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.lgr b{font-size:.92rem}.lgr .lr{font-size:.76rem;color:var(--muted);line-height:1.55;margin-top:.1rem}
+.lgr .after{font-size:.68rem;color:var(--faint);text-align:right;margin-top:.25rem}
+.orows{margin:1rem 1.5rem 0;display:grid;gap:.55rem}
+.rstats.three{grid-template-columns:repeat(3,1fr)}
+.ty{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.8rem;align-items:start;padding:.75rem .95rem;border-radius:.85rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.ty.idle{opacity:.65}
+.ty b{font-size:.92rem}
+.ty .bag{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+.ty .sum{text-align:right;font-family:var(--mono);font-size:.76rem;line-height:1.5;white-space:nowrap}
+.ty .sum .out{color:var(--danger)}.ty .sum .in{color:var(--ok)}
+.ty .sum b{display:block;font-family:var(--serif);font-size:1.15rem;color:var(--gold-ink)}
+.ty .sum .sd{font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:.66rem;color:var(--faint)}
+.gift-what{margin:.9rem 1.75rem 0;text-align:center;font-family:var(--serif);font-size:1.2rem;font-weight:600;color:var(--gold-ink)}
+.box .chg svg{vertical-align:-.12rem;margin-right:.2rem}
 
+
+/* pacing */
+.ptracks{display:flex;flex-direction:column;gap:.75rem;margin:1.1rem 1.75rem 0}
+.ptk{padding:.8rem 1rem;border-radius:.8rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.ptk-h{display:flex;align-items:baseline;gap:.6rem}
+.ptk-h b{font-family:var(--serif);font-size:1rem}
+.ptk-h span{flex:1;min-width:0;font-size:.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptk-h em{font-style:normal;font-size:1.05rem;font-weight:600;color:var(--gold-ink)}
+.ptk-h em small{font-size:.72rem;color:var(--faint);font-weight:500}
+.ptk-bar{position:relative;height:.42rem;border-radius:999px;background:var(--line-strong);margin:.55rem 0 .4rem}
+.ptk-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background-image:var(--gold-grad)}
+.ptk-bar s{position:absolute;top:-.22rem;bottom:-.22rem;width:2px;margin-left:-1px;border-radius:2px;background:var(--text-2);opacity:.55}
+.ptk.due .ptk-bar i{background:linear-gradient(90deg,var(--gold-solid),#D9894E)}
+.ptk.over .ptk-bar i{background:linear-gradient(90deg,#D9894E,var(--danger))}
+.ptk.due .ptk-h em,.ptk.over .ptk-h em{color:#C0703A}
+.ptk.off{opacity:.6}
+.ptk-d{font-size:.72rem;color:var(--faint)}
+.paceband{display:flex;align-items:center;gap:.75rem;margin:.9rem 1.75rem 0;padding:.75rem 1rem;border-radius:.8rem;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--gold-line)}
+.paceband .pb-i{flex:none;width:1.9rem;height:1.9rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background-image:var(--gold-grad);color:var(--on-gold)}
+.paceband b{display:block;font-family:var(--serif);font-size:.95rem;color:var(--gold-ink)}
+.paceband span{font-size:.78rem;color:var(--text-2);line-height:1.6}
+.fate.closing{background:linear-gradient(90deg,var(--gold-soft),transparent 75%);border-radius:.7rem;box-shadow:inset 3px 0 0 var(--gold-solid)}
+.fate .fin{display:inline-flex;align-items:center;gap:.25rem;margin-right:.45rem;padding:.05rem .45rem;border-radius:.35rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;vertical-align:.12em;background-image:var(--gold-grad);color:var(--on-gold)}
+.fate .fin svg{width:.7rem;height:.7rem}
+.fin-note{color:var(--gold-ink)}
+.nextact{margin:1.1rem 1.75rem 0;padding:1.2rem 1.3rem;border-radius:.9rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--gold-line);text-align:center}
+.na-k{font-size:.74rem;letter-spacing:.2em;color:var(--faint)}
+.na-t{font-family:var(--serif);font-size:1.75rem;font-weight:600;letter-spacing:.06em;margin:.35rem 0 .2rem;color:var(--gold-ink)}
+.na-l{font-family:var(--serif);font-size:.92rem;line-height:1.75;color:var(--text-2)}
+.countdown{display:inline-flex;align-items:center;gap:.6rem;margin-top:.8rem;font-size:.78rem;color:var(--muted)}
+.cd-pips{display:inline-flex;gap:.3rem}
+.cd-pips i{width:.7rem;height:.7rem;border-radius:50%;background-image:var(--gold-grad)}
+.vmeter{display:flex;align-items:center;gap:.9rem;margin:1.1rem 1.75rem 0}
+.vm-cells{display:flex;gap:.3rem}
+.vm-cells i{width:1.7rem;height:.55rem;border-radius:999px;background:var(--line-strong)}
+.vm-cells i.on{background-image:var(--gold-grad)}
+.vm-cells i.need{box-shadow:0 0 0 2px var(--gold-line)}
+.vmeter .num{font-size:.8rem;color:var(--muted)}
+.vmeter .num b{font-size:1.15rem;color:var(--gold-ink)}
+.vgroups{display:flex;flex-direction:column;gap:.45rem;margin:.9rem 1.75rem 0}
+.vg{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+.vg-k{width:3.6rem;font-size:.74rem;letter-spacing:.12em;color:var(--faint)}
+.vg.yes .vg-k{color:var(--ok)}
+.vg.no .vg-k{color:var(--danger)}
+.vg-n{color:var(--faint);font-size:.8rem}
+.vp{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .6rem .15rem .2rem;border-radius:999px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);font-size:.8rem}
+.vp .ava{width:1.5rem;height:1.5rem;font-size:.72rem}
+.vp b{font-weight:500}
+.vp.dim{opacity:.6}
+.push{display:flex;align-items:center;gap:1rem;margin:1.1rem 1.75rem 0;padding:1.1rem 1.2rem;border-radius:.9rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.push-i{flex:none;width:2.8rem;height:2.8rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background-image:var(--gold-grad);color:var(--on-gold)}
+.push-i svg{width:1.3rem;height:1.3rem}
+.push-t{font-family:var(--serif);font-size:1.35rem;font-weight:600}
+.push-d{font-size:.8rem;color:var(--muted);margin-top:.2rem}
+.epis{display:flex;flex-direction:column;gap:.55rem;margin:1.1rem 1.75rem 0}
+.epi{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.8rem;align-items:start;padding:.8rem 1rem;border-radius:.85rem;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.epi b{font-size:.84rem}
+.epi p{font-family:var(--serif);font-size:.98rem;line-height:1.75;color:var(--text-2);margin-top:.15rem}
 """
 

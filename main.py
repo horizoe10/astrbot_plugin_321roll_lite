@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from pathlib import Path
 
 from astrbot.api import AstrBotConfig, logger
@@ -13,9 +14,12 @@ from .roll_lite import personas
 from .roll_lite.app import LiteApp
 from .roll_lite.commands import Attachment, Caller, conversation_origin, strip_command
 from .roll_lite.delivery import deliver
+from .roll_lite.plays import hosted
+from .roll_lite.rooms import build
 from .roll_lite.version import PLUGIN_NAME, PLUGIN_VERSION
 
 MAX_ATTACHMENT = 8 * 1024 * 1024
+BARE_LETTER = re.compile(r"[A-Da-dＡ-Ｄａ-ｄ]")
 
 
 class RollLitePlugin(Star):
@@ -127,13 +131,27 @@ class RollLitePlugin(Star):
                     await deliver(self.app, event.send, reply.messages, platform_name=str(event.get_platform_name() or ""),
                                   platform_id=caller.platform_id)
                 return
-        if not (woke or raw.startswith(("/", "／"))):
-            return
-        body = strip_command(raw)
-        if body is None:
-            return
+        bare = None
+        if raw and not raw.startswith(("/", "／")) and not event.get_group_id():
+            # A private reply to the open character build step: '6', '术士', '学识+1 魅力-1'.
+            caller = self._caller(event)
+            bare = build.bare_body(self.app, caller, raw)
+        if bare:
+            body = bare
+        elif not (woke or raw.startswith(("/", "／"))):
+            # Optional: the player whose turn it is may answer with the bare option letter.
+            if not (self.app.config.bare_letter_choice and event.get_group_id() and BARE_LETTER.fullmatch(raw)):
+                return
+            caller = self._caller(event)
+            if not hosted.awaits(self.app, caller):
+                return
+            body = "选 " + raw
+        else:
+            body = strip_command(raw)
+            if body is None:
+                return
+            caller = self._caller(event)
         event.stop_event()
-        caller = self._caller(event)
         platform_name = str(event.get_platform_name() or "")
         await self.app.notifier.carry(caller.umo, event.send, platform_name=platform_name, platform_id=caller.platform_id)
         reply = await self.app.router.dispatch(self.app, caller, body)

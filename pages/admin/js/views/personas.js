@@ -4,7 +4,7 @@ import { avatar, busy, empty, esc, figure, hero, icon, section, when } from "../
 const FLOW = [
   ["upload", "建卡", "玩家私聊 <code>/团 人设 导入</code> 发送酒馆角色卡，或 <code>/团 人设 新建 名字</code> 按模板手写；后台也能代建"],
   ["sparkle", "摘要", "设定超过 300 字时，AI 整理成一段摘要，主持故事的 AI 每轮只读这段"],
-  ["users", "入座", "选职业时写人设名 <code>/团 选职业 序号 名字</code>，或 <code>/团 人设 使用 名字</code>"],
+  ["users", "入座", "建卡时角色名写人设名，如 <code>/团 选职业 序号 名字</code>，或 <code>/团 人设 使用 名字</code>"],
   ["globe", "融入", "<code>/团 人设 融入</code> 让 AI 写一句这个人在本世界里的身份"],
 ];
 const SOURCES = { card: "酒馆角色卡", manual: "群里手写", webui: "后台创建" };

@@ -75,6 +75,7 @@ const ICONS = {
   home: P("M3.5 10.5 12 3.5l8.5 7V20a.5.5 0 0 1-.5.5h-5v-6h-6v6H4a.5.5 0 0 1-.5-.5z"),
   dice: P("M12 2.8 20.2 7.5v9L12 21.2 3.8 16.5v-9z") + P("M3.8 7.5 12 12.3l8.2-4.8M12 12.3v8.9"),
   compass: C(12, 12, 9) + P("m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z"),
+  coin: C(12, 12, 8.5) + P("M14.6 9.2c-.5-.8-1.5-1.2-2.6-1.2-1.5 0-2.6.8-2.6 1.9 0 2.6 5.4 1.4 5.4 4.1 0 1.1-1.2 2-2.8 2-1.2 0-2.2-.5-2.7-1.3M12 6.5V8m0 8v1.5"),
   book: P("M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zM5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7h6"),
   layers: P("M12 3.5 20.5 8 12 12.5 3.5 8zM3.5 12 12 16.5 20.5 12M3.5 16 12 20.5 20.5 16"),
   message: P("M4 5h16v11H10l-5 4v-4H4z") + P("M8 9.5h8M8 12.5h5"),
@@ -299,11 +300,12 @@ export function dcScale(rules) {
 // Play categories shared by the plays page and the overview.  tone picks the category colour.
 export const PLAY_GROUPS = [
   ["回合与协作", "每桌都会用到的基础玩法", ["playActions", "playCollaboration"], "c1"],
+  ["建卡", "AI 按世界规则起草角色卡，玩家再改", ["playAiBuild"], "c1"],
   ["调查与社交", "找线索、对证词、谈条件、拉关系", ["playInvestigation", "playTestimony", "playNegotiation", "playRelations"], "c2"],
   ["时间与经营", "让世界时间流动，推进长期目标", ["playCalendar", "playProjects"], "c3"],
   ["对抗", "一对一或多人的较量", ["playConflict", "playChase", "playDebate"], "c4"],
   ["计划与命运", "规划、求签、问神谕，改变角色与结局", ["playPlans", "playOracle", "playFortune", "playTransformation", "playBranchEndings"], "c5"],
-  ["群聊小玩法", "团外也能玩，不影响故事里的任何结算", ["funDaily", "funDice", "funLuck", "funReport", "funQuotes", "funSchedule", "funRelay", "funSoup"], "c6"],
+  ["群聊小玩法", "团外也能玩，不影响故事里的任何结算", ["funDaily", "funDice", "funLuck", "funReport", "funQuotes", "funSchedule", "funRelay", "funSoup", "funAdventure"], "c6"],
 ];
 export const playTone = (key) => (PLAY_GROUPS.find((g) => g[2].includes(key)) || [, , , ""])[3];
 
