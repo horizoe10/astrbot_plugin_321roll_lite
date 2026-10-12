@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..engine import HOST_CONTEXT_LIMIT
 from ..storage import dumps, loads, now
 from ..version import WORLD_FORMAT
 
@@ -191,7 +192,6 @@ def digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(dumps(value).encode("utf-8")).hexdigest()
 
 
-HOST_CONTEXT_LIMIT = 6000
 HIDDEN = "隐藏设定，不可直接透露"
 
 
