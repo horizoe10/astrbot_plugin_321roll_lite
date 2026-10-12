@@ -41,6 +41,25 @@
       "preview": "previews/greycrown-prequel-core-0.7-C3.webp"
     },
     {
+      "id": "greycrown-prequel",
+      "revision": 3,
+      "edition": "pro",
+      "title": "灰冠之下：祖约 · 冠落纪 236 年，赤髓煤脉现世",
+      "summary": "春汛退去的第三天，石环山门前挤满了人。正午的钟声从山脚传上来，赫铎长老把告示最后一个角按平，手背的烫疤蹭上了浆糊。",
+      "cover": {
+        "mark": "冠",
+        "tone": "slate"
+      },
+      "images": 16,
+      "min_plugin": "0.7.0",
+      "file": "packs/greycrown-prequel-0.7-P3.zip",
+      "size": 2909549,
+      "sha256": "fe355726f73882c9727e8d95e18c74d725d18adb9570c89f7efc479f49bd929b",
+      "content_digest": "0994d8c6186dbf24b5ee6926c76ac6cdcf13db1f24ce29e89382cc627cfd05c9",
+      "immersive": true,
+      "preview": "previews/greycrown-prequel-0.7-P3.webp"
+    },
+    {
       "id": "neon-pawnshop-core",
       "revision": 2,
       "edition": "core",
