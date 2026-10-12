@@ -4,13 +4,12 @@
 
 | 世界 | 版本 | 安装包 |
 |---|---|---|
-| 封箱戏（核心版） · 第七夜，台下多出一排看客 | C1 | [final-curtain-core-C1.zip](packs/final-curtain-core-C1.zip) |
-| 灰冠之下：祖约（核心版） · 冠落纪 236 年，赤髓煤脉现世 | C1 | [greycrown-prequel-core-C1.zip](packs/greycrown-prequel-core-C1.zip) |
-| 无名剑冢（核心版） · 第一道潮痕，是用剑刻的 | C1 | [nameless-sword-tomb-core-C1.zip](packs/nameless-sword-tomb-core-C1.zip) |
-| 霓虹典当行（核心版） · 今夜有人当掉了整座城的昨天 | C1 | [neon-pawnshop-core-C1.zip](packs/neon-pawnshop-core-C1.zip) |
-| 第七个不思议（核心版） · 钟楼在放学后多敲了一下 | C1 | [seventh-mystery-core-C1.zip](packs/seventh-mystery-core-C1.zip) |
-| 狩火（核心版） · 群兽迁徙之年 | C1 | [wildfire-hunt-core-C1.zip](packs/wildfire-hunt-core-C1.zip) |
-| 花信风：四时有信（核心版） · 九月相逢，来年盛夏 | C1 | [chenglan-academy-core-C1.zip](packs/lite-0.6.0/chenglan-academy-core-C1.zip) |
+| 封箱戏（核心版） · 第七夜，台下多出一排看客 | C2 | [final-curtain-core-0.7-C2.zip](packs/final-curtain-core-0.7-C2.zip) |
+| 灰冠之下：祖约（核心版） · 冠落纪 236 年，赤髓煤脉现世 | C3 | [greycrown-prequel-core-0.7-C3.zip](packs/greycrown-prequel-core-0.7-C3.zip) |
+| 霓虹典当行（核心版） · 今夜有人当掉了整座城的昨天 | C2 | [neon-pawnshop-core-0.7-C2.zip](packs/neon-pawnshop-core-0.7-C2.zip) |
+| 第七个不思议（核心版） · 钟楼在放学后多敲了一下 | C2 | [seventh-mystery-core-0.7-C2.zip](packs/seventh-mystery-core-0.7-C2.zip) |
+| 狩火（核心版） · 群兽迁徙之年 | C2 | [wildfire-hunt-core-0.7-C2.zip](packs/wildfire-hunt-core-0.7-C2.zip) |
+| 花信风：四时有信（核心版） · 九月相逢，来年盛夏 | C2 | [chenglan-academy-core-0.7-C2.zip](packs/chenglan-academy-core-0.7-C2.zip) |
 
 ## 版本档
 
@@ -22,15 +21,17 @@
 | **Pro** | 专业版 | 世界包 | 更完整的世界观、人物和剧情设定 | 支持（天气与氛围音等效果在 Lite 中不显示，其余照常可玩） |
 | **Max** | 旗舰版 | 世界模组 | 完整的世界体系，支持更丰富的规则与交互 | 不支持，需要 321Roll 全量版 |
 
-本分支默认提供核心版，以后也可能投放部分专业版。原有六个核心版默认的叙事风格为"奔放"，开团后主持人可以随时查看、修改或清除。
+本分支默认提供核心版，以后也可能投放部分专业版。官方核心版默认的叙事风格为"奔放"（花信风为"灵动"），开团后主持人可以随时查看、修改或清除。
 
-《花信风：四时有信》默认灵动，保留人物与世界设定，开篇后自由续写；C1 包含 28 张基准场景图，最低 Lite 0.6.0。含十二个月日历、可选素材、后日谈与 163 张场景图的 [P1 专业版](https://github.com/horizoe10/321Roll/tree/worlds-pro) 在专业版市场，最低 Lite 0.6.0。
+2026-10-12 起，五个官方核心版更新为 C2（灰冠为 C3），按 Lite 0.7 的建卡规则重做了职业、技能、道具与建卡，补充了场景和插画，最低 Lite 0.7.0；旧插件会提示先升级。《无名剑冢》核心版已从本分支撤下，已经安装的照常可用。
+
+《花信风：四时有信》默认灵动，保留人物与世界设定，开篇后自由续写；C2 重做了建卡，包含 28 张基准场景图，最低 Lite 0.7.0。含十二个月日历、可选素材、后日谈与 163 张场景图的 [P2 专业版](https://github.com/horizoe10/321Roll/tree/worlds-pro) 在专业版市场，最低 Lite 0.7.0。
 
 原先的 r1 世界包已从本分支撤下；已经安装的照常可用。
 
 ## 安装包内容
 
-每个世界一个 zip，文件名带版本（如 `-C1`）。更新世界时提升修订号并新增文件，已发布的文件不再修改，所以 `index.json` 里的 sha256 始终有效。
+每个世界一个 zip，文件名带最低 Lite 小版本和版本档（如 `-0.7-C2`）。更新世界时提升修订号并新增文件，已发布的文件不再修改，所以 `index.json` 里的 sha256 始终有效。
 
 | 文件 | 内容 |
 |---|---|
@@ -52,4 +53,4 @@
 
 本分支的世界安装包与预览图以 [CC BY-NC-ND 4.0](LICENSE) 发布：可以署名转载和分享，不可商用，不可改编后发布。
 
-花信风 C1／P1 的最低 Lite 版本统一为 0.6.0。索引指向 `packs/lite-0.6.0/` 下的新包；版本号、剧情和图片保持，旧路径仅保留历史归档。
+旧版本的安装包（各世界的 C1，以及 `packs/lite-0.6.0/` 下的花信风 C1）仅作历史归档保留，索引已指向新版本。

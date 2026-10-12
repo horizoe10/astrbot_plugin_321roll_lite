@@ -4,7 +4,7 @@
   "worlds": [
     {
       "id": "final-curtain-core",
-      "revision": 1,
+      "revision": 2,
       "edition": "core",
       "title": "封箱戏（核心版） · 第七夜，台下多出一排看客",
       "summary": "“封箱前不唱《夜奔》，后台镜子盖红布，散场给老郎神留一盏灯。”",
@@ -12,18 +12,18 @@
         "mark": "戏",
         "tone": "wine"
       },
-      "images": 5,
-      "min_plugin": "0.1.0",
-      "file": "packs/final-curtain-core-C1.zip",
-      "size": 798375,
-      "sha256": "56c1e5527b2c69681df4b8014cf20323685d9cace0c502b4ba2a54fcd4c9e73d",
-      "content_digest": "bcd274e57a8e42fccc51df7d93c4b387408bcdef40d2837a35a56ce6a17cd0eb",
+      "images": 7,
+      "min_plugin": "0.7.0",
+      "file": "packs/final-curtain-core-0.7-C2.zip",
+      "size": 1099503,
+      "sha256": "14aba1b1c00e23e880b27019e0ab30f77e59bc0950d8409811b4b2210ced48dd",
+      "content_digest": "cabf30851187411cf6b61ba99598bd8158db007313b6fb478708750a91e36f69",
       "immersive": true,
-      "preview": "previews/final-curtain-core-C1.webp"
+      "preview": "previews/final-curtain-core-0.7-C2.webp"
     },
     {
       "id": "greycrown-prequel-core",
-      "revision": 1,
+      "revision": 3,
       "edition": "core",
       "title": "灰冠之下：祖约（核心版） · 冠落纪 236 年，赤髓煤脉现世",
       "summary": "春汛退去的第三天，石环山门前挤满了人。正午的钟声从山脚传上来，赫铎长老把告示最后一个角按平，手背的烫疤蹭上了浆糊。",
@@ -31,37 +31,18 @@
         "mark": "冠",
         "tone": "slate"
       },
-      "images": 5,
-      "min_plugin": "0.1.0",
-      "file": "packs/greycrown-prequel-core-C1.zip",
-      "size": 1047159,
-      "sha256": "d8c0a88728b6b549fabd6d28e417f1c6784a8ef683a88c0d49e53eb7f1d54548",
-      "content_digest": "7b55062ba87849a3c50815a4b9d79482e2ab888d610e24988bc98e7862333ce4",
-      "immersive": true,
-      "preview": "previews/greycrown-prequel-core-C1.webp"
-    },
-    {
-      "id": "nameless-sword-tomb-core",
-      "revision": 1,
-      "edition": "core",
-      "title": "无名剑冢（核心版） · 第一道潮痕，是用剑刻的",
-      "summary": "霜降前夜，客栈的酒温了两遍，靠门那杯没人碰。",
-      "cover": {
-        "mark": "剑",
-        "tone": "jade"
-      },
       "images": 4,
-      "min_plugin": "0.1.0",
-      "file": "packs/nameless-sword-tomb-core-C1.zip",
-      "size": 708559,
-      "sha256": "80e09bcbd3daadcacac790c6396f7af2cbd7f1fc00037ea7bab57c790d893aec",
-      "content_digest": "ad9084ecf7d9be0f0a21d085ef95d02ccf4e939045ca1bfe9109040d954bc2fc",
+      "min_plugin": "0.7.0",
+      "file": "packs/greycrown-prequel-core-0.7-C3.zip",
+      "size": 848737,
+      "sha256": "506bf84cddbbf8bb2b9d3ede837b576e51f48bb76f92714141ba1c545f7ed4a0",
+      "content_digest": "58623b5a5743e03e26af1a7b5bea0704ff5ec9685179a51a07a4673cc44796c5",
       "immersive": true,
-      "preview": "previews/nameless-sword-tomb-core-C1.webp"
+      "preview": "previews/greycrown-prequel-core-0.7-C3.webp"
     },
     {
       "id": "neon-pawnshop-core",
-      "revision": 1,
+      "revision": 2,
       "edition": "core",
       "title": "霓虹典当行（核心版） · 今夜有人当掉了整座城的昨天",
       "summary": "“先别用手碰。”梅婆用账簿垫起滚烫的芯片。收银机的抽屉自己弹开，里面的当票烤卷了角。",
@@ -69,18 +50,18 @@
         "mark": "当",
         "tone": "neon"
       },
-      "images": 2,
-      "min_plugin": "0.1.0",
-      "file": "packs/neon-pawnshop-core-C1.zip",
-      "size": 380921,
-      "sha256": "60c030ca8523384b2f35402a72c3a0d0896c7a16bf37e09ca2962eca62f79cd7",
-      "content_digest": "3ea901754a16c5d5402ac76171677742c06bff99783d3da9e68f46b6b6ea48ad",
+      "images": 6,
+      "min_plugin": "0.7.0",
+      "file": "packs/neon-pawnshop-core-0.7-C2.zip",
+      "size": 1108839,
+      "sha256": "63f722cfda764d9c4977ff7aa794e959a9971d08e8909fedfedaff8b4f0af4fe",
+      "content_digest": "28b0c3db65c18087937b629f8f6a1f289bd7fae1bb476caa474bd41f8fffb788",
       "immersive": true,
-      "preview": "previews/neon-pawnshop-core-C1.webp"
+      "preview": "previews/neon-pawnshop-core-0.7-C2.webp"
     },
     {
       "id": "seventh-mystery-core",
-      "revision": 1,
+      "revision": 2,
       "edition": "core",
       "title": "第七个不思议（核心版） · 钟楼在放学后多敲了一下",
       "summary": "“五点四十。你们也是这个时候？”旧校舍门口，苏清荷看着你们的便签。相同的字迹，背面七个圆圈，前六个涂黑，最后一个空着。",
@@ -88,18 +69,18 @@
         "mark": "七",
         "tone": "ink"
       },
-      "images": 2,
-      "min_plugin": "0.1.0",
-      "file": "packs/seventh-mystery-core-C1.zip",
-      "size": 211117,
-      "sha256": "a750d611da0eeb3435565b3d3ad5642a471ab83d0a1d8ba49bebb174fad93c23",
-      "content_digest": "3c4e1fe81737b1c072dae71ce3ed21e8100ff97b92a90c60e35b472802bf5d74",
+      "images": 9,
+      "min_plugin": "0.7.0",
+      "file": "packs/seventh-mystery-core-0.7-C2.zip",
+      "size": 971351,
+      "sha256": "d601c7abbbc8ea0790f55656d76520583421b4a1f535af62680f65878c05adf9",
+      "content_digest": "dc79d80f7810416918871cbd7c73a1c250b27496df95076b258fb44dcdfc2706",
       "immersive": true,
-      "preview": "previews/seventh-mystery-core-C1.webp"
+      "preview": "previews/seventh-mystery-core-0.7-C2.webp"
     },
     {
       "id": "wildfire-hunt-core",
-      "revision": 1,
+      "revision": 2,
       "edition": "core",
       "title": "狩火（核心版） · 群兽迁徙之年",
       "summary": "警钟响了三声：长、短、长。大型兽，向镇。",
@@ -107,18 +88,18 @@
         "mark": "狩",
         "tone": "ember"
       },
-      "images": 4,
-      "min_plugin": "0.1.0",
-      "file": "packs/wildfire-hunt-core-C1.zip",
-      "size": 702031,
-      "sha256": "97b8d56a931aaba9f7cb3485078a234ff2e369679881d7fa15dc0e9a32bb2476",
-      "content_digest": "03f2f02c8dcaebe505333dc73d754f60d9220754122fb27e6db2769a3b410296",
+      "images": 8,
+      "min_plugin": "0.7.0",
+      "file": "packs/wildfire-hunt-core-0.7-C2.zip",
+      "size": 1467325,
+      "sha256": "87fff7c2feeabee5e875de6163bfb7d1692565733fc5a4f348f4a5d9fcaf69e5",
+      "content_digest": "03aa8908827d999d30eba93339b7728ffe7d0326b19abe56f1752ca1eb9ff772",
       "immersive": true,
-      "preview": "previews/wildfire-hunt-core-C1.webp"
+      "preview": "previews/wildfire-hunt-core-0.7-C2.webp"
     },
     {
       "id": "chenglan-academy-core",
-      "revision": 1,
+      "revision": 2,
       "edition": "core",
       "title": "花信风：四时有信（核心版） · 九月相逢，来年盛夏",
       "summary": "九月的早高峰，小区门口的早餐店正在出第二笼包子。你低头核对新学校的路线，书包侧袋忽然被塞进一盒温热的豆浆。",
@@ -127,13 +108,13 @@
         "tone": "jade"
       },
       "images": 28,
-      "min_plugin": "0.6.0",
-      "file": "packs/lite-0.6.0/chenglan-academy-core-C1.zip",
-      "size": 4950597,
-      "sha256": "46203847c701c4c7263d8724b4dbdaaf626fa6c842a6ebab2c57b8b35e04dab8",
-      "content_digest": "46f46bbb6deaedebfe2391f97c307eef9977bb85e8f1e284f9d55a02281f01c4",
+      "min_plugin": "0.7.0",
+      "file": "packs/chenglan-academy-core-0.7-C2.zip",
+      "size": 4950625,
+      "sha256": "62800b44e45dbee81a4a01bb1a5dc6ffd4d06d9cefdf3d1af73f38623c7edf4e",
+      "content_digest": "13012fced2f0f3865ec854588141b71c9c74e3340952b65e926a045e21050be9",
       "immersive": false,
-      "preview": "previews/chenglan-academy-core-C1.webp"
+      "preview": "previews/chenglan-academy-core-0.7-C2.webp"
     }
   ]
 }
