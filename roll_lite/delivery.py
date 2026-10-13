@@ -234,7 +234,9 @@ def card_banner(app: "LiteApp", entry: Any, key: str) -> str:
     from PIL import Image
     from .worlds import market
     folder = market.asset_root(app, entry.id) / str(entry.origin.get("folder") or "") / "card-cache"
-    target = folder / (hashlib.sha256(f"banner-v2:{key}".encode()).hexdigest() + ".jpg")
+    # A launcher install can leave under 64 characters before Windows MAX_PATH.
+    # 96-bit cache keys stay compact; the parent directory already isolates world revisions.
+    target = folder / (hashlib.sha256(f"banner-v2:{key}".encode()).hexdigest()[:24] + ".jpg")
     if not target.is_file():
         raw = base64.b64decode(market.image(app, entry, key)["url"].split(",", 1)[1])
         with Image.open(io.BytesIO(raw)) as source:
@@ -303,7 +305,8 @@ def scene_file(app: "LiteApp", art: dict[str, str]) -> str:
     if entry is None or not entry.origin:
         return ""
     cache = market.asset_root(app, entry.id) / entry.origin["folder"] / "scene-cache"
-    name = hashlib.sha256(art["key"].encode()).hexdigest() + ".jpg"
+    # Keep the path short enough for both local writes and adapter reads on Windows.
+    name = hashlib.sha256(art["key"].encode()).hexdigest()[:24] + ".jpg"
     target = cache / name
     if not target.is_file():
         data = base64.b64decode(market.image(app, entry, art["key"])["url"].split(",", 1)[1])
