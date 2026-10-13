@@ -1,14 +1,13 @@
 """Flashbacks and bonds: two plays that tie the characters to their past and to each other.
 
 闪回  /团 闪回 [资源名] 回忆     once per act a player pays 1 point of a resource to write a past moment
-                                 into the story; the next narration makes it true and the character's next
-                                 check gets FLASHBACK_BONUS.
+                                 into the story after review; a relevant check gets FLASHBACK_BONUS.
 羁绊  /团 羁绊 角色名 关系       a bond between two characters, live once the other player agrees; the
                                  narration keeps it in mind, aid between bonded characters gets BOND_AID_BONUS,
                                  and the ending shows the map of every bond.
 
-Like the banter plays neither takes a turn or calls the model on its own: what they leave waits in the
-room's 'ties' data and reaches the model with the next narration (banter.story_notes calls story_lines).
+Flashbacks are reviewed before payment and checked for relevance before a roll.
+Bonds remain player-confirmed. Neither play spends the current action turn.
 """
 from __future__ import annotations
 
@@ -85,9 +84,14 @@ def story_lines(room: sqlite3.Row, mark: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     flashbacks = value.get("flashbacks") or []
     if flashbacks:
-        lines.append("闪回（玩家花了资源补写的过去，平台已经认可）：在正文里用一两句回忆把它写成真，"
-                     "不推翻已经发生的事；和已知事实冲突时写成部分成真或另有隐情："
-                     + "；".join(f"{f['actor']}——“{f['text']}”" for f in flashbacks))
+        approved = [f for f in flashbacks if f.get('reviewed')]
+        if approved:
+            lines.append("闪回（已经审查成立的本人准备）：在正文中自然带出，不扩写为他人的承诺、权限或新的交易。"
+                         + "；".join(f"{f['actor']}——“{f['text']}”" for f in approved))
+        pending = [f for f in flashbacks if not f.get('reviewed')]
+        if pending:
+            lines.append("旧存档的待审查闪回不是已确认事实，不得据此创造承诺或权限："
+                         + "；".join(f"{f['actor']}——“{f['text']}”" for f in pending))
         mark["flashbacks"] = [f["n"] for f in flashbacks]
     bonds = active_bonds(room)
     if bonds:
@@ -116,6 +120,51 @@ def consume(c: sqlite3.Connection, room_id: str, mark: dict[str, Any]) -> None:
 def flashback_bonus(actor: sqlite3.Row) -> dict[str, Any] | None:
     """The flashback still waiting for this actor's next check."""
     return loads(actor["data_json"], {}).get("flashback_bonus")
+
+
+async def review(app, room, actor, text, action=''):
+    from . import hosted
+    from ..engine.gateway import EngineCallFailed
+    with app.store.read() as c:
+        context = hosted.build_context(c, room, actor, action or '审查本人提出的闪回准备', None)
+    context['flashback'] = {'text': text, 'action': action}
+    try:
+        answer = await app.engine.call('review_flashback', {'context': context}, room_id=room['id'],
+                                       umo=room['umo'], rules=shared.rules(room))
+    except EngineCallFailed as exc:
+        raise UserError('闪回暂时无法判定，本次没有扣资源或掷骰，请稍后重试。') from exc
+    return answer['proposal']
+
+
+async def review_for_check(app, room, actor, action, intent):
+    pending = flashback_bonus(actor)
+    if intent['kind'] != 'check' or pending is None:
+        return None
+    return {'pending': pending, 'decision': await review(app, room, actor, pending['text'], action)}
+
+
+def checked_bonus(app, c, room, actor, assessment):
+    """Decide the bonus at the same boundary that will commit the dice."""
+    if assessment is None:
+        return None, ''
+    pending = flashback_bonus(actor)
+    if pending != assessment['pending']:
+        raise UserError('闪回准备已变化，请重新提交本次行动。')
+    decision = assessment['decision']
+    if decision['accepted'] and decision['relevant']:
+        return {'text': pending['text'], 'bonus': FLASHBACK_BONUS}, ''
+    if decision['accepted']:
+        return None, '这段准备与本次行动无关，加值保留。'
+    own = _actor_data(c, actor['id'])
+    own.pop('flashback_bonus', None)
+    _set_actor_data(c, actor['id'], own)
+    _, value = _load(c, room['id'])
+    value['flashbacks'] = [f for f in value.get('flashbacks', [])
+                          if not (f['actor_id'] == actor['id'] and f['text'] == pending['text'])]
+    _save(c, room['id'], value)
+    note = '这段回忆不成立，已取消加值：' + decision['reason']
+    app.store.add_event(c, room['id'], 'system', note, actor_id=actor['id'])
+    return None, note
 
 
 def spend(c: sqlite3.Connection, actor_id: str, receipt: dict[str, Any]) -> None:
@@ -160,7 +209,7 @@ def _flashback_left(room: sqlite3.Row, actor: sqlite3.Row) -> str:
     used = own.get("flashback_act") == room["act"]
     line = "这一幕你已经闪回过了，下一幕再来。" if used else "这一幕你还能闪回一次。"
     if waiting:
-        line += f"上次闪回的“{waiting['text'][:20]}”还在等你下一次检定兑现 +{waiting['bonus']}。"
+        line += f"上次闪回的“{waiting['text'][:20]}”还在等你下一次相关检定兑现 +{waiting['bonus']}。"
     return line
 
 
@@ -173,27 +222,38 @@ async def flashback(app: "LiteApp", caller: Caller, args: str) -> Reply:
         return Reply().say(messages.flashback_guide(_flashback_left(room, actor)))
     if actor["presence"] != "present" or not actor["archetype_id"]:
         raise UserError("建好卡、在场的角色才能闪回。")
-    if loads(actor["data_json"], {}).get("flashback_act") == room["act"]:
-        raise UserError("这一幕你已经闪回过了，下一幕再来。")
-    ref, name, text = _resource(room, loadout.state(actor), text)
-    text = text.strip("“”\"'「」").strip()
-    if not 4 <= len(text) <= FLASHBACK_LIMIT:
-        raise UserError(f"写一段 4–{FLASHBACK_LIMIT} 字的回忆，例如 {messages.cmd('/团 闪回 我早就把备用钥匙藏在戏箱里')}。")
-    label = shared.actor_label(actor)
-    with app.store.tx() as c:
-        actor = c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone()
-        doc = loadout.state(actor)
-        slot = doc["resources"][ref]
-        slot["current"] -= FLASHBACK_COST
-        loadout.save(c, actor["id"], doc)
-        own = _actor_data(c, actor["id"])
-        own.update(flashback_act=room["act"], flashback_bonus={"text": text, "bonus": FLASHBACK_BONUS})
-        _set_actor_data(c, actor["id"], own)
-        room, value = _load(c, room["id"])
-        value.setdefault("flashbacks", []).append({"n": _next(value), "actor_id": actor["id"], "actor": label, "text": text,
-                                                   "act": room["act"], "at": now()})
-        _save(c, room["id"], value)
-        app.store.add_event(c, room["id"], "system", f"{label} 闪回：{text}", actor_id=actor["id"])
+    async with app.lock(room['id']):
+        room = _running(app, caller, '闪回')
+        actor = shared.require_actor(app, caller, room)
+        if loads(actor['data_json'], {}).get('flashback_act') == room['act']:
+            raise UserError('这一幕你已经闪回过了，下一幕再来。')
+        if flashback_bonus(actor):
+            raise UserError('已有一段准备等待相关检定，先兑现后再补写新的闪回。')
+        ref, name, text = _resource(room, loadout.state(actor), text)
+        text = text.strip("“”\"'「」").strip()
+        if not 4 <= len(text) <= FLASHBACK_LIMIT:
+            raise UserError(f"写一段 4–{FLASHBACK_LIMIT} 字的回忆，例如 {messages.cmd('/团 闪回 我早就把备用钥匙藏在戏箱里')}。")
+        decision = await review(app, room, actor, text)
+        if not decision['accepted']:
+            return Reply().say(messages.notice('闪回未成立', decision['reason'], '没有扣资源，也没有占用本幕次数。'))
+        label = shared.actor_label(actor)
+        with app.store.tx() as c:
+            fresh_room = c.execute('SELECT * FROM rooms WHERE id=?', (room['id'],)).fetchone()
+            fresh = c.execute('SELECT * FROM actors WHERE id=?', (actor['id'],)).fetchone()
+            if fresh_room['revision'] != room['revision'] or fresh['revision'] != actor['revision']:
+                raise UserError('团桌或角色刚刚发生变化，闪回未扣资源，请重新提交。')
+            doc = loadout.state(fresh)
+            slot = doc['resources'][ref]
+            slot['current'] -= FLASHBACK_COST
+            loadout.save(c, actor['id'], doc)
+            own = _actor_data(c, actor['id'])
+            own.update(flashback_act=room['act'], flashback_bonus={'text': text, 'bonus': FLASHBACK_BONUS, 'reviewed': True})
+            _set_actor_data(c, actor['id'], own)
+            room, value = _load(c, room['id'])
+            value.setdefault('flashbacks', []).append({'n': _next(value), 'actor_id': actor['id'], 'actor': label,
+                'text': text, 'act': room['act'], 'at': now(), 'reviewed': True})
+            _save(c, room['id'], value)
+            app.store.add_event(c, room['id'], 'system', f'{label} 闪回准备成立：{text}', actor_id=actor['id'])
     return Reply().say(messages.flashback_told(label, text, name, -FLASHBACK_COST, slot["current"],
                                                slot.get("max", slot["current"]), FLASHBACK_BONUS))
 
@@ -301,7 +361,7 @@ def _break(app: "LiteApp", caller: Caller, room: sqlite3.Row, me: sqlite3.Row, w
 
 def install(app: "LiteApp") -> None:
     r = app.router
-    r.register("闪回", flashback, summary="花 1 点资源补写一段过去：下一段正文写成真，下次检定 +2，每幕一次",
+    r.register("闪回", flashback, summary="审查本人过去的准备，成立后花 1 点资源，相关检定 +2，每幕一次",
                usage="/团 闪回 [资源名] <回忆>｜/团 闪回", topic="互动", private="room")
     r.register("羁绊", bond, summary="和同伴结下关系：对方同意后生效，正文会记得，互相援手 +3，终章画关系图",
                usage="/团 羁绊 <角色名> <关系>｜/团 羁绊 同意｜/团 羁绊 拒绝｜/团 羁绊 解除 <角色名>｜/团 羁绊",

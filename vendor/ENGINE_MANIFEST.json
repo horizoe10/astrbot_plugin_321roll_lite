@@ -1,8 +1,8 @@
 {
   "engine": "party321-story-engine",
-  "version": "1.0.0rc30",
+  "version": "1.0.0rc32",
   "profile": "lite",
-  "file_count": 41,
+  "file_count": 42,
   "files": {
     "__init__.py": "sha256:6a923e3c1c4170b06e89d5ba1ffe8c2e65f625dd491320499f235ac00ef2a322",
     "action_references.py": "sha256:234cf46504c28580f589f8a9dced62c096a9397b2e262df2fdd51957411295d3",
@@ -17,12 +17,13 @@
     "contracts/events.py": "sha256:f67d07151fbd4774e5b7d4daf4c462e7b8ac4f9baba2a58efdf31da6d97589ff",
     "contracts/port.py": "sha256:b3ee50ffc23cb74325e02a5172d9ce5d719504fd4cc46d75bc5ffcb2d4133130",
     "contracts/proposals.py": "sha256:6e4f201013e6e65c2af3bd59d22ad32ceb9d152561062a4e763aeaa501956d4f",
-    "custom_plays.py": "sha256:28d953c40d5e7a5f3352c3810d44e3a1e5fde4c7c71f256ec775a199dc8fc0e8",
+    "custom_plays.py": "sha256:690f0948b576851f7dabefa868ddd8ed1bb93aa9e057aa349af2d2a4fd3dc850",
     "default_rules.py": "sha256:dd66a51ac0bf4f48f2ec263ac6b6e8a7e4b15b28645e2bef45c05a4f2eb469ff",
     "hosted_decisions.py": "sha256:56e814d33b0cdc0768363c4a19b82e75cdbbc42731bf5b6938339a9b8721a986",
-    "hosted_ledger.py": "sha256:16dd3234d6585ba1e425c9f618bc394344408eea1748df2fdbfb4b6018a66828",
+    "hosted_ledger.py": "sha256:444d339ac16f4dab32ada03460431eb8524b8a1ea5a3f3e2870135591bc839a0",
     "hosted_narrative_policy.py": "sha256:2dd357b39ad0026872a83c9ca61a763809e5aa85b740ae3d09ccfab1e41c41a7",
-    "hosted_turn.py": "sha256:f1049c021a075a4bc634a3bd07f69c37d4b8e0b72642c95c07dd206c2a225ee4",
+    "hosted_state.py": "sha256:ce19c6b844ccc365a84d0c3f468046eddbb6ebed7f2ff336ae432cb0d1f483e4",
+    "hosted_turn.py": "sha256:350ea31f01bcc8d5696ac7c33c6badc26c99c5427ace9cf68311a52c5b57dee2",
     "lite_profile.py": "sha256:f37cb7cd18b59538e8ee508bb8662cac240d8b92042bf5fbd1be31b043118798",
     "luck_action_bindings.py": "sha256:6aaecc4976fd91c6a193c3c339da170e3ac8ec5066fbd4e14e0bbce3e43a663d",
     "luck_intervention.py": "sha256:2fbcd8d48ce6bd2054d247f6a27497c806c2571db0650e90d3376ddf6ab162ef",
@@ -43,7 +44,7 @@
     "static_visual.py": "sha256:d7cdc98cbb347faca1620c5b0b76103b3c1299a998cbb9d358e12e76b4e2c00c",
     "timeout_ranking.py": "sha256:80167a4cc21ba3c703e54237f0c76c8b37bb9526500b3fe65279d2a658b744ce",
     "turn_interaction.py": "sha256:531fefc583b31e7c1eceea46b6b634f5d1248c13bbc4af1c4ec64bde7dd54037",
-    "versions.py": "sha256:7718878cccd8896fafc16cf1a6fcb801f90b96466c52b8abe5cb7c4e183bc864",
+    "versions.py": "sha256:0d3fbd0be90e8ef88523bc51e92d68d57a859a4b06d55a97e33d93a8106a19b1",
     "world_rules.py": "sha256:5047af253b1a6b3cd3b1341d5ac77271a170a44fb49b0b127ddb2faa8eef97f9"
   }
 }

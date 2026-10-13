@@ -132,10 +132,13 @@ def contract_instruction(contract: str, rules: dict[str, Any] | None = None, omi
     if contract.startswith("se-hosted-narrative-model-output/"):
         text += ("\n先输出 paragraphs，再输出其他字段。facts.subject_ref 只能是 scene、goal、输入 npcs 的 npc_ref，"
                  "或本次 npcs 同时声明的新 npc_ref（npc. 后接字母数字、下划线、点或连字符）。"
-                 "\nprogress 必须同时写出 scene 和 goal 两个键，没有变化时写 {\"scene\":null,\"goal\":null}。"
+                 "\nprogress 必须写出本次Schema列出的全部键；scene与goal没有变化时填null，clock遵守时间同步要求。"
                  "facts 每项只写 kind、subject_ref、text；npcs 每项只写 npc_ref、name、description、motivation；"
                  "没有新事实或新人物时写空列表 []。")
         text += HOSTING_RULES
+        if contract == 'se-hosted-narrative-model-output/1.10.0':
+            text += ('\n本次progress有scene、goal、clock三个键；clock按已发生的行动更新，公开正文不能为null。'
+                     '商店询价使用输入目录的真实价格；购买或出售只等候平台整备结算，不自行完成或记入ledger。')
     if contract.startswith("se-brief-start-model-output/"):
         text += ("\nnpcs 每项只写 name、description、motivation；characters 每项只写 member_ref、display_name、"
                  "description、template_ref，member_ref 原样取自输入。")

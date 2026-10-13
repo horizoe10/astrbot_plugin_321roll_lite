@@ -250,6 +250,17 @@ _HOSTED_NARRATIVE_1_9_SCHEMA = deepcopy(_HOSTED_NARRATIVE_1_6_SCHEMA)
 _HOSTED_NARRATIVE_1_9_SCHEMA['properties']['ledger'] = _LEDGER_SCHEMA
 _HOSTED_NARRATIVE_1_9_SCHEMA['required'].append('ledger')
 
+TABLE_STATE_MODEL_CONTRACT = 'se-hosted-narrative-model-output/1.10.0'
+FLASHBACK_MODEL_CONTRACT = 'se-hosted-flashback-model-output/1.0.0'
+_CLOCK_SCHEMA = _closed_object({'day': {'type':'integer','minimum':1,'maximum':1000000},
+                              'slot': {'type':'integer','minimum':0,'maximum':3}})
+_HOSTED_NARRATIVE_1_10_SCHEMA = deepcopy(_HOSTED_NARRATIVE_1_6_SCHEMA)
+_HOSTED_NARRATIVE_1_10_SCHEMA['properties']['ledger'] = deepcopy(_LEDGER_SCHEMA)
+_HOSTED_NARRATIVE_1_10_SCHEMA['properties']['progress']['properties']['clock'] = {'anyOf': [_CLOCK_SCHEMA, {'type':'null'}]}
+_HOSTED_NARRATIVE_1_10_SCHEMA['properties']['progress']['required'].append('clock')
+_FLASHBACK_SCHEMA = _closed_object({'accepted': {'type':'boolean'}, 'relevant': {'type':'boolean'},
+                                   'reason': {'type':'string','minLength':1,'maxLength':200}})
+
 _BRIEF_START_1_1_SCHEMA=_closed_object({**deepcopy(_BRIEF_START_SCHEMA['properties']),'suggestion_checks':deepcopy(_CHOICE_CHECKS_SCHEMA)})
 _BRIEF_START_1_1_SCHEMA['required'].remove('chapter_plan')
 _BRIEF_START_1_1_SCHEMA['required'].remove('opening_world')
@@ -278,6 +289,10 @@ STATIC_VISUAL_CONTRACT = 'se-static-visual-model-output/1.0.0'
 # This explicit catalog is also the routing/budget classification. Adding a
 # current Engine output must not silently select an unrelated legacy document.
 _MODEL_OUTPUT_SCHEMAS = {
+    'lite-continuity-review/1': _closed_object({'findings': {'type': 'array', 'maxItems': 6, 'items': _closed_object({
+        'quote': {'type': 'string', 'minLength': 1, 'maxLength': 1200},
+        'source_refs': {'type': 'array', 'minItems': 1, 'maxItems': 8, 'uniqueItems': True, 'items': _REF_SCHEMA},
+        'reason': {'type': 'string', 'minLength': 1, 'maxLength': 800}})}}),
     'se-timeout-ranking-model-output/1.0.0': _closed_object({'ranking': {'type':'array','minItems':1,'maxItems':4,'items':_closed_object({
         'choice_ref':{'type':'string','minLength':1,'maxLength':100},
         'risk':{'type':'integer','minimum':0,'maximum':100},
@@ -302,6 +317,8 @@ _MODEL_OUTPUT_SCHEMAS = {
     'se-hosted-narrative-model-output/1.7.0': _HOSTED_NARRATIVE_1_7_SCHEMA,
     PLAY_HOOK_MODEL_CONTRACT: _HOSTED_NARRATIVE_1_8_SCHEMA,
     LEDGER_MODEL_CONTRACT: _HOSTED_NARRATIVE_1_9_SCHEMA,
+    TABLE_STATE_MODEL_CONTRACT: _HOSTED_NARRATIVE_1_10_SCHEMA,
+    FLASHBACK_MODEL_CONTRACT: _FLASHBACK_SCHEMA,
     COLLECTIVE_EVENT_CONTRACT: _COLLECTIVE_EVENT_SCHEMA,
     STATIC_VISUAL_CONTRACT: _STATIC_VISUAL_SCHEMA,
 }

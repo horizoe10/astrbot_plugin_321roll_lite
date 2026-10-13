@@ -167,10 +167,16 @@ def ledger_options(c: sqlite3.Connection, room: sqlite3.Row) -> dict[str, Any] |
     actors = [a for a in shared.present_actors(c, room["id"]) if a["archetype_id"]][:16]
     if not actors:
         return None
-    return {"schema": hosted_ledger.OPTIONS_SCHEMA, "currency": s["currency"], "money_limit": s["story_limit"],
+    here = {shop['id'] for shop in shops_here(room, s)}
+    return {"schema": hosted_ledger.CATALOG_OPTIONS_SCHEMA, "currency": s["currency"], "money_limit": s["story_limit"],
             "item_limit": STORY_ITEM_LIMIT,
             "actors": [{"actor_ref": a["id"], "name": shared.actor_label(a)[:80], "money": balance(a, s)} for a in actors],
-            "items": [{"item_ref": i["id"], "name": i["name"][:80]} for i in shared.world(room)["pack"]["items"][:128]]}
+            "items": [{"item_ref": i["id"], "name": i["name"][:80]} for i in shared.world(room)["pack"]["items"][:128]],
+            "shops": [{"shop_ref": shop['id'], "name": shop['name'], "place": place_label(room, shop),
+                       "here": shop['id'] in here,
+                       "wares": [{"item_ref": ref, "price": s['prices'][ref],
+                                  "sell": s['prices'][ref]*s['sell']//100} for ref in shop['items']]}
+                      for shop in s['shops']]}
 
 
 def describe_entry(room: sqlite3.Row, entry: dict[str, Any], names: dict[str, str]) -> str:
@@ -182,11 +188,27 @@ def describe_entry(room: sqlite3.Row, entry: dict[str, Any], names: dict[str, st
     return f"{who} {'得到' if entry['delta'] > 0 else '失去'}「{item}」×{abs(entry['delta'])}"
 
 
+def reject_settled_items(ledger: list[dict[str, Any]], receipt: dict[str, Any]) -> None:
+    """A narration may not debit items already consumed by this committed action."""
+    settled = {(e['actor_ref'], e['item_ref']) for e in receipt.get('settled_items', []) if e['delta'] < 0}
+    if any(e['kind'] == 'item' and e['delta'] < 0 and (e['actor_ref'], e['item_ref']) in settled for e in ledger):
+        raise ValueError('story_ledger.item_already_settled: 本轮用物已经结算，ledger不得再次扣除settled_items中的物品；'
+                         '同种物品的额外转交留到另一次行动，不在本轮正文宣称已完成。')
+
+
 def apply_ledger(c: sqlite3.Connection, room: sqlite3.Row, ledger: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Apply the story's changes in the narration's transaction; returns what actually changed, for the card."""
     s = of_room(room)
     if s is None or not ledger:
         return []
+    from story_engine.hosted_ledger import reject_shop_exchange
+    options = ledger_options(c, room)
+    if options is None:
+        raise UserError('当前团桌未启用故事记账，不能提交钱物变化。')
+    try:
+        reject_shop_exchange(ledger, options)
+    except ValueError as exc:
+        raise UserError('这段正文把商店买卖写进了故事账，请重写正文；买卖须通过整备结算。') from exc
     pack = shared.world(room)["pack"]
     names = {i["id"]: i["name"] for i in pack["items"]}
     applied = []
@@ -510,7 +532,9 @@ async def buy(app: "LiteApp", caller: Caller, args: str) -> Reply:
                             "money": cost})
         _set(c, room["id"], outfit=info)
         app.store.add_event(c, room["id"], "system", f"{shared.actor_label(actor)} 在{shop['name']}买了{item['name']}×{count}",
-                            actor_id=actor["id"])
+                            actor_id=actor["id"], data={'economy': 'buy', 'clock': loads(room['clock_json']),
+                            'actor_ref': actor['id'], 'item_ref': ref, 'quantity': count, 'money_delta': -cost,
+                            'currency': s['currency'], 'shop': shop['name']})
     return Reply().say(messages.trade_card("buy", shared.actor_label(actor), shop["name"], item["name"], count, -cost,
                                            have - cost, s["currency"], held=doc["items"][ref]["quantity"]))
 
@@ -547,7 +571,9 @@ async def sell(app: "LiteApp", caller: Caller, args: str) -> Reply:
                             "money": price * count})
         _set(c, room["id"], outfit=info)
         app.store.add_event(c, room["id"], "system", f"{shared.actor_label(actor)} 在{shop['name']}卖掉{entry['name']}×{count}",
-                            actor_id=actor["id"])
+                            actor_id=actor["id"], data={'economy': 'sell', 'clock': loads(room['clock_json']),
+                            'actor_ref': actor['id'], 'item_ref': entry['ref'], 'quantity': count,
+                            'money_delta': price * count, 'currency': s['currency'], 'shop': shop['name']})
     return Reply().say(messages.trade_card("sell", shared.actor_label(actor), shop["name"], entry["name"], count, price * count,
                                            after, s["currency"], held=doc["items"].get(entry["ref"], {}).get("quantity", 0)))
 
@@ -605,7 +631,10 @@ async def give(app: "LiteApp", caller: Caller, args: str) -> Reply:
                                 "to": shared.actor_label(target), "item": label, "count": 1, "money": 0, "shop": ""})
             _set(c, room["id"], outfit=info)
         app.store.add_event(c, room["id"], "system", f"{shared.actor_label(actor)} 把{what}交给了 {shared.actor_label(target)}",
-                            actor_id=actor["id"])
+                            actor_id=actor["id"], data={'economy': 'give', 'clock': loads(room['clock_json']),
+                            'actor_ref': actor['id'], 'target_ref': target['id'],
+                            'item_ref': entry['ref'] if amount is None else None,
+                            'quantity': count if amount is None else amount})
     return Reply().say(messages.gift_card(shared.actor_label(actor), shared.actor_label(target), what,
                                           after, s["currency"] if s else ""))
 

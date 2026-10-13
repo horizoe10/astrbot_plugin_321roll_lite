@@ -125,8 +125,8 @@ async def submit(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sq
     room_id = room["id"]
     async with app.lock(room_id):
         with app.store.read() as c:
-            turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
-            if turn["state"] != "awaiting" or not is_round(turn) or actor["id"] in entries(turn):
+            room, turn = hosted._require_active_turn(c, room_id, turn["id"], ("awaiting",))
+            if not is_round(turn) or actor["id"] in entries(turn):
                 raise UserError("这一轮已经收了你的行动，或者正文已经在写了。")
             quota.require_round(app, c, room["umo"])
             room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
@@ -149,8 +149,8 @@ async def submit(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sq
             if intent["kind"] in ("clarify", "impossible"):
                 question = (intent.get("clarification") or intent.get("reason") or "").strip()
                 with app.store.tx() as c:
-                    row = c.execute("SELECT data_json FROM turns WHERE id=?", (turn["id"],)).fetchone()
-                    data = loads(row["data_json"], {})
+                    _, turn = hosted._require_active_turn(c, room_id, turn["id"], ("awaiting",))
+                    data = loads(turn["data_json"], {})
                     if intent["kind"] == "clarify":
                         data.setdefault("clarify", {})[actor["id"]] = {"action": action[:500], "question": question[:300]}
                     else:                           # refused outright: the next action starts fresh
@@ -160,14 +160,25 @@ async def submit(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sq
                 return Reply().say(messages.ask_back(shared.actor_label(actor), actor["user_name"], actor["user_id"],
                                                      question, intent["kind"], again=False, minutes=minutes,
                                                      choices=bool(loads(turn["choices_json"], []))))
+        with app.store.read() as c:
+            hosted._require_active_turn(c, room_id, turn["id"], ("awaiting",))
+        flash_review = await ties.review_for_check(app, room, actor, action, intent)
         label = shared.actor_label(actor)
         with app.store.tx() as c:
-            turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
+            fresh_room, turn = hosted._require_active_turn(c, room_id, turn["id"], ("awaiting",))
+            if fresh_room['chapter'] != room['chapter']:
+                raise UserError('行动理解期间已经换幕，请按当前剧情重新行动。')
+            room = fresh_room
             done = entries(turn)
+            if actor['id'] in done:
+                raise UserError('这一轮已经收了你的行动。')
             if not done:
                 lifecycle.auto_snapshot(c, room_id, f"第 {turn['round']} 轮 · 快团行动前")
             actor = c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone()
-            receipt, doc = hosted.mechanics(room, actor, intent, prepared, all_in=all_in)
+            flash_bonus, flash_notice = ties.checked_bonus(app, c, room, actor, flash_review)
+            receipt, doc = hosted.mechanics(room, actor, intent, prepared, all_in=all_in, flashback=flash_bonus)
+            if flash_notice:
+                receipt['flashback_notice'] = flash_notice
             receipt["intent_reason"] = intent.get("reason", "")
             loadout.save(c, actor["id"], doc)
             ties.spend(c, actor["id"], receipt)
@@ -200,8 +211,10 @@ async def submit(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sq
 async def skip(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sqlite3.Row) -> Reply:
     async with app.lock(room["id"]):
         with app.store.tx() as c:
-            turn = c.execute("SELECT * FROM turns WHERE id=?", (turn["id"],)).fetchone()
+            room, turn = hosted._require_active_turn(c, room["id"], turn["id"], ("awaiting",))
             done = entries(turn)
+            if actor['id'] in done:
+                raise UserError('这一轮已经收了你的行动。')
             done[actor["id"]] = {"label": shared.actor_label(actor), "skip": True}
             turn = _write(c, turn["id"], {"entries": done})
             rows = members(c, room["id"], turn)
@@ -236,6 +249,9 @@ async def close(app: "LiteApp", room_id: str, turn_id: str) -> Reply:
         receipt = {**first["receipt"], "rush": [{"actor": e["label"], "action": e["action"],
                                                  "result": hosted.receipt_text(e["receipt"]) or "不需检定"} for _, e in acted],
                    "rush_watching": watching}
+        settled = [item for _, e in acted for item in e['receipt'].get('settled_items', [])]
+        if settled:
+            receipt['settled_items'] = settled
         combined = "\n".join(f"{e['label']}：{e['action']}" for _, e in acted)
         c.execute("UPDATE turns SET state='resolving',actor_id=?,action_text=?,intent_json=?,receipt_json=?,updated_at=? WHERE id=?",
                   (first_ref, combined, dumps(first["intent"]), dumps(receipt), now(), turn_id))

@@ -1600,14 +1600,14 @@ def _wager_result(w: dict[str, Any]) -> str:
 def _flashback_card(d: dict[str, Any]) -> tuple[str, str]:
     actor, text = d.get("actor", ""), str(d.get("text", ""))
     steps = (("付出", f'{d.get("resource", "")} {_signed(int(d.get("delta") or -1))}', f'剩 {d.get("current", "")}/{d.get("maximum", "")}'),
-             ("写成真", "下一段正文", "用一两句回忆补进故事"), ("兑现", f'下次检定 {_signed(int(d.get("bonus") or 2))}', "留到你下一次掷骰"))
+             ("成立", "已审查的本人准备", "下一段正文自然带出"), ("兑现", f'相关检定 {_signed(int(d.get("bonus") or 2))}', "无关检定不消耗加值"))
     flow = "".join(f'<div class="fs"><span class="fn num">{i}</span><span class="fk">{a}</span><b>{e(b)}</b><span>{e(c)}</span></div>'
                    for i, (a, b, c) in enumerate(steps, 1))
     return ('<div class="eyebrow"><span>闪回</span><b>每人每幕一次</b></div>'
             f'<figure class="memory"><div class="mem-k">{ICONS["rewind"]}过去 · {e(actor)} 的回忆</div>'
             f'<blockquote class="{_quote_size(text)}">{e(text)}</blockquote><figcaption>—— {e(actor)}</figcaption></figure>'
             f'<div class="flow">{flow}</div>'
-            + _hint({"note": "闪回不能推翻已经发生的事；和已知事实冲突时，正文会写成部分成真或另有隐情",
+            + _hint({"note": "闪回不能替他人同意或改写已知事实；不成立的回忆不能获得加值",
                      "cmds": [("闪回说明", "/团 闪回")]})), "闪回"
 
 

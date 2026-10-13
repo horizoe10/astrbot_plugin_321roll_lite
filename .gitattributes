@@ -1,0 +1,3 @@
+# Vendored engine hashes identify exact upstream bytes on every checkout.
+/vendor/story_engine/** -text whitespace=cr-at-eol
+/vendor/ENGINE_MANIFEST.json -text whitespace=cr-at-eol

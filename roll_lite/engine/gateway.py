@@ -66,13 +66,18 @@ class EngineGateway:
         """Raises CustomPlayError('custom_play.<code>') for a rejected action."""
         return await self.engine.dispatch("evaluate_custom_play", payload)
 
+    def clock_changes(self, records, actor_ref, clock, target, activity):
+        from story_engine.custom_plays import advance_calendar_to
+        return advance_calendar_to(records, actor_ref, clock, target, activity)
+
     async def compile_world(self, world: dict[str, Any]) -> dict[str, Any]:
         """321roll.world-template/1 -> engine rules (raises ValueError for an unusable world)."""
         return await self.brief_engine.dispatch("world_rules", {"world": world})
 
     # ------------------------------------------------------------ model-backed
     async def call(self, method: str, fields: dict[str, Any], *, room_id: str | None, umo: str,
-                   rules: dict[str, Any] | None = None, operation_ref: str | None = None) -> dict[str, Any]:
+                   rules: dict[str, Any] | None = None, operation_ref: str | None = None,
+                   continuity_sources: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """Run one model-backed engine method with bounded repair attempts.
 
         fields are the method's own payload fields: {'context': ...} for hosted-turn methods,
@@ -81,7 +86,9 @@ class EngineGateway:
         """
         operation_ref = operation_ref or new_operation_ref()
         attempts = min(self.app.config.model_attempts, MAX_SEQUENCE.get(method, 3))
-        deadline = (datetime.now(UTC) + timedelta(seconds=self.app.config.model_timeout_seconds * attempts + 30)).isoformat()
+        # Each narrative attempt may also spend up to two bounded continuity-review calls.
+        calls_per_attempt = 3 if continuity_sources is not None else 1
+        deadline = (datetime.now(UTC) + timedelta(seconds=self.app.config.model_timeout_seconds * attempts * calls_per_attempt + 30)).isoformat()
         bridge = AstrBotModelBridge(self.app, room_id=room_id, umo=umo, rules=rules, omit=OMITTED_OUTPUT_FIELDS)
         engine = self.brief_engine if method in BRIEF_METHODS else self.engine
         category, message = "engine_unknown", "故事引擎没有给出结果。"
@@ -89,7 +96,18 @@ class EngineGateway:
             payload = {"operation_ref": operation_ref, "call_sequence": sequence, "deadline_at": deadline,
                        "idempotency_key": f"{operation_ref}.model.{sequence}", **fields}
             try:
-                return await engine.dispatch(method, payload, bridge)
+                result = await engine.dispatch(method, payload, bridge)
+                if method == 'narrate_committed':
+                    from ..economy import reject_settled_items
+                    reject_settled_items(result['proposal'].get('ledger') or [], fields['context']['mechanical_receipt'])
+                    if continuity_sources is not None:
+                        from .. import continuity
+                        findings = await continuity.review(self.app, room_id, umo, fields['context'], result['proposal'],
+                                                           continuity_sources, f'{operation_ref}.continuity.{sequence}')
+                        if findings:
+                            raise ValueError(continuity.rejection(findings))
+                        result['continuity_approval'] = continuity.approval(result['proposal'], continuity_sources)
+                return result
             except ModelUnavailable as exc:
                 category, message = "provider_unavailable", str(exc)
             except ModelOutputInvalid as exc:

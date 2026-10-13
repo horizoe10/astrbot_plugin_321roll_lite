@@ -488,6 +488,9 @@ async def start(app: "LiteApp", caller: Caller, args: str) -> Reply:
         return await app.hooks.emit("story_started", room_id=room["id"])
     except EngineCallFailed as exc:
         with app.store.tx() as c:
+            fresh = c.execute("SELECT state FROM rooms WHERE id=?", (room["id"],)).fetchone()
+            if fresh["state"] not in ("running", "paused"):
+                raise UserError("团桌已经结束或关闭，开场未提交。") from exc
             c.execute("UPDATE rooms SET state='lobby',updated_at=? WHERE id=?", (now(), room["id"]))
             app.store.add_event(c, room["id"], "system", "开场生成失败，团桌回到筹备")
         raise UserError("开场生成失败：" + exc.user_message + " 团桌已回到筹备状态，可以再次 /团 开演。") from exc

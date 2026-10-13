@@ -339,6 +339,8 @@ def action_status(actor: str, archetype: str, round_number: int, action: str, re
     if receipt.get("flashback"):
         flash = receipt["flashback"]
         m.field("闪回", f"{flash['bonus']:+d}　{safe(flash['text'])}")
+    elif receipt.get('flashback_notice'):
+        m.field('闪回', safe(receipt['flashback_notice']))
     if receipt.get("trait"):
         m.field("特质", f"{safe(receipt['trait']['name'])} {receipt['trait']['bonus']:+d}")
     if receipt.get("all_in"):
@@ -397,7 +399,7 @@ def turn_prompt(actor: str, user_name: str, user_id: str, round_number: int, cho
         lines = (["选一项：" + cmd("/团 A") + "（或 " + cmd("/团 选 A") + "），后面可以补一句演绎"] if choices and mode != "dialogue_only" else []) \
             + (["自己写：" + cmd("/团 行动 你的做法") + "，AI 会判断要不要检定"] if mode != "choice_only" else []) \
             + ["带上技能或物品：句末加 " + cmd("[用 名称]") + "，" + cmd("/团 背包") + " 看你有什么",
-               "押上这次检定：选项后加“孤注”；想起有用的往事：" + cmd("/团 闪回 回忆") + "，下次检定 +2"]
+               "押上这次检定：选项后加“孤注”；想起有用的准备：" + cmd("/团 闪回 回忆") + "，成立后相关检定 +2"]
         m.gap().caption("新手速查").items(lines)
     hints = []
     cmds = []
@@ -467,7 +469,7 @@ def host_line(text: str) -> Msg:
 PLAYS_INTRO = (("说", "/团 说 台词", "当众说一句，不占回合，下一段正文里有人接话"),
                ("援手", "/团 援手 怎么帮", "帮正在行动的同伴：检定 +2，失败一起扛，每幕一次"),
                ("孤注", "/团 选 A 孤注", "押上这次检定：成功按大成功写，失败必定受伤，每幕一次"),
-               ("闪回", "/团 闪回 回忆", "花 1 点资源补写一段往事，下一段正文写成真，下次检定 +2，每幕一次"),
+               ("闪回", "/团 闪回 回忆", "先审查本人准备，成立后花 1 点资源，相关检定 +2，每幕一次"),
                ("羁绊", "/团 羁绊 角色名 关系", "对方同意后生效：正文记得你们的关系，互相援手 +3"),
                ("竞猜", "/团 押 成", "押别人这一掷是成是败，掷骰时揭晓，终局评出预言家"),
                ("起哄", "/团 起哄 点子", "没入座也能玩，附和最多的一条写进正文"),
@@ -588,19 +590,19 @@ def xcard_ack(private: bool, seated: bool = True, stage: str = "") -> str:
 def flashback_told(actor: str, text: str, resource: str, delta: int, current: int, maximum: int, bonus: int) -> Msg:
     m = Msg().title(f"⏪ {safe(actor)} 的闪回", "每人每幕一次").gap().quote(text)
     m.gap().field("代价", f"{safe(resource)} {delta:+d}（剩 {current}/{maximum}）")
-    m.hint(f"下一段正文会把这段往事写成真；{safe(actor)} 下一次检定 +{bonus}")
+    m.hint(f"这段准备已经成立；{safe(actor)} 下一次相关检定 +{bonus}，无关检定不消耗加值")
     return m.as_segment("ties").with_data({"kind": "flashback", "actor": actor, "text": text, "resource": resource,
                                               "delta": delta, "current": current, "maximum": maximum, "bonus": bonus})
 
 
-FLASHBACK_STEPS = (("付出", "花 1 点资源", "不写资源名时扣最充裕的一项"), ("写成真", "下一段正文补上", "用一两句回忆把它写进故事"),
-                   ("兑现", "下次检定 +2", "加值留到你下一次掷骰"))
+FLASHBACK_STEPS = (("审查", "先判断能否成立", "不能替他人同意或改写已知事实"), ("付出", "成立后花 1 点资源", "未成立不扣资源和次数"),
+                   ("兑现", "相关检定 +2", "无关检定不消耗加值"))
 
 
 def flashback_guide(left: str) -> Msg:
     m = Msg().title("闪回", "补写一段过去，让它现在派上用场").gap().text(
-        "说一件你的角色“早就做过”的事，比如提前藏好的钥匙、多年前学会的暗号。花 1 点资源，下一段正文会把它写成真，"
-        "你下一次检定 +2。每人每幕一次，不能推翻已经发生的事。")
+        "说一件你的角色合理做过的准备，比如提前藏好的钥匙、多年前学会的暗号。先审查是否成立，成立后花 1 点资源，"
+        "下一次相关检定 +2。每人每幕一次；不能替他人同意、取得权限或推翻已发生的事。")
     if left:
         m.text(left)
     m.gap().hint(f"写法：{cmd('/团 闪回 我早就把备用钥匙藏在戏箱里')}；指定资源：{cmd('/团 闪回 理智 回忆内容')}")

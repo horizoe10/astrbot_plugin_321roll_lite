@@ -14,6 +14,7 @@ from collections.abc import Mapping
 FEATURE = 'hosting.ledger/1.0.0'
 MODEL_CONTRACT = 'se-hosted-narrative-model-output/1.9.0'
 OPTIONS_SCHEMA = '321roll-ledger-options/1.0.0'
+CATALOG_OPTIONS_SCHEMA = '321roll-ledger-options/1.1.0'
 MAX_ENTRIES = 4
 INSTRUCTION = (
     '本次启用钱物记账：输出ledger，最多4项，每项{actor_ref,kind,item_ref,delta,reason}。'
@@ -23,6 +24,9 @@ INSTRUCTION = (
     '钱的单笔增减不超过economy_options.money_limit，物品单笔不超过item_limit，不能让角色花掉自己没有的钱。'
     'reason写一句不超过60字的缘由。玩家之间的转交、商店买卖由平台记账，不写进ledger；'
     '正文没有明确写到得失时给[]。钱和物品的得失只写进ledger，不写成facts。'
+    '若economy_options含shops，商品名称、标价、回收价及库存范围以该目录为准，不自拟价格或未列出的货物。'
+    '玩家用自然语言表达想买卖，只写询价、挑选或等待结算；没有平台购买回执不能写已经扣款、交货或交易成功。'
+    '引导到现有整备买卖命令，不把交易伪装成赠礼、罚款或酬劳；正常赠礼与酬劳仍可记账。'
 )
 
 
@@ -37,7 +41,9 @@ def _integer(value, low, high):
 
 def validate_options(value):
     keys = {'schema', 'currency', 'money_limit', 'item_limit', 'actors', 'items'}
-    if not isinstance(value, Mapping) or set(value) != keys or value['schema'] != OPTIONS_SCHEMA:
+    if isinstance(value, Mapping) and value.get('schema') == CATALOG_OPTIONS_SCHEMA:
+        keys.add('shops')
+    if not isinstance(value, Mapping) or set(value) != keys or value['schema'] not in {OPTIONS_SCHEMA, CATALOG_OPTIONS_SCHEMA}:
         raise ValueError('hosted_turn.ledger_options_invalid')
     if not _text(value['currency'], 20, 1) or not _integer(value['money_limit'], 1, 100000) or not _integer(value['item_limit'], 1, 99):
         raise ValueError('hosted_turn.ledger_options_invalid')
@@ -53,7 +59,47 @@ def validate_options(value):
             raise ValueError('hosted_turn.ledger_options_invalid')
     if len({a['actor_ref'] for a in actors}) != len(actors) or len({i['item_ref'] for i in items}) != len(items):
         raise ValueError('hosted_turn.ledger_options_invalid')
+    if 'shops' in value:
+        shops = value['shops']
+        if not isinstance(shops, (list, tuple)) or len(shops) > 32:
+            raise ValueError('hosted_turn.shop_catalog_invalid')
+        known = {i['item_ref'] for i in items}
+        ids = set()
+        for shop in shops:
+            if (not isinstance(shop, Mapping) or set(shop) != {'shop_ref','name','place','here','wares'}
+                    or not _text(shop['shop_ref'],120,1) or shop['shop_ref'] in ids
+                    or not _text(shop['name'],80,1) or not _text(shop['place'],120)
+                    or type(shop['here']) is not bool or not isinstance(shop['wares'], (list,tuple))
+                    or len(shop['wares']) > 128):
+                raise ValueError('hosted_turn.shop_catalog_invalid')
+            ids.add(shop['shop_ref'])
+            refs=set()
+            for ware in shop['wares']:
+                if (not isinstance(ware,Mapping) or set(ware) != {'item_ref','price','sell'}
+                        or ware['item_ref'] not in known or ware['item_ref'] in refs
+                        or not _integer(ware['price'],0,10**9) or not _integer(ware['sell'],0,10**9)):
+                    raise ValueError('hosted_turn.shop_catalog_invalid')
+                refs.add(ware['item_ref'])
     return value
+
+
+def reject_shop_exchange(entries, options):
+    """A wallet/item exchange belongs to checkout, never to the story ledger.
+
+    Check gross directions instead of the net balance, so an added reward
+    cannot hide a purchase. Gifts and fees on their own remain permitted.
+    """
+    if 'shops' not in options:
+        return
+    stock={w['item_ref'] for shop in options['shops'] for w in shop['wares']}
+    for actor in {e['actor_ref'] for e in entries}:
+        rows=[e for e in entries if e['actor_ref']==actor]
+        pays=any(e['kind']=='money' and e['delta']<0 for e in rows)
+        earns=any(e['kind']=='money' and e['delta']>0 for e in rows)
+        receives=any(e['kind']=='item' and e['item_ref'] in stock and e['delta']>0 for e in rows)
+        gives=any(e['kind']=='item' and e['item_ref'] in stock and e['delta']<0 for e in rows)
+        if (pays and receives) or (earns and gives):
+            raise ValueError('hosted_turn.shop_exchange_requires_checkout: 商店钱物交换必须使用正式买卖，不能写入ledger；正文停在等待结算')
 
 
 def normalize(value, context):
@@ -81,4 +127,5 @@ def normalize(value, context):
         else:
             continue
         result.append({'actor_ref': actor, 'kind': kind, 'item_ref': item, 'delta': delta, 'reason': entry['reason'].strip()})
+    reject_shop_exchange(result, options)
     return result

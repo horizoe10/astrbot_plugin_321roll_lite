@@ -639,10 +639,10 @@ def _calendar(s):
     return found[0] if found else None
 
 
-def _advance(s, slots, activity):
+def _advance(s, slots, activity, initial=None):
     """Operations moving the room calendar forward by ``slots``, never back."""
     record = _calendar(s)
-    document = deepcopy(record['document']) if record else {'day': 1, 'slot': 0, 'log': []}
+    document = deepcopy(record['document']) if record else {**(initial or {'day': 1, 'slot': 0}), 'log': []}
     before = _now(document)
     after = before + slots
     document['day'], document['slot'] = after // len(SLOTS) + 1, after % len(SLOTS)
@@ -657,6 +657,21 @@ def _advance(s, slots, activity):
         elif item['kind'] == 'deadline' and at < after:
             ops.append(_update(item, 'expired', item['document']))
     return ops
+
+
+def advance_calendar_to(records, actor_ref, clock, target, activity):
+    """Calendar operations for a validated hosted-time proposal, with the same deadlines as explicit time actions."""
+    from .hosted_state import validate_clock, tick
+    validate_clock(clock)
+    validate_clock(target)
+    scope = _Scope({'actor_ref': actor_ref, 'member_refs': [actor_ref], 'rules': {}, 'records': records})
+    record = _calendar(scope)
+    if record and any(record['document'][key] != clock[key] for key in ('day','slot')):
+        _fail('calendar_clock_conflict')
+    slots = tick(target) - tick(clock)
+    if slots < 0:
+        _fail('calendar_went_backwards')
+    return _advance(scope, slots, activity, initial=clock) if slots else []
 
 
 def _future(s, v):
@@ -699,7 +714,7 @@ def _reserve_activity(s, v, members, slots, exclude=None):
     window = next((r for r in s.all('location_window') if r['document']['location'] == v.get('location')), None)
     if window and not window['document']['opens'] <= v['slot'] < v['slot'] + slots <= window['document']['closes']:
         _fail('location_closed')
-    for item in s.all('appointment', 'scheduled', 'invited'):
+    for item in s.all('appointment', 'scheduled', 'invited', 'arrived'):
         doc = item['document']
         if item['ref'] != exclude and set(members) & set(doc.get('members', [doc['set_by']])) \
                 and start < _now(doc) + doc.get('slots', 1) and _now(doc) < start + slots:

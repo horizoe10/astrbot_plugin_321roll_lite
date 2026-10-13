@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from astrbot.api import logger
 
-from .. import adjust, economy, loadout, narration, personas, quota, shared
+from .. import adjust, clock, continuity, economy, loadout, narration, personas, quota, shared
 from .. import messages
 from ..commands import Caller, Reply, UserError, split_title
 from ..dice import roll_check, success_chance
@@ -160,6 +160,9 @@ def table_notes(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | N
     when = lifecycle.clock_text(room)
     if when:
         lines.append("当前时间：" + when)
+        lines.append('历史facts中的记录回合与记录场景只是来源，不是现在或预约履行日。'
+                     '历史里的明天、后天按原记录日期解释；跨日约定用明确的第N日，正文与facts保持一致。'
+                     '已知对象的归属地点不能随当前场景移动；未确认的计划不当作已完成，日期或地点有冲突时先核实。')
     lines += narration.prompt_lines(room)
     directive = hosted_data(room).get("directive")
     if directive and not narration.is_legacy_directive(directive):    # an old table's world style is read as its improv
@@ -172,9 +175,14 @@ def table_notes(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row | N
 
 def receipt_notes(receipt: dict[str, Any] | None) -> list[str]:
     """A teammate's hand and an all-in bet change how a check reads; the narration has to say so."""
-    if not receipt or receipt.get("kind") != "check":
+    if not receipt:
         return []
     lines = []
+    if receipt.get('settled_items'):
+        lines.append('本轮机械回执的settled_items是平台已经结算的物品消耗，actor.items也是结算后的背包。'
+                     '正文只叙述这次既成使用，ledger不得再次扣除；同种物品的额外转交留到另一次行动。')
+    if receipt.get("kind") != "check":
+        return lines
     aid = receipt.get("aid")
     if aid:
         lines.append(f"援手：{aid['name']}" + (f"（{aid['text']}）" if aid.get("text") else "") + f"协助了这次检定，修正 {aid['bonus']:+d}；"
@@ -199,11 +207,33 @@ def narrative_policy(room: sqlite3.Row) -> dict[str, Any] | None:
     return narration.policy(room, shared.world(room)["pack"].get("style") or "")
 
 
+def dated_facts(c: sqlite3.Connection, room_id: str) -> list[dict[str, Any]]:
+    """Project committed memory with its original story time/place; never edit the source facts."""
+    sources = {}
+    scene = None
+    for turn in c.execute("SELECT receipt_json,narrative_json,data_json FROM turns WHERE room_id=? AND state='done' ORDER BY rowid", (room_id,)):
+        receipt = loads(turn['receipt_json'], {}) or {}
+        progress = (loads(turn['narrative_json'], {}) or {}).get('progress', {})
+        data = loads(turn['data_json'], {})
+        scene = progress.get('scene') or data.get('narration_scene') or scene
+        start, end = data.get('narration_clock'), progress.get('clock')
+        def stamp(value):
+            return f"第 {value['day']} 日 · {('清晨','白天','傍晚','夜晚')[value['slot']]}"
+        tags = []
+        if start and end:
+            tags.append('记录回合：' + stamp(start) + (' → ' + stamp(end) if end != start else ''))
+        if scene and scene.get('title'):
+            tags.append('记录场景：' + scene['title'])
+        if receipt.get('receipt_ref') and tags:
+            sources[receipt['receipt_ref']] = '〔' + '；'.join(tags) + '〕'
+    return [{"fact_ref": r["fact_ref"], "kind": r["kind"], "subject_ref": r["subject_ref"],
+             "text": sources.get(r['source_receipt_ref'], '') + continuity.clean_fact(r['text']), "source_receipt_ref": r["source_receipt_ref"]}
+            for r in c.execute("SELECT * FROM facts WHERE room_id=? ORDER BY created_at,rowid", (room_id,))]
+
+
 def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, action: str,
                   receipt: dict[str, Any] | None, note: str = "", extra: list[str] | None = None) -> dict[str, Any]:
-    facts = [{"fact_ref": r["fact_ref"], "kind": r["kind"], "subject_ref": r["subject_ref"], "text": r["text"],
-              "source_receipt_ref": r["source_receipt_ref"]}
-             for r in c.execute("SELECT * FROM facts WHERE room_id=? ORDER BY created_at", (room["id"],))]
+    facts = dated_facts(c, room['id'])
     npcs = [{"npc_ref": r["npc_ref"], "name": r["name"], "description": r["description"], "motivation": r["motivation"]}
             for r in c.execute("SELECT * FROM npcs WHERE room_id=? ORDER BY updated_at", (room["id"],))]
     scene = loads(room["scene_json"], {})
@@ -359,7 +389,8 @@ def apply_deltas(resources: dict[str, Any], deltas: dict[str, int]) -> dict[str,
 
 
 def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], prepared: list[dict[str, Any]] | None = None,
-              *, aid: dict[str, Any] | None = None, all_in: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+              *, aid: dict[str, Any] | None = None, all_in: bool = False,
+              flashback: dict[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     """Platform dice and costs for one intent → (receipt, new actor loadout document).
 
     A preparation is spent first (its modifiers join a check); failure costs and rest effects follow.
@@ -369,12 +400,17 @@ def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], pre
     pack = shared.world(room)["pack"]
     doc = loadout.state(actor)
     before = {k: v["current"] for k, v in doc["resources"].items()}
+    items_before = {ref: item['quantity'] for ref, item in doc['items'].items()}
     bonus = 0
     receipt: dict[str, Any] = {"receipt_ref": new_id("receipt"), "kind": intent["kind"], "actor_ref": actor["id"]}
     if prepared:
         doc, summary = loadout.plan(room, doc, prepared, attribute=intent.get("attribute_ref") if intent["kind"] == "check" else None)
         bonus = summary["modifier"]
         receipt["prepared"] = [{"name": p["name"], "modifier": p["modifier"]} for p in prepared]
+        spent = [{'actor_ref': actor['id'], 'item_ref': ref, 'delta': item['quantity'] - items_before.get(ref, 0)}
+                 for ref, item in doc['items'].items() if item['quantity'] < items_before.get(ref, 0)]
+        if spent:
+            receipt['settled_items'] = spent
     resources = doc["resources"]
     deltas: dict[str, int] = {}
     if intent["kind"] == "check":
@@ -384,10 +420,9 @@ def mechanics(room: sqlite3.Row, actor: sqlite3.Row, intent: dict[str, Any], pre
         if aid:
             bonus += aid["bonus"]
             receipt["aid"] = dict(aid)
-        waiting = ties.flashback_bonus(actor)
-        if waiting:
-            bonus += int(waiting["bonus"])
-            receipt["flashback"] = dict(waiting)
+        if flashback:
+            bonus += int(flashback["bonus"])
+            receipt["flashback"] = dict(flashback)
         trait = trait_bonus(room, actor, attr, intent["difficulty"], aid=bool(aid), all_in=all_in,
                             resources={k: v["current"] for k, v in resources.items()})
         if trait:
@@ -449,6 +484,20 @@ def receipt_text(receipt: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------- resolution
+def _require_active_turn(c: sqlite3.Connection, room_id: str, turn_id: str,
+                         states: tuple[str, ...] = ("resolving",)) -> tuple[sqlite3.Row, sqlite3.Row]:
+    """Check the authoritative lifecycle again after an asynchronous model call."""
+    room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+    turn = c.execute("SELECT * FROM turns WHERE id=? AND room_id=?", (turn_id, room_id)).fetchone()
+    if room is None or room["state"] not in ("running", "paused"):
+        raise UserError("团桌已经结束或关闭，旧的模型结果未提交。")
+    if turn is not None and turn["state"] == "done":
+        raise UserError("这段正文已经发布，不能重复提交。")
+    if turn is None or turn["state"] not in states:
+        raise UserError("这个回合已经结束或被替换，旧的模型结果未提交。")
+    return room, turn
+
+
 async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool = True, note: str = "") -> Reply:
     """Ask the engine to narrate a committed receipt, then commit story and open the next turn.
 
@@ -456,14 +505,16 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
     for /团 主持 发布 or /团 主持 重写; note carries the host's rewrite request.
     """
     with app.store.read() as c:
-        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
-        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
+        room, turn = _require_active_turn(c, room_id, turn_id)
         actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
         # Lines, heckles, the X card and secret notes left since the last narration go with this one.
         extra, mark = banter.story_notes(room)
         extra += economy.story_notes(room)      # what the last 整备 bought, sold and handed over
         extra += pacing.story_notes(room, turn["round"])
+        archive = continuity.sources(c, room)
+        extra.append(continuity.prompt(archive, turn['action_text']))
         context = build_context(c, room, actor, turn["action_text"], loads(turn["receipt_json"]), note, extra)
+        context['clock'] = loads(room['clock_json'])
         ledger_options = economy.ledger_options(c, room)
         if ledger_options is not None:
             context["economy_options"] = ledger_options
@@ -471,24 +522,32 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
         reviewer = shared.private_umo(c, room["platform"], room["host_user_id"]) if hosted_data(room).get("review") else None
     with app.store.tx() as c:
         data = loads(c.execute("SELECT data_json FROM turns WHERE id=?", (turn_id,)).fetchone()["data_json"], {})
-        c.execute("UPDATE turns SET data_json=? WHERE id=?", (dumps({**data, "banter_mark": mark}), turn_id))
+        c.execute("UPDATE turns SET data_json=? WHERE id=?", (dumps({**data, "banter_mark": mark,
+                                                                    "narration_clock": context['clock'],
+                                                                    "narration_chapter": room['chapter'],
+                                                                    "narration_scene": context['scene']}), turn_id))
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
     # Group actions and host advances return the turn to the actor who was waiting.
     advance = advance and not loads(turn["data_json"], {}).get("resume_actor")
     # One automatic second try: a network blip or one malformed reply should not stop the table.
     for attempt in range(2):
+        with app.store.read() as c:
+            _require_active_turn(c, room_id, turn_id)
         try:
             result = await app.engine.call("narrate_committed", {"context": context}, room_id=room_id, umo=room["umo"],
-                                           rules=shared.rules(room))
+                                           rules=shared.rules(room), continuity_sources=archive)
             break
         except EngineCallFailed as exc:
+            with app.store.read() as c:
+                _require_active_turn(c, room_id, turn_id)
             if attempt == 0:
                 logger.warning("321Roll Lite: narration for turn %s failed (%s); trying once more", turn_id, exc.category)
                 await asyncio.sleep(AUTO_RETRY_DELAY)
                 continue
             with app.store.tx() as c:
                 c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=?", (now(), turn_id))
-            reason = "模型暂时连不上。" if exc.category == "provider_unavailable" else "模型几次回复都不合格式。"
+            reason = ("模型暂时连不上。" if exc.category == "provider_unavailable" else
+                      "历史日期或物品来历未通过核对。" if exc.category.startswith('continuity.') else "模型几次回复都不合格式。")
             kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
             if kind == "finale":
                 return Reply().say(messages.notice(
@@ -501,14 +560,25 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
                 f"主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 {skip}；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内"
                 "没处理的话，在座的玩家也可以发送 /团 重试。具体原因可在后台“运行”页查看"))
     proposal = result["proposal"]
+    with app.store.tx() as c:
+        _, turn = _require_active_turn(c, room_id, turn_id)
+        data = {**loads(turn['data_json'], {}), 'continuity_approval': result['continuity_approval']}
+        c.execute('UPDATE turns SET data_json=? WHERE id=?', (dumps(data), turn_id))
     if reviewer:
         with app.store.tx() as c:
+            room, turn = _require_active_turn(c, room_id, turn_id)
             data = {**loads(turn["data_json"], {}), "advance": advance}
             c.execute("UPDATE turns SET state='review',narrative_json=?,data_json=?,updated_at=? WHERE id=?",
                       (dumps(proposal), dumps(data), now(), turn_id))
         await app.notifier.send(reviewer, draft_card(room, turn, actor, proposal, names))
         return Reply().say(messages.notice("正文已写好，正在等主持人审阅", "主持人确认后会发到群里。"))
-    return await commit_narration(app, room_id, turn_id, proposal, advance)
+    try:
+        return await commit_narration(app, room_id, turn_id, proposal, advance)
+    except UserError:
+        with app.store.tx() as c:
+            c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=? AND state='resolving'",
+                      (now(), turn_id))
+        raise
 
 
 def draft_card(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row, proposal: dict[str, Any],
@@ -535,19 +605,44 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
     Pacing may instead hand the table to the world (a push or the finale, written right after this one)
     or open the next act; the finale itself opens the epilogues instead of a turn.
     """
+    # Draft edits and intervening public history invalidate the previous check.
     with app.store.read() as c:
-        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
-        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        room, turn = _require_active_turn(c, room_id, turn_id, ("resolving", "review"))
+        archive = continuity.sources(c, room)
+        checked = continuity.approval(proposal, archive)
+        prior = loads(turn['data_json'], {}).get('continuity_approval')
+    if prior != checked:
+        context = {'action': turn['action_text'], 'clock': loads(turn['data_json'], {}).get('narration_clock')}
+        try:
+            findings = await continuity.review(app, room_id, room['umo'], context, proposal, archive, new_operation_ref('continuity'))
+        except EngineCallFailed as exc:
+            raise UserError('历史连续性核对暂未完成，请稍后重试发布。') from exc
+        if findings:
+            raise UserError('历史日期或物品来历有冲突，请重写后再发布：' + continuity.rejection(findings))
     text = narration_text(proposal)
     choices = make_choices(proposal["suggestions"], proposal.get("suggestion_checks"))
-    finale = (loads(turn["receipt_json"], {}) or {}).get("kind") == "finale"
     plan = pacing.Plan()
     special: str | None = None            # a narrator turn written right after this narration
     voided: str | None = None             # a vote the finale cut short
     epilogues = None
     from . import rush
     with app.store.tx() as c:
-        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        room, turn = _require_active_turn(c, room_id, turn_id, ("resolving", "review"))
+        actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+        receipt = loads(turn['receipt_json'], {}) or {}
+        try:
+            economy.reject_settled_items(proposal.get('ledger') or [], receipt)
+        except ValueError as exc:
+            raise UserError('本轮用物已经结算，这段正文又扣了同种物品，请重写后再发布。') from exc
+        finale = receipt.get("kind") == "finale"
+        source_chapter = loads(turn['data_json'], {}).get('narration_chapter', room['chapter'])
+        if source_chapter != room['chapter']:
+            raise UserError('正文生成后已经换幕，请重写这段正文后再发布。')
+        if checked != continuity.approval(proposal, continuity.sources(c, room)):
+            raise UserError('历史记录在核对后变化，请重新发布以再次核对日期和物品来历。')
+        if 'clock' in proposal.get('progress', {}):
+            source_clock = loads(turn['data_json'], {}).get('narration_clock')
+            clock.commit(app, c, room, turn['actor_id'], source_clock, proposal['progress']['clock'], turn['action_text'])
         old_scene = loads(room["scene_json"], {}).get("title", "")
         shown_act = hosted_data(room).get("shown_act")
         act_heading = lifecycle.act_heading(room).split("\n")[0] if shown_act != room["act"] else ""
@@ -563,7 +658,9 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
         ledger = economy.apply_ledger(c, room, proposal.get("ledger") or [])
         if ledger:
             app.store.add_event(c, room_id, "system", "故事里的得失：" + "；".join(
-                f"{x['who']} {x['name']} {x['delta']:+d}（{x['reason']}）" for x in ledger))
+                f"{x['who']} {x['name']} {x['delta']:+d}（{x['reason']}）" for x in ledger),
+                data={'economy': 'story_ledger', 'turn': turn_id, 'clock': proposal.get('progress', {}).get('clock'),
+                      'applied': ledger})
         economy.clear_notes(c, room_id)
         table_talk = banter.consume(c, room_id, loads(turn["data_json"], {}).get("banter_mark"))
         round_number = turn["round"]
@@ -733,7 +830,7 @@ def _ask_back(app: "LiteApp", room_id: str, turn_id: str, intent: dict[str, Any]
     question = (intent.get("clarification") or intent.get("reason") or "").strip()
     again = intent["kind"] == "clarify" and bool(asked)
     with app.store.tx() as c:
-        turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
+        _, turn = _require_active_turn(c, room_id, turn_id)
         data = loads(turn["data_json"], {})
         if intent["kind"] == "clarify":
             data["clarify"] = {"spent": True} if again else {"action": action[:500], "question": question[:300]}
@@ -791,22 +888,33 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                                                    rules=shared.rules(room))
                 except EngineCallFailed as exc:
                     with app.store.tx() as c:
+                        _require_active_turn(c, room_id, turn_id)
                         c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE id=?", (now(), turn_id))
                     raise UserError("行动理解失败：" + exc.user_message + " 你可以换个说法再试，或选择 A–D。") from exc
+                with app.store.read() as c:
+                    _require_active_turn(c, room_id, turn_id)
                 intent = result["proposal"]
                 if intent["kind"] == "clarify" and asked and asked.get("question"):
                     intent = await firm_intent(app, room, actor, turn, context, action)
                 if intent["kind"] in ("clarify", "impossible"):
                     return _ask_back(app, room_id, turn_id, intent, action, asked)
+            flash_review = await ties.review_for_check(app, room, actor, action, intent)
             with app.store.tx() as c:
+                fresh_room, turn = _require_active_turn(c, room_id, turn_id)
+                if fresh_room['chapter'] != room['chapter']:
+                    raise UserError('行动理解期间已经换幕，请按当前剧情重新行动。')
+                room = fresh_room
                 actor = c.execute("SELECT * FROM actors WHERE id=?", (turn["actor_id"],)).fetchone()
+                flash_bonus, flash_notice = ties.checked_bonus(app, c, room, actor, flash_review)
                 turn_data = loads(c.execute("SELECT data_json FROM turns WHERE id=?", (turn_id,)).fetchone()["data_json"], {})
                 offer = turn_data.get("aid")
                 aid = None
                 if offer:
                     bonus, bond = ties.aid_bonus(room, offer["actor_id"], actor["id"])
                     aid = {"name": offer["name"], "text": offer.get("text", ""), "bonus": bonus, **({"bond": bond} if bond else {})}
-                receipt, doc = mechanics(room, actor, intent, prepared, aid=aid, all_in=all_in)
+                receipt, doc = mechanics(room, actor, intent, prepared, aid=aid, all_in=all_in, flashback=flash_bonus)
+                if flash_notice:
+                    receipt['flashback_notice'] = flash_notice
                 receipt["intent_reason"] = intent.get("reason", "")
                 loadout.save(c, actor["id"], doc)
                 ties.spend(c, actor["id"], receipt)
@@ -857,6 +965,9 @@ async def on_story_started(room_id: str, *, app: "LiteApp") -> Reply:
               "member_refs": [a["id"] for a in actors], "rules": rules}
     proposal = await app.engine.call("generate_initial_story", fields, room_id=room_id, umo=room["umo"], rules=rules)
     with app.store.tx() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        if room["state"] not in ("running", "paused"):
+            raise UserError("团桌已经结束或关闭，开场未提交。")
         c.execute("UPDATE rooms SET scene_json=?,goal=? WHERE id=?", (dumps(proposal["scene"]), proposal["goal"], room_id))
         pacing.start(c, room_id)
         for index, npc in enumerate(proposal["npcs"], 1):
@@ -1035,10 +1146,16 @@ async def on_room_restored(room_id: str, *, app: "LiteApp") -> Reply:
     return Reply()
 
 
-async def on_story_completed(room_id: str, ending: Any, *, app: "LiteApp") -> Reply:
+async def on_room_closed(room_id: str, *, app: "LiteApp") -> Reply:
     with app.store.tx() as c:
-        c.execute("UPDATE turns SET state='superseded',updated_at=? WHERE room_id=? AND state IN ('awaiting','narration_failed','review')",
-                  (now(), room_id))
+        c.execute("UPDATE turns SET state='superseded',updated_at=? WHERE room_id=? "
+                  "AND state IN ('awaiting','resolving','narration_failed','review')", (now(), room_id))
+    return Reply()
+
+
+async def on_story_completed(room_id: str, ending: Any, *, app: "LiteApp") -> Reply:
+    await on_room_closed(room_id, app=app)
+    with app.store.tx() as c:
         room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
         bonds = ties.reveal(c, room)
     reply = Reply()
@@ -1854,10 +1971,8 @@ async def host_publish(app: "LiteApp", caller: Caller, args: str) -> Reply:
     room = _host_room(app, caller, "running")
     turn = _review_turn(app, room)
     async with app.lock(room["id"]):
-        with app.store.tx() as c:
-            if c.execute("UPDATE turns SET state='resolving',updated_at=? WHERE id=? AND state='review'",
-                         (now(), turn["id"])).rowcount != 1:
-                raise UserError("这段正文刚刚已经处理过了。")
+        with app.store.read() as c:
+            room, turn = _require_active_turn(c, room["id"], turn["id"], ("review",))
         return await commit_narration(app, room["id"], turn["id"], loads(turn["narrative_json"]),
                                       loads(turn["data_json"], {}).get("advance", True))
 
@@ -1918,6 +2033,7 @@ def install(app: "LiteApp") -> None:
     app.hooks.on("roster_changed", bind(on_roster_changed))
     app.hooks.on("room_resumed", bind(on_room_resumed))
     app.hooks.on("room_restored", bind(on_room_restored))
+    app.hooks.on("room_closed", bind(on_room_closed))
     app.hooks.on("story_completed", bind(on_story_completed))
     app.hooks.on("status_lines", bind(on_status))
     app.hooks.on("tick", bind(on_tick))
