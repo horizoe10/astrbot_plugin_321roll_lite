@@ -5,11 +5,13 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from astrbot.api import logger
+
 from .. import personas, shared
 from .. import messages
 from ..commands import Caller, Reply, UserError
 from ..engine import VENDOR  # noqa: F401
-from ..engine.gateway import EngineCallFailed
+from ..engine.gateway import EngineCallFailed, EngineInputError
 from ..storage import dumps, loads, new_id, now
 from ..worlds.catalog import WorldCatalog
 from ..worlds.package import display_label, edition_of, label, required_plugin
@@ -19,7 +21,7 @@ from story_engine import world_rules
 if TYPE_CHECKING:
     from ..app import LiteApp
 
-STATE_LABELS = {"lobby": "筹备中", "running": "进行中", "paused": "已暂停", "ended": "已完结", "closed": "已关闭"}
+STATE_LABELS = {"lobby": "筹备中", "running": "进行中", "paused": "已暂停", "ended": "已完结", "closed": "已关闭", "shelved": "已暂存"}
 SLOT_LABELS = ("清晨", "白天", "傍晚", "夜晚")
 SAVE_TABLES = ("actors", "records", "turns", "facts", "npcs", "votes")
 ROOM_SAVE_COLUMNS = ("state", "title", "scene_json", "goal", "act", "chapter", "clock_json", "seat_cap",
@@ -208,7 +210,7 @@ def table_in_use(room: sqlite3.Row) -> str:
     title = f"《{messages.short_title(room['title'])}》"
     if room["state"] in ("running", "paused"):
         doing = "暂停中" if room["state"] == "paused" else "正在进行"
-        return (f"本群的{title}{doing}，一个群同时只能有一桌。想换一桌：主持人或管理员发送 /团 关闭 确认 直接收桌，"
+        return (f"本群的{title}{doing}，一个群同时只能启用一桌。想换世界后再回来：发送 /团 暂存，之后可 /团 取回。若要直接收桌，发送 /团 关闭 确认，"
                 "故事和记录都保留在后台；想先给故事收个尾，就发送 /团 完结 结局名。")
     if room["state"] == "ended":
         return f"本群的{title}已经完结，还没收桌。主持人或管理员发送 /团 关闭 收桌后，就能开新的一桌。"
@@ -465,35 +467,50 @@ async def start(app: "LiteApp", caller: Caller, args: str) -> Reply:
     shared.require_host(app, caller, room)
     if room["state"] == "paused":
         return await continue_story(app, caller, room)
-    rules = shared.world(room)["pack"]["rules"]
-    with app.store.read() as c:
-        actors = shared.present_actors(c, room["id"])
-    ready = [a for a in actors if a["archetype_id"]]
-    if len(ready) < rules["minPlayers"]:
-        raise UserError(f"至少需要 {rules['minPlayers']} 名建好卡的在场玩家，现在有 {len(ready)} 名。"
-                        "玩家发送 /团 加入 入座，再私聊我 /团 建卡（群里发也可以）。")
-    from .build import progress
-    missing = [a["user_name"] + (f"（{progress(a, room)}）" if progress(a, room) else "") for a in actors if not a["archetype_id"]]
-    if missing:
-        raise UserError("还有玩家没有建好卡：" + "、".join(missing) + "。可以等他们建好，或发送 /团 主持 暂离 昵称 让他们先暂离，"
-                        "这次开演就不算他们。")
-    with app.store.tx() as c:
-        if c.execute("UPDATE rooms SET state='running',revision=revision+1,updated_at=? WHERE id=? AND state='lobby' AND revision=?",
-                     (now(), room["id"], room["revision"])).rowcount != 1:
-            raise UserError("团桌状态刚刚变化，请再试一次。")
-        app.store.add_event(c, room["id"], "system", "故事开演")
-    await caller.send("正在生成开场，请稍候……")
-    await caller.send(messages.plays_intro())
-    try:
-        return await app.hooks.emit("story_started", room_id=room["id"])
-    except EngineCallFailed as exc:
+    # The opening hook does not lock; keep the table busy through both notices and generation.
+    # Resuming above stays outside this lock: its hooks may acquire the same room lock.
+    async with app.lock(room["id"]):
+        with app.store.read() as c:
+            room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+            if room is None or room["state"] != "lobby":
+                raise UserError("团桌状态刚刚变化，请再试一次。")
+            shared.require_host(app, caller, room)
+            actors = shared.present_actors(c, room["id"])
+        rules = shared.world(room)["pack"]["rules"]
+        ready = [a for a in actors if a["archetype_id"]]
+        if len(ready) < rules["minPlayers"]:
+            raise UserError(f"至少需要 {rules['minPlayers']} 名建好卡的在场玩家，现在有 {len(ready)} 名。"
+                            "玩家发送 /团 加入 入座，再私聊我 /团 建卡（群里发也可以）。")
+        from .build import progress
+        missing = [a["user_name"] + (f"（{progress(a, room)}）" if progress(a, room) else "") for a in actors if not a["archetype_id"]]
+        if missing:
+            raise UserError("还有玩家没有建好卡：" + "、".join(missing) + "。可以等他们建好，或发送 /团 主持 暂离 昵称 让他们先暂离，"
+                            "这次开演就不算他们。")
         with app.store.tx() as c:
-            fresh = c.execute("SELECT state FROM rooms WHERE id=?", (room["id"],)).fetchone()
-            if fresh["state"] not in ("running", "paused"):
-                raise UserError("团桌已经结束或关闭，开场未提交。") from exc
-            c.execute("UPDATE rooms SET state='lobby',updated_at=? WHERE id=?", (now(), room["id"]))
-            app.store.add_event(c, room["id"], "system", "开场生成失败，团桌回到筹备")
-        raise UserError("开场生成失败：" + exc.user_message + " 团桌已回到筹备状态，可以再次 /团 开演。") from exc
+            if c.execute("UPDATE rooms SET state='running',revision=revision+1,updated_at=? WHERE id=? AND state='lobby' AND revision=?",
+                         (now(), room["id"], room["revision"])).rowcount != 1:
+                raise UserError("团桌状态刚刚变化，请再试一次。")
+            app.store.add_event(c, room["id"], "system", "故事开演")
+        for notice in ("正在生成开场，请稍候……", messages.plays_intro()):
+            try:
+                await caller.send(notice)
+            except Exception:
+                logger.exception("321Roll Lite could not send the opening notice")
+        try:
+            return await app.hooks.emit("story_started", room_id=room["id"])
+        except (EngineCallFailed, EngineInputError) as exc:
+            with app.store.tx() as c:
+                fresh = c.execute("SELECT state FROM rooms WHERE id=?", (room["id"],)).fetchone()
+                if fresh is None or fresh["state"] not in ("running", "paused"):
+                    raise UserError("团桌已经结束或关闭，开场未提交。") from exc
+                if c.execute("SELECT 1 FROM turns WHERE room_id=? LIMIT 1", (room["id"],)).fetchone():
+                    raise       # A later hook failed after the opening committed; never rewind it.
+                c.execute("UPDATE rooms SET state='lobby',updated_at=? WHERE id=?", (now(), room["id"]))
+                app.store.add_event(c, room["id"], "system", "开场生成失败，团桌回到筹备")
+            if isinstance(exc, EngineInputError):
+                logger.exception("321Roll Lite opening request was invalid")
+            reason = exc.user_message if isinstance(exc, EngineCallFailed) else "开场请求无效，详情已写入日志。"
+            raise UserError("开场生成失败：" + reason + " 团桌已回到筹备状态，可以再次 /团 开演。") from exc
 
 
 async def pause(app: "LiteApp", caller: Caller, args: str) -> Reply:
@@ -505,7 +522,7 @@ async def pause(app: "LiteApp", caller: Caller, args: str) -> Reply:
         app.store.bump_room(c, room["id"])
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 暂停了故事")
     reply = Reply().say(messages.notice("故事已暂停", "回合计时停止，玩家暂时不能行动；私聊里的查看指令照常可用。暂停期间可以入座、建卡或离座。",
-                                        "主持人发送 /团 恢复 打开准备大厅，大家准备好后再开演"))
+                                        "继续本桌：/团 恢复；想先玩别的世界：/团 暂存，以后 /团 取回"))
     return reply.extend(await app.hooks.emit("room_paused", room_id=room["id"]))
 
 
@@ -660,6 +677,8 @@ async def continue_story(app: "LiteApp", caller: Caller, room: sqlite3.Row) -> R
         if c.execute("UPDATE rooms SET state='running',updated_at=? WHERE id=? AND state='paused'",
                      (now(), room["id"])).rowcount != 1:
             raise UserError("团桌状态刚刚变化，请再试一次。")
+        from .shelf import resume_timers
+        resume_timers(c, room["id"])
         _set_data(c, room["id"], regroup=None, pause_roster=None)
         app.store.bump_room(c, room["id"])
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 开演，故事继续")

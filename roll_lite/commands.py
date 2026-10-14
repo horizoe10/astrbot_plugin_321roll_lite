@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from astrbot.api import logger
 
@@ -56,11 +56,13 @@ class Reply:
     room_umo: set when a command sent from a private chat must post its result to the group;
     ack is then what the private chat receives instead.
     private_only: a query whose answer stays in the private chat even for "room" commands.
+    status: command outcome, independent of whether its messages were delivered.
     """
     messages: list[Any] = field(default_factory=list)
     room_umo: str | None = None
     ack: list[Any] = field(default_factory=list)
     private_only: bool = False
+    status: Literal["success", "rejected", "error"] = "success"
 
     def say(self, *items: Any) -> "Reply":
         self.messages.extend(item for item in items if item)
@@ -69,6 +71,7 @@ class Reply:
     def extend(self, other: "Reply | None") -> "Reply":
         if other is not None:
             self.messages.extend(other.messages)
+            self.status = max(self.status, other.status, key=("success", "rejected", "error").index)
         return self
 
 
@@ -172,7 +175,7 @@ class Router:
             body = "选 " + body      # /团 A … is /团 选 A …
         found = self.resolve(body)
         if found is None:
-            return Reply().say(self.unknown(body))
+            return Reply(status="rejected").say(self.unknown(body))
         command, args = found
         if not caller.in_group:
             from .shared import private_scope
@@ -182,12 +185,12 @@ class Router:
         private_room = None
         if command.group_only and not caller.in_group:
             if not command.private:
-                return Reply().say(f"这个指令只能在群聊里使用，回到群里发送 /团 {command.verb}。")
+                return Reply(status="rejected").say(f"这个指令只能在群聊里使用，回到群里发送 /团 {command.verb}。")
             from .shared import private_room as find_private_room
             try:
                 private_room = find_private_room(app, caller)
             except UserError as exc:
-                return Reply().say(exc.message)
+                return Reply(status="rejected").say(exc.message)
             original = caller
             send = caller.send
             if command.private == "room":
@@ -197,16 +200,16 @@ class Router:
                              platform_id=private_room["platform"], private_umo=original.umo, send=send,
                              is_admin=caller.is_admin)
         if command.admin and not caller.is_admin:
-            return Reply().say("这个指令只有管理员可以使用。")
+            return Reply(status="rejected").say("这个指令只有管理员可以使用。")
         if caller.in_group and not app.config.group_allowed(caller.group_id):
-            return Reply()
+            return Reply(status="rejected")
         try:
             reply = await command.handler(app, caller, args)
         except UserError as exc:
-            return Reply().say(exc.message)
+            return Reply(status="rejected").say(exc.message)
         except Exception:
             logger.exception("321Roll Lite command failed: %s", command.verb)
-            return Reply().say("处理指令时出现内部错误，已写入日志。请稍后再试或联系管理员。")
+            return Reply(status="error").say("处理指令时出现内部错误，已写入日志。请稍后再试或联系管理员。")
         if private_room is not None and command.private == "room" and reply.messages and not reply.private_only:
             reply.room_umo = private_room["umo"]
             if not reply.ack:

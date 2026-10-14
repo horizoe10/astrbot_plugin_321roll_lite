@@ -57,7 +57,7 @@ def timeline(c: sqlite3.Connection, room: sqlite3.Row, current_round: int | None
         items.append(item)
         if not opened:
             continue
-        if kind == "check" or (kind == "play" and "【检定】" in r["text"]):
+        if report.check_outcome(kind, r["text"], data):
             checks[act] = checks.get(act, 0) + 1
         if opening:
             item["round"] = 0

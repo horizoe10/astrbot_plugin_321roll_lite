@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from .. import adjust, economy, loadout, messages, narration, people, personas, shared, tavern
 from ..cards import cover
 from ..commands import Caller, UserError, strip_command
-from ..delivery import load_prefs, save_prefs
+from ..delivery import card_banner, load_prefs, save_prefs
 from ..engine.bridge import ModelOutputInvalid, ModelUnavailable
 from ..engine.gateway import ENGINE_VERSION
 from ..features import BY_KEY, group_scope
@@ -39,7 +39,7 @@ from .preview import message_preview
 if TYPE_CHECKING:
     from ..app import LiteApp
 
-ROOM_COMMANDS = ("暂停", "恢复", "开演", "主持 全员准备", "完结", "关闭", "主持 跳过", "主持 直述", "主持 指引", "主持 推进", "主持 重试", "主持 换幕",
+ROOM_COMMANDS = ("暂存", "取回", "暂停", "恢复", "开演", "主持 全员准备", "完结", "关闭", "主持 跳过", "主持 直述", "主持 指引", "主持 推进", "主持 重试", "主持 换幕",
                  "主持 选项", "主持 集体事件", "主持 结束表决", "主持 限时", "存档", "读档", "人数",
                  "主持 交棒", "主持 移出", "主持 放行", "主持 暂离", "主持 返回", "主持 入座", "主持 退回", "主持 顺序",
                  "主持 轮到", "主持 回退", "主持 篇幅", "主持 文风", "主持 即兴", "主持 检定", "主持 审稿", "主持 发布", "主持 重写",
@@ -115,7 +115,7 @@ def _room_row(app: "LiteApp", room_id: str) -> Any:
     return room
 
 
-def _room_summary(c: Any, room: Any) -> dict[str, Any]:
+def _room_summary(app: "LiteApp", c: Any, room: Any) -> dict[str, Any]:
     actors = c.execute("SELECT * FROM actors WHERE room_id=? AND presence<>'left' ORDER BY order_index", (room["id"],)).fetchall()
     turn = c.execute("SELECT * FROM turns WHERE room_id=? ORDER BY created_at DESC LIMIT 1", (room["id"],)).fetchone()
     narration = c.execute("SELECT text FROM events WHERE room_id=? AND kind='narration' ORDER BY id DESC LIMIT 1",
@@ -123,19 +123,57 @@ def _room_summary(c: Any, room: Any) -> dict[str, Any]:
     from ..plays import pacing
     turn_actor = next((a for a in actors if turn is not None and a["id"] == turn["actor_id"]), None)
     live_turn = turn is not None and turn["state"] in ("awaiting", "resolving", "narration_failed", "review")
+    world = shared.world(room)
     return {"id": room["id"], "title": room["title"], "world_id": room["world_id"], "group_id": room["group_id"],
             "platform": room["platform"], "state": room["state"], "state_label": lifecycle.STATE_LABELS.get(room["state"], room["state"]),
             "players": len(actors), "away": sum(a["presence"] == "away" for a in actors), "seat_cap": room["seat_cap"],
             "round": turn["round"] if turn else 0,
             "act": room["act"], "acts_total": lifecycle.acts_total(room) or len(lifecycle.act_list(room)),
             "act_heading": lifecycle.act_heading(room).split("\n")[0] if room["state"] != "lobby" else "",
-            "cover": cover(room["world_id"], room["title"], shared.world(room).get("presentation")),
+            "cover": cover(room["world_id"], room["title"], world.get("presentation")), "art": _room_art(app, room, world),
             "names": [shared.actor_label(a) for a in actors],
             "turn": {"actor": shared.actor_label(turn_actor) if turn_actor else "", "state": turn["state"],
                      "deadline_at": turn["deadline_at"]} if live_turn else None,
             "excerpt": " ".join((narration["text"] if narration else "").split())[:140],
             "stage": pacing.stage(c, room),
             "created_at": room["created_at"], "updated_at": room["updated_at"]}
+
+
+def _room_art(app: "LiteApp", row: Any, world: dict[str, Any] | None = None) -> dict[str, str] | None:
+    """The scene the table has reached, so admin banners match the latest card; None for worlds without pictures."""
+    world = shared.world(row) if world is None else world
+    origin = world.get("origin")
+    if origin is None:
+        # Opened before the pack had pictures: cards fall back to the installed world, so the banner does too.
+        entry = lifecycle.catalog(app).get(row["world_id"])
+        origin = entry.origin if entry is not None else None
+    if not origin:
+        return None
+    from ..worlds import scenes
+    # An ended table keeps the last scene it showed (usually the ending picture); others follow the current act and place.
+    key = ((loads(row["data_json"], {}).get("scene_art") or {}).get("key") or "") if row["state"] == "ended" else ""
+    key = key or scenes.select(world, row["act"], loads(row["scene_json"], {}).get("title", ""), loads(row["clock_json"], {}))
+    return {"key": key or "cover", "rev": str(origin.get("revision", ""))}
+
+
+async def room_image(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
+    from ..worlds import scenes
+    row = _room_row(app, str(payload.get("id") or ""))
+    # Read from the revision the room was opened with, as the group's cards do; fall back to the world cover.
+    entry = scenes.frozen_entry(app, {"room": row["id"], "world": row["world_id"]})
+    # Table tiles take the card-width copy the group cards already cache, not the full-size original.
+    small = payload.get("size") == "small"
+    problem: Exception | None = None
+    for key in dict.fromkeys((str(payload.get("key") or "cover"), "cover")):
+        try:
+            if small:
+                if entry is None or not entry.origin:
+                    raise market.MarketError("这个世界没有场景图")
+                return {"key": key, "url": await asyncio.to_thread(card_banner, app, entry, key)}
+            return await asyncio.to_thread(market.image, app, entry, key)
+        except (market.MarketError, OSError, ValueError) as exc:
+            problem = problem or exc
+    raise WebError(str(problem))
 
 
 PLAY_NOTES = {
@@ -182,7 +220,7 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
         open_rows = c.execute("SELECT * FROM rooms WHERE state IN ('lobby','running','paused','ended') "
                               "ORDER BY CASE state WHEN 'running' THEN 0 WHEN 'paused' THEN 1 WHEN 'lobby' THEN 2 ELSE 3 END,"
                               " updated_at DESC LIMIT 12").fetchall()
-        active = [_room_summary(c, r) for r in open_rows]
+        active = [_room_summary(app, c, r) for r in open_rows]
         calls = c.execute("SELECT COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0),"
                           "COALESCE(SUM(status<>'ok'),0) FROM model_calls WHERE started_at>=?", (since,)).fetchone()
         days = {r["day"]: dict(r) for r in c.execute(
@@ -259,7 +297,7 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
     lead = next((r for r in open_rows if r["state"] in ("running", "paused")), None)
     if lead is not None:
         feature = await room(app, {"id": lead["id"]}, username)
-        feature = {k: feature[k] for k in ("id", "title", "state", "state_label", "cover", "act", "acts", "act_heading", "round", "clock",
+        feature = {k: feature[k] for k in ("id", "title", "state", "state_label", "cover", "art", "act", "acts", "act_heading", "round", "clock",
                                            "scene", "goal", "turn", "vote", "seat_cap", "turn_timeout_seconds", "stage")} | {
             "actors": [a for a in feature["actors"] if a["presence"] != "left"],
             "story": next((e["text"] for e in feature["events"] if e["kind"] == "narration"), ""),
@@ -314,7 +352,7 @@ async def rooms(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[
             sql += " WHERE " + " AND ".join(clauses)
         rows = c.execute(sql + " ORDER BY updated_at DESC LIMIT 200", args).fetchall()
         counts = {r[0]: r[1] for r in c.execute("SELECT state,COUNT(*) FROM rooms GROUP BY state")}
-        return {"rooms": [_room_summary(c, r) for r in rows], "counts": counts}
+        return {"rooms": [_room_summary(app, c, r) for r in rows], "counts": counts}
 
 
 def _actor_dict(room: Any, actor: Any) -> dict[str, Any]:
@@ -347,7 +385,10 @@ async def room(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[s
     from ..plays import banter, collaboration, custom, hosted, pacing
     row = _room_row(app, str(payload.get("id") or ""))
     with app.store.read() as c:
-        summary = _room_summary(c, row)
+        summary = _room_summary(app, c, row)
+        active = shared.open_room(c, row['umo'])
+        summary['active_table'] = {'id': active['id'], 'title': active['title']} if active else None
+        summary['shelf'] = loads(row['data_json'], {}).get('shelf')
         actors = [_actor_dict(row, a) for a in c.execute("SELECT * FROM actors WHERE room_id=? ORDER BY order_index", (row["id"],))]
         turn = hosted.current_turn(c, row["id"])
         vote = collaboration.open_vote(c, row["id"])
@@ -581,6 +622,15 @@ async def room_command(app: "LiteApp", payload: dict[str, Any], username: str) -
     verb = next((v for v in sorted(ROOM_COMMANDS, key=len, reverse=True) if command == v or command.startswith(v + " ")), None)
     if verb is None:
         raise WebError("后台不支持这个操作")
+    if verb == '取回':
+        if row['state'] != 'shelved':
+            raise WebError('这桌没有暂存，请刷新后再试')
+        command = '取回 ' + row['id']
+    else:
+        with app.store.read() as c:
+            active = shared.open_room(c, row['umo'])
+        if active is None or active['id'] != row['id']:
+            raise WebError('这桌已暂存或收桌，请先取回；本次操作没有影响当前桌')
     # Characters picked in the WebUI travel as actor ids and reach the command as @mentions, in the given order,
     # so names with spaces or symbols never have to be typed into the command text.
     picked = [str(a) for a in payload.get("actors") or [] if a]
@@ -593,10 +643,21 @@ async def room_command(app: "LiteApp", payload: dict[str, Any], username: str) -
             raise WebError("所选角色已不在这一桌，请刷新后再试")
         mentions = [users[a] for a in picked]
     sent: list[Any] = []
+    delivery = "none"
+
+    async def notify(items: Any) -> None:
+        nonlocal delivery
+        # Match Notifier's empty-message filtering; a no-op is not a delivery.
+        if not any(items if isinstance(items, list) else [items]):
+            return
+        if await app.notifier.send(row["umo"], items) is False:
+            delivery = "pending"
+        elif delivery == "none":
+            delivery = "sent"
 
     async def send(item: Any) -> None:
         sent.append(item)
-        await app.notifier.send(row["umo"], item)
+        await notify(item)
 
     caller = Caller(umo=row["umo"], platform_id=row["platform"], group_id=row["group_id"], user_id=f"webui:{username}",
                     user_name=f"后台·{username}", is_admin=True, send=send, mentions=tuple(mentions))
@@ -604,8 +665,9 @@ async def room_command(app: "LiteApp", payload: dict[str, Any], username: str) -
     reply = await app.router.dispatch(app, caller, body or "")
     with app.store.tx() as c:
         app.store.audit(c, f"webui:{username}", "web.room_command", row["id"], {"command": command, **({"actors": picked} if picked else {})})
-    await app.notifier.send(row["umo"], reply.messages)
-    return {"messages": [render(item, PLAIN) for item in sent + reply.messages]}
+    await notify(reply.messages)
+    return {"messages": [render(item, PLAIN) for item in sent + reply.messages],
+            "status": reply.status, "delivery": delivery}
 
 
 async def room_adjust(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
@@ -620,7 +682,7 @@ async def room_adjust(app: "LiteApp", payload: dict[str, Any], username: str) ->
             app.store.audit(c, f"webui:{username}", "web.room_adjust", row["id"], {"changes": item["changes"]})
     except adjust.AdjustInvalid as exc:
         raise WebError(str(exc)) from exc
-    return await room(app, {"id": row["id"]}, username)
+    return {**await room(app, {"id": row["id"]}, username), "status": "success", "delivery": "none"}
 
 
 async def room_adjust_cancel(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
@@ -631,7 +693,7 @@ async def room_adjust_cancel(app: "LiteApp", payload: dict[str, Any], username: 
             app.store.audit(c, f"webui:{username}", "web.room_adjust_cancel", row["id"], {"adjustment": payload.get("adjustment")})
     except adjust.AdjustInvalid as exc:
         raise WebError(str(exc)) from exc
-    return await room(app, {"id": row["id"]}, username)
+    return {**await room(app, {"id": row["id"]}, username), "status": "success", "delivery": "none"}
 
 
 async def world_toggle(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
@@ -676,7 +738,7 @@ async def room_narration(app: "LiteApp", payload: dict[str, Any], username: str)
         raise WebError(str(exc)) from exc
     with app.store.tx() as c:
         app.store.audit(c, f"webui:{username}", "web.room_narration", row["id"], {"changes": changes})
-    return await room(app, {"id": row["id"]}, username)
+    return {**await room(app, {"id": row["id"]}, username), "status": "success", "delivery": "none"}
 
 
 def _parse_json(value: Any, label: str) -> Any:
@@ -847,19 +909,12 @@ async def outbox_action(app: "LiteApp", payload: dict[str, Any], username: str) 
     if row is None:
         raise WebError("消息不存在")
     if action == "retry":
-        ok = True
         try:
-            await app.notifier.retry(row["umo"], row["text"])
+            await app.notifier.retry(row["id"])
         except Exception as exc:
-            ok, error = False, str(exc)[:300]
-        with app.store.tx() as c:
-            c.execute("UPDATE outbox SET state=?,attempts=attempts+1,last_error=?,updated_at=? WHERE id=?",
-                      ("sent" if ok else "pending", "" if ok else error, now(), item_id))
-        if not ok:
-            raise WebError("重试失败：" + error)
+            raise WebError("重试失败：" + str(exc)[:300]) from exc
     elif action == "drop":
-        with app.store.tx() as c:
-            c.execute("UPDATE outbox SET state='dropped',updated_at=? WHERE id=?", (now(), item_id))
+        await app.notifier.drop(row["id"])
     else:
         raise WebError("未知操作")
     return await outbox(app, {}, username)
@@ -1179,6 +1234,7 @@ async def tavern_build(app: "LiteApp", payload: dict[str, Any], username: str) -
 GET_ROUTES = {"overview": overview, "rooms": rooms, "room": room, "worlds": worlds, "world": world, "features": features,
               "usage": usage, "outbox": outbox, "audit": audit, "settings": settings, "about": about, "backup": backup_info,
               "messages/preview": message_preview, "market": market_view, "worlds/image": world_image,
+              "room/image": room_image,
               "personas": personas_view, "worlds/tavern/templates": tavern_templates}
 POST_ROUTES = {"room/command": room_command, "room/adjust": room_adjust, "room/adjust/cancel": room_adjust_cancel,
                "worlds/toggle": world_toggle, "worlds/validate": world_validate, "worlds/narration": world_narration,

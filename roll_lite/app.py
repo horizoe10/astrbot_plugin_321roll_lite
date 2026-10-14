@@ -80,9 +80,9 @@ class LiteApp:
             return
         self._adopted.add(umo)
         with self.store.tx() as c:
-            if c.execute("SELECT 1 FROM rooms WHERE umo=? AND state<>'closed'", (umo,)).fetchone():
+            if c.execute("SELECT 1 FROM rooms WHERE umo=? AND state NOT IN ('closed','shelved')", (umo,)).fetchone():
                 return
-            old = c.execute("SELECT id,umo FROM rooms WHERE platform=? AND group_id=? AND state<>'closed' "
+            old = c.execute("SELECT id,umo FROM rooms WHERE platform=? AND group_id=? AND state NOT IN ('closed','shelved') "
                             "ORDER BY updated_at DESC LIMIT 1", (platform_id, group_id)).fetchone()
             if old is None:
                 return
@@ -95,11 +95,12 @@ class LiteApp:
     def install(self) -> None:
         from . import daily, economy, fun, personas
         from .plays import banter, collaboration, custom, hosted, kit, rush, story_recap, ties, wager
-        from .rooms import build, governance, lifecycle
+        from .rooms import build, governance, lifecycle, shelf
         from .web import api
 
         register_core(self.router)
         lifecycle.install(self)
+        shelf.install(self)
         governance.install(self)
         build.install(self)
         hosted.install(self)

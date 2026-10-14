@@ -15,14 +15,14 @@ OPEN_STATES = ("lobby", "running", "paused", "ended")
 
 def open_room(c: sqlite3.Connection, umo: str) -> sqlite3.Row | None:
     """The group's room that is not closed (at most one exists)."""
-    return c.execute("SELECT * FROM rooms WHERE umo=? AND state<>'closed'", (umo,)).fetchone()
+    return c.execute("SELECT * FROM rooms WHERE umo=? AND state NOT IN ('closed','shelved')", (umo,)).fetchone()
 
 
 def require_room(app: "LiteApp", caller: Caller, *states: str) -> sqlite3.Row:
     with app.store.read() as c:
         room = open_room(c, caller.umo)
     if room is None:
-        raise UserError("本群还没有开团。管理员可以发送 /团 开启 选一个世界开一桌。")
+        raise UserError("本群当前没有启用的团桌。管理员可 /团 开启 新世界；想接着旧故事玩，发送 /团 暂存列表，再由原主持人或管理员 /团 取回 序号。")
     if states and room["state"] not in states:
         labels = {"lobby": "筹备中", "running": "进行中", "paused": "已暂停", "ended": "已完结"}
         allowed = "、".join(labels[s] for s in states if s in labels)

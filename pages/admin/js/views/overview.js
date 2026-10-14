@@ -1,4 +1,4 @@
-import { PLAY_GROUPS, acts, avatar, avatars, brief, columns, cover, dot, empty, esc, facts, figure, fmt, hero, icon, meter, playTone, ring, roomDot, roundIcon, section, shares, shortTitle,
+import { PLAY_GROUPS, acts, avatar, avatars, brief, columns, cover, dot, empty, esc, facts, figure, fmt, hero, icon, meter, paintArt, playTone, ring, roomArt, roomDot, roundIcon, section, shares, shortTitle,
   subTitle, until, when } from "../ui.js";
 
 const KIND_ICON = { narration: "feather", action: "user", check: "dice", play: "layers", vote: "vote", system: "sparkle" };
@@ -34,7 +34,7 @@ export function tableCard(r) {
   const actList = Array.from({ length: r.acts_total || 0 }, (_, i) => i + 1);
   const turn = r.turn, stage = r.stage;
   const [actTitle] = String(r.act_heading || "").split("\n");
-  return '<a class="tcard" href="#/rooms/' + encodeURIComponent(r.id) + '">' + '<div class="cover band tone-' + esc(r.cover.tone) + '"><span class="mark">' + esc(r.cover.mark) + "</span></div>" +
+  return '<a class="tcard" href="#/rooms/' + encodeURIComponent(r.id) + '">' + '<div class="cover band tone-' + esc(r.cover.tone) + '"' + roomArt(r, "small") + '><span class="mark">' + esc(r.cover.mark) + "</span></div>" +
     '<div class="tcard-body"><div class="tcard-eyebrow"><span>群 ' + esc(r.group_id || "—") + " · " + esc(r.platform) + "</span>" + roomDot(r.state, r.state_label) + "</div>" +
     "<h3>" + esc(shortTitle(r.title)) + "</h3>" +
     '<div class="tcard-act">' + (r.state === "lobby" ? '<div class="tcard-act-top"><b>筹备中</b><span>' + r.players + "/" + r.seat_cap + " 人入座</span></div>" + seatsLine(r)
@@ -61,7 +61,7 @@ function storyCard(f) {
   const turn = f.turn;
   const turnActor = turn ? f.actors.find((a) => (a.name || a.user_name) === turn.actor) : null;
   const recent = f.recent.length ? f.recent.map((e) => "<li>" + icon(KIND_ICON[e.kind] || "sparkle", 13) + "<span>" + esc(brief(e.text, 46)) + "</span></li>").join("") : "<li><span>还没有行动</span></li>";
-  return '<div class="story"><div class="story-band tone-' + esc(f.cover.tone) + '" data-mark="' + esc(f.cover.mark) + '"><div style="min-width:0">' +
+  return '<div class="story"><div class="story-band tone-' + esc(f.cover.tone) + '" data-mark="' + esc(f.cover.mark) + '"' + roomArt(f) + '><div style="min-width:0">' +
     '<div class="story-chips"><span>' + (f.state === "paused" ? icon("pause", 12) : icon("play", 12)) + esc(f.state_label) + "</span>" + (actLine ? "<span>" + esc(actLine) + "</span>" : "") +
       (f.clock ? "<span>" + icon("clock", 12) + esc(f.clock) + "</span>" : "") + "</div>" +
     '<h2 class="story-title">' + esc(shortTitle(f.title)) + '</h2><div class="story-sub">' + esc(subTitle(f.title)) + "</div>" +
@@ -88,7 +88,7 @@ export async function render(root, ctx) {
   let chartMode = d.model_week.filter((x) => x.calls).length <= 2 ? "hours" : "week";
   const tokens = m.input_tokens + m.output_tokens;
   const categories = PLAY_GROUPS.map(([label, , keys, tone]) => ({ label, tone, value: d.plays.filter((p) => keys.includes(p.key)).reduce((s, p) => s + p.count, 0) }));
-  const covers = Object.fromEntries(d.active_rooms.map((r) => [r.id, r.cover]));
+  const covers = Object.fromEntries(d.active_rooms.map((r) => [r.id, r]));
   const feeds = [];
   for (const e of d.recent) {
     let g = feeds.find((x) => x.room_id === e.room_id);
@@ -99,7 +99,7 @@ export async function render(root, ctx) {
   const urgent = d.attention.filter((a) => a.tone === "err").length;
 
   const shelf = d.active_rooms.length ? '<div class="rows">' + d.active_rooms.slice(0, 6).map((r) =>
-    '<a class="ri shelf" href="#/rooms/' + encodeURIComponent(r.id) + '">' + cover(r.cover) + '<div style="min-width:0"><div class="ri-title">' + esc(shortTitle(r.title)) + "</div>" +
+    '<a class="ri shelf" href="#/rooms/' + encodeURIComponent(r.id) + '">' + cover(r.cover, "tile", "", roomArt(r, "small")) + '<div style="min-width:0"><div class="ri-title">' + esc(shortTitle(r.title)) + "</div>" +
     '<div class="ri-meta">' + (r.state === "lobby" ? "<span>筹备中 · " + r.players + "/" + r.seat_cap + " 人</span>" : "<span>" + esc(r.act_heading || "第 " + r.act + " 幕") + "</span>" + (r.round ? "<span>第 " + r.round + " 轮</span>" : "")) + "</div></div>" +
     '<div class="ri-side" style="flex-direction:column;align-items:flex-end;gap:2px">' + roomDot(r.state, r.state_label) + (r.turn ? '<span class="faint">轮到 ' + esc(r.turn.actor) + "</span>" : '<span class="faint">' + esc(when(r.updated_at)) + "</span>") + "</div></a>").join("") + "</div>"
     : empty("还没有团桌", "在群里发送 /团 开启");
@@ -150,7 +150,7 @@ export async function render(root, ctx) {
       '</div><div style="margin-top:18px"><a class="link" href="#/settings">设置' + icon("arrow", 14) + "</a></div></div></div></section>" +
   '<section class="sec grid cols-2"><div>' + section("此刻酒馆里", { meta: "所有团桌最近的动态", link: ["#/rooms", "团桌"] }) +
     (feeds.length ? '<div class="room-feeds">' + feeds.map((g) => '<a class="room-feed" href="#/rooms/' + encodeURIComponent(g.room_id) + '"><div class="rf-head">' +
-      (covers[g.room_id] ? cover(covers[g.room_id]) : roundIcon("dice", "mute")) + '<div style="min-width:0"><b>' + esc(shortTitle(g.title)) + "</b><span>" + esc(subTitle(g.title)) + "</span></div><time>" +
+      (covers[g.room_id] ? cover(covers[g.room_id].cover, "tile", "", roomArt(covers[g.room_id], "small")) : roundIcon("dice", "mute")) + '<div style="min-width:0"><b>' + esc(shortTitle(g.title)) + "</b><span>" + esc(subTitle(g.title)) + "</span></div><time>" +
       esc(when(g.items[0].created_at)) + '</time></div><ul class="rf-items">' + g.items.map((e) => '<li class="k-' + esc(e.kind) + '"><i></i><span class="rf-kind">' + esc(KIND_LABEL[e.kind] || e.kind) +
       '</span><span class="rf-text' + (e.kind === "narration" ? " serif" : "") + '">' + esc(brief(e.text, 90)) + "</span></li>").join("") + "</ul></a>").join("") + "</div>" : empty("暂无动态")) + "</div>" +
     "<div>" + section("玩法热度", { meta: "近 30 天 · 已开启 " + d.plays_enabled + "/" + d.plays_total, link: ["#/plays", "玩法"] }) +
@@ -161,6 +161,7 @@ export async function render(root, ctx) {
         '</div><div class="ri-meta"><span>近 30 天 ' + w.month + " 桌</span><span>最近开桌 " + esc(when(w.last_at)) + '</span></div></div><span class="ri-side"><span class="serif gold" style="font-size:20px">' + w.rooms + "</span>桌</span></a>").join("") + "</div>" : empty("还没有开过桌")) + "</div></div></section>" +
   '<div class="footer-note"><div class="sign" aria-hidden="true"></div>321，开团！故事从此刻发生……<div class="mono" style="margin-top:8px;letter-spacing:0">Lite ' + esc(d.version) + " · 世界引擎 " + esc(d.engine_version) + "</div></div>";
 
+  paintArt(root, ctx.api);
   const ringEl = root.querySelector(".story-bar .ring");
   root.querySelectorAll("[data-chart]").forEach((b) => b.addEventListener("click", () => {
     chartMode = b.dataset.chart;

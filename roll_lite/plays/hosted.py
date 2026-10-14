@@ -19,7 +19,7 @@ from .. import adjust, clock, continuity, economy, loadout, narration, personas,
 from .. import messages
 from ..commands import Caller, Reply, UserError, split_title
 from ..dice import roll_check, success_chance
-from ..engine.gateway import EngineCallFailed, new_operation_ref
+from ..engine.gateway import EngineCallFailed, EngineInputError, new_operation_ref
 from ..fun import luck
 from ..rooms import lifecycle
 from ..rooms.build import trait_bonus
@@ -233,7 +233,16 @@ def dated_facts(c: sqlite3.Connection, room_id: str) -> list[dict[str, Any]]:
 
 def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, action: str,
                   receipt: dict[str, Any] | None, note: str = "", extra: list[str] | None = None) -> dict[str, Any]:
+    action = action[:2000]
     facts = dated_facts(c, room['id'])
+    if len(facts) > 2000:
+        # Match the engine's literal relevance/recency ranking for its input ceiling only.
+        # It still owns the final 24-fact / 12000-character selection; history stays whole.
+        terms = set(re.findall(r'[\w]{2,12}', action))
+        terms.update(action[index:index+2] for index in range(len(action)-1) if not action[index:index+2].isspace())
+        ranked = sorted(enumerate(facts), key=lambda item: (sum(term in item[1]['text'] for term in terms), item[0]),
+                        reverse=True)
+        facts = [fact for _, fact in sorted(ranked[:2000])]
     npcs = [{"npc_ref": r["npc_ref"], "name": r["name"], "description": r["description"], "motivation": r["motivation"]}
             for r in c.execute("SELECT * FROM npcs WHERE room_id=? ORDER BY updated_at", (room["id"],))]
     scene = loads(room["scene_json"], {})
@@ -245,7 +254,7 @@ def build_context(c: sqlite3.Connection, room: sqlite3.Row, actor: sqlite3.Row, 
                "scene": {"title": scene.get("title") or "当前场景",
                                                                  "description": scene.get("description") or ""},
                "goal": room["goal"] or "", "actor": actor_view(room, actor), "npcs": npcs, "facts": facts,
-               "recent_events": events, "action": action[:2000], "mechanical_receipt": receipt,
+               "recent_events": events, "action": action, "mechanical_receipt": receipt,
                "rules": shared.rules(room)}
     policy = narrative_policy(room)
     if policy is not None:
@@ -537,6 +546,25 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
             result = await app.engine.call("narrate_committed", {"context": context}, room_id=room_id, umo=room["umo"],
                                            rules=shared.rules(room), continuity_sources=archive)
             break
+        except EngineInputError:
+            # Settlement is already committed. Invalid input cannot be repaired by re-rolling
+            # or another model attempt; keep the receipt, draft and special-turn markers.
+            with app.store.tx() as c:
+                _, turn = _require_active_turn(c, room_id, turn_id)
+                c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=?", (now(), turn_id))
+            logger.exception("321Roll Lite: narration input rejected for room %s turn %s", room_id, turn_id)
+            kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
+            if kind == "finale":
+                return Reply(status="error").say(messages.notice(
+                    "终章输入校验失败", "终章输入未通过引擎校验，本次未自动重试，故事停在终章前。",
+                    "请联系管理员检查输入问题；修复后主持人发送 /团 主持 重试 重新写终章，"
+                    f"或 /团 主持 跳过 不写终章、直接请大家写尾声；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内"
+                    "没处理的话，在座的玩家也可以发送 /团 重试"))
+            skip = ("不写这段、直接轮到 " + shared.actor_label(actor)) if kind in NARRATOR_KINDS else "直接轮到下一位"
+            return Reply(status="error").say(messages.notice(
+                "正文输入校验失败", "正文输入未通过引擎校验，本次未自动重试。骰果和资源变化已经保存，故事停在这里等主持人处理。",
+                f"请联系管理员检查输入问题；修复后主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 {skip}；"
+                f"主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内没处理的话，在座的玩家也可以发送 /团 重试"))
         except EngineCallFailed as exc:
             with app.store.read() as c:
                 _require_active_turn(c, room_id, turn_id)
@@ -550,12 +578,12 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
                       "历史日期或物品来历未通过核对。" if exc.category.startswith('continuity.') else "模型几次回复都不合格式。")
             kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
             if kind == "finale":
-                return Reply().say(messages.notice(
+                return Reply(status="error").say(messages.notice(
                     "终章没写出来", reason + "已经自动重试过一次，故事停在终章前。",
                     f"主持人发送 /团 主持 重试 重新写终章，或 /团 主持 跳过 不写终章、直接请大家写尾声；主持人 "
                     f"{PLAYER_RETRY_AFTER_MINUTES} 分钟内没处理的话，在座的玩家也可以发送 /团 重试"))
             skip = ("不写这段、直接轮到 " + shared.actor_label(actor)) if kind in NARRATOR_KINDS else "直接轮到下一位"
-            return Reply().say(messages.notice(
+            return Reply(status="error").say(messages.notice(
                 "这一段正文没写出来", reason + "已经自动重试过一次。骰果和资源变化已经保存，故事停在这里等主持人处理。",
                 f"主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 {skip}；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内"
                 "没处理的话，在座的玩家也可以发送 /团 重试。具体原因可在后台“运行”页查看"))
@@ -1241,6 +1269,9 @@ def _timeout_streak(c: sqlite3.Connection, room_id: str, actor: sqlite3.Row) -> 
 
 async def timeout_turn(app: "LiteApp", room_id: str, turn_id: str) -> None:
     with app.store.tx() as c:
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        if room is None or room['state'] != 'running':
+            return  # A queued timeout must not advance a table that has since been parked.
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
         if turn is None or turn["state"] != "awaiting" or loads(turn["data_json"], {}).get("timeout"):
             return

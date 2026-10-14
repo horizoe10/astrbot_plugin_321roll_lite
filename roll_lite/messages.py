@@ -27,6 +27,30 @@ def subtitle(title: str) -> str:
     return title.split(" · ", 1)[1] if " · " in title else ""
 
 
+def shelf_list(tables: list[dict[str, Any]], active: str = "") -> Msg:
+    note = f"当前桌：《{active}》。先暂存当前桌，再取回旧桌。" if active else "本群桌位空闲，可以取回一桌继续。"
+    msg = Msg().title("暂存的故事", f"本群共 {len(tables)} 桌").para(note)
+    for i, table in enumerate(tables, 1):
+        progress = "尚未开演" if table['lobby'] else f"第 {table['act']} 幕 · 第 {table['round']} 轮"
+        msg.heading(f"{i}. {table['name']}").field("世界", table['title']).field("进度", progress)
+        msg.field("阵容", f"{table['players']} 人").text(f"取回：/团 取回 {i}").gap()
+    if not tables:
+        msg.para("还没有暂存的团桌。想换个世界、以后再回来时，由主持人发送 /团 暂存 名称。")
+    msg.hint("主持人或管理员发送 /团 暂存；原主持人或管理员发送 /团 取回 序号。",
+             note="角色、背包、剧情和存档随原桌保留。取回后准备好再开演。", cmds=[("暂存当前桌", "/团 暂存"), ("开新世界", "/团 开启")])
+    return msg.as_segment('room').with_data({'kind': 'shelf', 'tables': tables, 'active': active, 'mode': 'list'})
+
+
+def shelf_result(table: dict[str, Any], *, retrieved: bool) -> Msg:
+    title = "故事已取回" if retrieved else "故事已暂存"
+    note = ("回到筹备阶段，大家入座、建卡后再开演。" if table['lobby'] else "准备大厅已打开，大家准备好后由主持人开演。") if retrieved else "本群位置已腾出，可以开另一个世界；以后再取回这一桌。"
+    cmds = ([("查看阵容", "/团 阵容"), ("开演", "/团 开演")] if table['lobby'] else [("准备", "/团 准备"), ("开演继续", "/团 开演")]) if retrieved else [("开新世界", "/团 开启"), ("取回旧桌", "/团 暂存列表")]
+    msg = Msg().title(title).heading(table['name']).field("世界", table['title'])
+    msg.field("进度", "尚未开演" if table['lobby'] else f"第 {table['act']} 幕 · 第 {table['round']} 轮")
+    msg.para(note).hint("；".join(f"{label}：{cmd}" for label, cmd in cmds), note="角色、背包、剧情与手动存档均保留。", cmds=cmds)
+    return msg.as_segment('room').with_data({'kind': 'shelf', 'tables': [table], 'mode': 'retrieve' if retrieved else 'save', 'note': note, 'cmds': cmds})
+
+
 def check_tag(rules: dict[str, Any], check: dict[str, Any]) -> str:
     if check.get("kind") == "check":
         attr = rules["attributes"].get(check["attribute_ref"], check["attribute_ref"])

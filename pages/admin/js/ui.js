@@ -156,7 +156,7 @@ export const figures = (items) => '<div class="figures">' + items.map(([v, l, t]
 /** Inline facts for a lead line: [[icon, value, label], ...] */
 export const facts = (items) => items.map(([ic, v, l]) => '<span class="fact">' + icon(ic, 14) + (v !== "" ? "<b>" + esc(v) + "</b>" : "") + esc(l) + "</span>").join('<i class="sep">·</i>');
 
-const STATE_DOT = { running: "ok", paused: "warn", lobby: "gold", ended: "off", closed: "off" };
+const STATE_DOT = { running: "ok", paused: "warn", lobby: "gold", shelved: "gold", ended: "off", closed: "off" };
 export const roomDot = (state, label) => '<span class="dot ' + (STATE_DOT[state] || "") + '">' + esc(label) + "</span>";
 export const dot = (kind, label) => '<span class="dot ' + kind + '">' + esc(label) + "</span>";
 export const roundIcon = (name, tone = "") => '<span class="ricon ' + tone + '">' + icon(name, 16) + "</span>";
@@ -168,6 +168,11 @@ export function cover(c, size = "tile", title = "", attrs = "") {
   return '<div class="cover ' + size + " tone-" + esc(c?.tone || "ink") + '" aria-hidden="true"' + (attrs ? " " + attrs : "") + ">" + cap +
     '<span class="mark">' + esc(c?.mark || "团") + "</span></div>";
 }
+
+/** Attributes that let paintArt lay the scene a table has reached over its colour cover; "" for worlds without pictures. */
+export const roomArt = (r, size = "") => r?.art
+  ? ' data-art="' + esc(r.world_id || "") + '" data-room="' + esc(r.id) + '" data-key="' + esc(r.art.key) + '" data-rev="' + esc(r.art.rev) + '"' + (size ? ' data-size="' + esc(size) + '"' : "")
+  : "";
 
 // Scene images: installed ones come through the API as data URLs (plugin pages cannot read the data folder),
 // market previews load straight from the index host.  Either way the colour cover stays until an image arrives.
@@ -183,11 +188,16 @@ function placeArt(el, url, onFail) {
 }
 export function paintArt(root, api) {
   root.querySelectorAll("[data-art]").forEach(async (el) => {
-    const key = el.dataset.art + "|" + (el.dataset.key || "cover") + "|" + (el.dataset.rev || "");
+    // data-room reads the revision a table was opened with, so its banner matches the cards the group saw.
+    const room = el.dataset.room;
+    const size = el.dataset.size || "";
+    const key = (room ? "room:" + room : el.dataset.art) + "|" + (el.dataset.key || "cover") + "|" + (el.dataset.rev || "") + "|" + size;
+    const query = room ? { id: room, key: el.dataset.key || "cover", ...(size ? { size } : {}) } : { id: el.dataset.art, key: el.dataset.key || "cover" };
+    // Cache the request itself: several covers of one table on a page share a single fetch.
+    if (!artCache.has(key)) artCache.set(key, api.get(room ? "room/image" : "worlds/image", query).then((d) => d.url));
     try {
-      if (!artCache.has(key)) artCache.set(key, (await api.get("worlds/image", { id: el.dataset.art, key: el.dataset.key || "cover" })).url);
-      placeArt(el, artCache.get(key));
-    } catch { /* keep the colour cover */ }
+      placeArt(el, await artCache.get(key));
+    } catch { artCache.delete(key); /* keep the colour cover; a later visit asks again */ }
   });
   root.querySelectorAll("[data-srcs]").forEach((el) => {
     const list = JSON.parse(el.dataset.srcs || "[]");

@@ -2074,8 +2074,33 @@ def _receipt(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
     return "".join(parts), SEGMENT_LABELS["receipt"]
 
 
+def _shelf(d: dict[str, Any]) -> tuple[str, str]:
+    mode = d['mode']
+    title = {'list': '暂存的故事', 'save': '故事已暂存', 'retrieve': '故事已取回'}[mode]
+    subtitle = '换个世界，故事仍等你回来' if mode != 'retrieve' else '从上次停下的地方，继续冒险'
+    parts = [f'<header class="head"><div class="eyebrow-l">团桌 · 故事书架</div><h2>{title}</h2><div class="head-sub">{subtitle}</div></header>']
+    if mode == 'list':
+        note = f'当前桌：{d["active"]}。先暂存当前桌，再取回旧桌。' if d['active'] else '本群桌位空闲，可以取回一桌继续。'
+    else:
+        note = d['note']
+    parts.append(f'<div class="shelf-note">{e(note)}</div>')
+    for i, table in enumerate(d['tables'], 1):
+        progress = '尚未开演' if table['lobby'] else f'第 {table["act"]} 幕 · 第 {table["round"]} 轮'
+        parts.append(f'<section class="shelf-book"><span class="shelf-number num">{i:02}</span><div><h3>{e(table["name"])}</h3>'
+                     f'<div class="sd">{e(table["title"])}</div><div class="shelf-meta">{e(progress)} · {table["players"]} 人</div>'
+                     + (f'<div class="sd">停在：{e(table["scene"])}</div>' if table.get('scene') else '')
+                     + (f'<div class="shelf-command">{rich("`/团 取回 " + str(i) + "`")}</div>' if mode == 'list' else '') + '</div></section>')
+    if not d['tables']:
+        parts.append('<div class="box"><h4>书架还是空的</h4><p>想换个世界、以后再回来时，先由主持人暂存当前桌。</p></div>')
+    parts.append(_hint({'note': '角色、背包、剧情和存档随原桌保留。取回后准备好再开演。',
+                        'cmds': d.get('cmds') or [('暂存当前桌', '/团 暂存'), ('开新世界', '/团 开启')]}))
+    return ''.join(parts), '团桌暂存'
+
+
 def _room(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
     d = msg.data or {}
+    if d.get('kind') == 'shelf':
+        return _shelf(d)
     if d.get("kind") == "roster":
         return _roster(d)
     if d.get("kind") == "schedule":
@@ -2149,6 +2174,12 @@ def card_html(msg: Msg, theme: str = "light", art: dict[str, Any] | None = None)
 
 
 CSS = """
+.shelf-note{margin:0 1.75rem 1.1rem;color:var(--muted);font-size:.85rem;line-height:1.7}
+.shelf-book{display:grid;grid-template-columns:2.6rem minmax(0,1fr);gap:.85rem;margin:.8rem 1.75rem;padding:1rem;background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--gold-line);border-radius:.65rem}
+.shelf-number{font-size:1.6rem;color:var(--gold)}
+.shelf-book h3{font-family:var(--serif);font-size:1.05rem;margin:0 0 .25rem;overflow-wrap:anywhere}
+.shelf-meta{color:var(--text-2);font-size:.8rem;margin:.6rem 0 .3rem}
+.shelf-command{margin-top:.8rem;font-size:.85rem}
 :root{--bg:#FBFAF7;--surface:#FFFFFF;--surface-2:#F5F2EB;--line:rgba(26,22,16,.08);--line-strong:rgba(26,22,16,.14);--text:#1A1712;--text-2:#3D372E;--muted:#6E665A;--faint:#8A8274;--gold:#81632F;--gold-ink:#6B5226;--gold-line:#CDB078;--gold-soft:rgba(205,176,120,.16);--gold-grad:linear-gradient(180deg,#EAD3A0 0%,#CDAA66 100%);--gold-solid:#DBBF85;--on-gold:#2A2012;--danger:#A2433A;--ok:#497157;--r1:#566F51;--r2:#798391;--glow:rgba(219,191,133,.45);
 --die:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Cpath d='M64 12 64 28 22 38Z' fill='%23FBF7EE'/%3E%3Cpath d='M64 12 106 38 64 28Z' fill='%23FBF7EE'/%3E%3Cpath d='M64 28 90 78H38Z' fill='%23F4ECDC'/%3E%3Cpath d='M64 28 22 38 38 78Z' fill='%23E9DEC9'/%3E%3Cpath d='M64 28 90 78 106 38Z' fill='%23E9DEC9'/%3E%3Cpath d='M22 38 38 78 22 84Z' fill='%23DDCFB6'/%3E%3Cpath d='M106 38V84L90 78Z' fill='%23DDCFB6'/%3E%3Cpath d='M38 78H90L64 112Z' fill='%23CDBC9F'/%3E%3Cpath d='M22 84 38 78 64 112Z' fill='%23CDBC9F'/%3E%3Cpath d='M106 84 64 112 90 78Z' fill='%23CDBC9F'/%3E%3Cpath d='M64 12v16M22 38l42-10 42 10M64 28 38 78h52ZM22 38l16 40-16 6M106 38 90 78l16 6M38 78l26 34 26-34' fill='none' stroke='%2381632F' stroke-opacity='.85' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m64 12 42 26v46l-42 28-42-28V38Z' fill='none' stroke='%2381632F' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E");--serif:"Noto Serif SC","Source Han Serif SC","Songti SC","STSong","SimSun",serif;--mono:"JetBrains Mono","Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace}
 body.dark{--bg:#12100C;--surface:#17150F;--surface-2:#1E1B15;--line:rgba(255,236,200,.08);--line-strong:rgba(255,236,200,.14);--text:#EDE6D8;--text-2:#CFC7B8;--muted:#9A9284;--faint:#8A8276;--gold:#D2A667;--gold-ink:#D9B079;--gold-line:#9C7440;--gold-soft:rgba(196,146,82,.11);--gold-grad:linear-gradient(180deg,#DDB073 0%,#A9793B 100%);--gold-solid:#C3955A;--on-gold:#140F08;--danger:#D98B80;--ok:#8DB595;--r1:#8FAF86;--r2:#8E98A6;--glow:rgba(195,149,90,.30);--die:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Cpath d='M64 12 64 28 22 38Z' fill='%23EFE6D3'/%3E%3Cpath d='M64 12 106 38 64 28Z' fill='%23EFE6D3'/%3E%3Cpath d='M64 28 90 78H38Z' fill='%23E4D8BF'/%3E%3Cpath d='M64 28 22 38 38 78Z' fill='%23D3C4A6'/%3E%3Cpath d='M64 28 90 78 106 38Z' fill='%23D3C4A6'/%3E%3Cpath d='M22 38 38 78 22 84Z' fill='%23C2B08E'/%3E%3Cpath d='M106 38V84L90 78Z' fill='%23C2B08E'/%3E%3Cpath d='M38 78H90L64 112Z' fill='%23AD9A77'/%3E%3Cpath d='M22 84 38 78 64 112Z' fill='%23AD9A77'/%3E%3Cpath d='M106 84 64 112 90 78Z' fill='%23AD9A77'/%3E%3Cpath d='M64 12v16M22 38l42-10 42 10M64 28 38 78h52ZM22 38l16 40-16 6M106 38 90 78l16 6M38 78l26 34 26-34' fill='none' stroke='%23D2A667' stroke-opacity='.85' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m64 12 42 26v46l-42 28-42-28V38Z' fill='none' stroke='%23D2A667' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E")}

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS settings(
   scope TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL, updated_at TEXT NOT NULL,
   PRIMARY KEY(scope, key));
 
--- One open room per group (umo).  state: lobby | running | paused | ended | closed.
+-- One open room per group (umo).  state: lobby | running | paused | ended | shelved | closed.
 -- world_json: frozen {pack, presentation} snapshot; rules_json: engine rules compiled from it.
 -- scene_json: {title, description, risk?...}; clock_json: {day, slot}; data_json: owner-namespaced extras.
 CREATE TABLE IF NOT EXISTS rooms(
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS rooms(
   act INTEGER NOT NULL DEFAULT 1, chapter INTEGER NOT NULL DEFAULT 1, clock_json TEXT NOT NULL DEFAULT '{}',
   seat_cap INTEGER NOT NULL, host_user_id TEXT NOT NULL, data_json TEXT NOT NULL DEFAULT '{}',
   revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, ended_at TEXT);
-CREATE UNIQUE INDEX IF NOT EXISTS rooms_one_open ON rooms(umo) WHERE state <> 'closed';
+CREATE UNIQUE INDEX IF NOT EXISTS rooms_one_open ON rooms(umo) WHERE state NOT IN ('closed','shelved');
 
 -- presence: present | away | left.  attributes/resources/items/skills hold the character's
 -- live numbers within this room only; nothing carries to another room.
@@ -228,6 +228,16 @@ class Store:
                     connection.execute("INSERT INTO meta(key,value) VALUES('schema',?)", (str(DATABASE_SCHEMA),))
                 elif int(row[0]) > DATABASE_SCHEMA:
                     raise RuntimeError(f"database schema {row[0]} is newer than this plugin ({DATABASE_SCHEMA})")
+                elif int(row[0]) < 2:
+                    connection.execute("BEGIN IMMEDIATE")
+                    try:
+                        connection.execute("DROP INDEX rooms_one_open")
+                        connection.execute("CREATE UNIQUE INDEX rooms_one_open ON rooms(umo) WHERE state NOT IN ('closed','shelved')")
+                        connection.execute("UPDATE meta SET value=? WHERE key='schema'", (str(DATABASE_SCHEMA),))
+                        connection.execute("COMMIT")
+                    except BaseException:
+                        connection.execute("ROLLBACK")
+                        raise
             finally:
                 connection.close()
 

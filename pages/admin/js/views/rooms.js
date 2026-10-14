@@ -1,9 +1,9 @@
 import { NARRATION, acts, avatar, brief, busy, cells, clock, d20, dot, empty, esc, figure, fmt, hero, icon, meter, narrationHint, narrationLabel, notch, outcomeBar, outcomeLabel, ring, roomDot,
-  roundIcon, section, seats, shortTitle, stamps, standing, subTitle, tug, until, veiled, when } from "../ui.js";
+  paintArt, roomArt, roundIcon, section, seats, shortTitle, stamps, standing, subTitle, tug, until, veiled, when } from "../ui.js";
 import { tableCard } from "./overview.js";
 
 const FILTERS = [["open", "进行中", ["lobby", "running", "paused", "ended"]], ["running", "正在演", ["running"]], ["lobby", "筹备中", ["lobby"]],
-  ["paused", "已暂停", ["paused"]], ["ended", "已完结", ["ended"]], ["closed", "已收桌", ["closed"]], ["", "全部", null]];
+  ["paused", "已暂停", ["paused"]], ["shelved", "已暂存", ["shelved"]], ["ended", "已完结", ["ended"]], ["closed", "已收桌", ["closed"]], ["", "全部", null]];
 const EVENT_KIND = { narration: "叙事", action: "行动", check: "检定", play: "玩法", vote: "表决", system: "系统", host: "主持" };
 const EVENT_ICON = { narration: "feather", action: "user", check: "dice", play: "layers", vote: "vote", system: "sparkle", host: "wand" };
 const NUMERALS = "一二三四五六七八九十";
@@ -19,21 +19,91 @@ const SEAT_ACTIONS = [["主持 轮到", "轮到他"], ["主持 暂离", "设为�
   ["主持 人设 清除", "清除人设", "清除这位玩家带的人设？从下一段正文起 AI 只按职业来写这个角色。"],
   ["主持 交棒", "交棒给他", "把主持人交给这位玩家？后台操作会立即生效。"], ["主持 移出", "请离", "请这位玩家离开这一桌？之后需要放行才能再入座。"]];
 
-let lastLog = null;
+// One receipt per table survives ctx.refresh; nothing is persisted outside this page session.
+const roomLogs = new Map();
+const renderOwners = new WeakMap();
+const readLog = (id) => roomLogs.get(id);
+function saveLog(log) {
+  roomLogs.delete(log.id);
+  roomLogs.set(log.id, log);
+  while (roomLogs.size > 12) roomLogs.delete(roomLogs.keys().next().value);
+}
+function resultBody(log) {
+  if (!log) return "";
+  const status = log.status;
+  const title = { success: "操作已完成", rejected: "操作未获通过", error: "操作返回错误", unknown: "未收到操作结果", legacy: "已收到操作回复" }[status] || "已收到操作回复";
+  const delivery = { sent: "群聊通知已发送", pending: "群聊通知待补发；请勿因此重复提交操作", none: "本次无群聊通知" }[log.delivery] || "群聊通知状态未提供";
+  return '<div class="result-head"><h2>' + esc(title) + '</h2><span>' + esc(log.command) + '</span><button type="button" class="btn text" data-result-refresh>刷新核对状态</button></div>' +
+    '<div class="result-messages">' + esc((log.messages || []).join("\n\n")) + '</div>' +
+    (log.progress ? '<p class="result-progress">' + esc(log.progress) + '</p>' : '') +
+    '<p class="result-delivery' + (log.delivery === "pending" ? ' pending' : '') + '">' + esc(delivery) + '</p>';
+}
+function resultSection(id) {
+  const log = readLog(id), alert = log && ["rejected", "error", "unknown"].includes(log.status);
+  return '<section class="room-result" data-room-result data-status="' + esc(log?.status || "") + '" role="' + (alert ? 'alert' : 'status') + '" aria-atomic="true"' + (log ? '' : ' hidden') + '>' + resultBody(log) + '</section>';
+}
+function showResult(ctx, log) {
+  saveLog(log);
+  if (!ctx.isCurrent()) return;
+  const slot = ctx.root.querySelector('[data-room-result]');
+  if (!slot) return;
+  slot.hidden = false;
+  slot.dataset.status = log.status;
+  slot.setAttribute('role', ["rejected", "error", "unknown"].includes(log.status) ? 'alert' : 'status');
+  slot.innerHTML = resultBody(log);
+  bindResult(ctx);
+  // A rejected form can be far below the page header; reveal its receipt without rebuilding the form.
+  if (log.status !== 'success') slot.scrollIntoView?.({ block: 'nearest', behavior: 'auto' });
+}
+function bindResult(ctx) {
+  ctx.root.querySelector('[data-result-refresh]')?.addEventListener('click', () => { if (ctx.isCurrent()) ctx.refresh(); });
+}
+function responseLog(r, label, result) {
+  const status = ["success", "rejected", "error"].includes(result?.status) ? result.status : "legacy";
+  const messages = (Array.isArray(result?.messages) ? result.messages : []).map(String);
+  const reason = result?.reason || result?.error || result?.message;
+  if (reason && !messages.includes(String(reason))) messages.unshift(String(reason));
+  if (!messages.length) messages.push(status === "success" ? label : status === "legacy" ? "回复未提供明确执行状态，请刷新核对后再决定是否重试。" : "未提供具体原因，请核对当前桌状态后再试。");
+  return { id: r.id, command: label, status, delivery: result?.delivery, messages };
+}
+async function requestResult(ctx, r, endpoint, payload, label) {
+  try { return responseLog(r, label, await ctx.api.post(endpoint, { id: r.id, ...payload })); }
+  catch (error) {
+    return { id: r.id, command: label, status: "unknown", messages: ["未收到操作结果，操作可能已执行。请先核对当前桌状态，不要直接重复提交。", String(error.message || error)] };
+  }
+}
+function finishResult(ctx, log, { closeTool = false, done = "" } = {}) {
+  showResult(ctx, log);
+  if (!ctx.isCurrent()) return;
+  if (log.status === "success") {
+    if (closeTool && consoleView.id === log.id) consoleView.tool = null;
+    ctx.toast(done || "已完成：" + log.command);
+    ctx.refresh();
+  } else if (log.status === "legacy") ctx.toast("已收到操作回复");
+}
+async function roomPost(ctx, r, button, endpoint, payload, label, options = {}) {
+  const log = await busy(button, () => requestResult(ctx, r, endpoint, payload, label));
+  finishResult(ctx, log, options);
+  return log;
+}
 const remaining = (deadline) => (deadline ? Math.max(0, (new Date(deadline).getTime() - Date.now()) / 1000) : null);
 const WORLD_KINDS = { pace_push: "世界推进", world_pulse: "世界脉冲", host_advance: "主持人推进" };
 const limitText = (s) => (!s ? "不限时" : s % 60 ? s + " 秒" : s / 60 + " 分钟");
 
 export async function render(root, ctx) {
+  const owner = Symbol(), hash = window.location.hash;
+  renderOwners.set(root, owner);
+  ctx = { ...ctx, root, isCurrent: () => renderOwners.get(root) === owner && window.location.hash === hash };
   if (ctx.route.rest[0]) return detail(root, ctx, ctx.route.rest[0]);
   const state = ctx.route.params.state ?? "open";
   const q = ctx.route.params.q || "";
-  const data = await ctx.api.get("rooms", { state, q });
+  const data = await ctx.api.get("rooms", { state, q }).catch((error) => { if (ctx.isCurrent()) throw error; });
+  if (!ctx.isCurrent()) return;
   const n = data.counts || {};
   const count = (states) => (states ? states.reduce((s, k) => s + (n[k] || 0), 0) : Object.values(n).reduce((s, v) => s + v, 0));
   root.innerHTML = hero({
     eyebrow: "团桌 · TABLES", title: "团桌",
-    lead: "每个群同一时间只有一桌。点进团桌可以看进度、读最近的故事，或代替主持人操作。",
+    lead: "每个群同时启用一桌。想换个世界，可以先暂存整桌进度，以后取回继续。暂存的故事在「已暂存」里。",
     figures: '<div class="figures">' + figure(n.running || 0, "正在演") + figure(n.lobby || 0, "筹备中", "plain") + figure(n.paused || 0, "已暂停", "plain") + figure((n.ended || 0) + (n.closed || 0), "完结与收桌", "plain") + "</div>",
   }) +
     '<div class="row between wrap" style="border-bottom:1px solid var(--line);margin-bottom:28px;align-items:flex-end"><nav class="tabs" style="border:0;margin:0">' +
@@ -43,6 +113,7 @@ export async function render(root, ctx) {
   const nav = (s, query) => ctx.go("rooms?" + new URLSearchParams({ state: s, ...(query ? { q: query } : {}) }));
   root.querySelectorAll("[data-state]").forEach((b) => b.addEventListener("click", () => nav(b.dataset.state, q)));
   root.querySelector("[data-search]").addEventListener("submit", (e) => { e.preventDefault(); nav(state, e.target.q.value.trim()); });
+  paintArt(root, ctx.api);
 }
 
 function recordTitle(doc) {
@@ -88,7 +159,8 @@ function chain(steps, names, compact = false) {
 }
 
 async function detail(root, ctx, id) {
-  const r = await ctx.api.get("room", { id });
+  const r = await ctx.api.get("room", { id }).catch((error) => { if (ctx.isCurrent()) throw error; });
+  if (!ctx.isCurrent()) return;
   const present = r.actors.filter((a) => a.presence !== "left");
   const away = present.filter((a) => a.presence === "away").length;
   const [actLine, ...leadLines] = String(r.act_heading || "").split("\n");
@@ -103,14 +175,14 @@ async function detail(root, ctx, id) {
   });
 
   root.innerHTML = '<a class="crumb" href="#/rooms">' + icon("arrow", 14, "flip") + "团桌</a>" +
-    '<header class="band tone-' + esc(r.cover.tone) + '" data-mark="' + esc(r.cover.mark) + '"><div class="band-top"><div style="min-width:0">' +
+    '<header class="band tone-' + esc(r.cover.tone) + '" data-mark="' + esc(r.cover.mark) + '"' + roomArt(r) + '><div class="band-top"><div style="min-width:0">' +
       '<div class="eyebrow">' + esc(r.state_label) + " · 群 " + esc(r.group_id || "—") + " · " + esc(r.platform) + "</div><h1>" + esc(shortTitle(r.title)) + '</h1><div class="sub">' + esc(subTitle(r.title)) + "</div>" +
       '<div class="band-meta">' + (r.clock ? "<span>" + icon("clock", 13) + " " + esc(r.clock) + "</span>" : "") + (r.round ? "<span>第 " + r.round + " 轮</span>" : "") +
       (host ? "<span>主持 " + esc(host.user_name) + "</span>" : "") + "<span>" + icon("activity", 13) + " 模型 " + fmt(r.usage.calls) + " 次" + (r.usage.tokens ? " · " + fmt(r.usage.tokens) + " tokens" : "") + "</span></div></div>" +
       '<div style="text-align:right;flex:none"><span class="avatars">' + present.map((a) => avatar(a.name || a.user_name, a.presence === "away" ? "away big" : "big")).join("") + "</span>" +
       '<div class="band-meta" style="justify-content:flex-end;margin-top:10px">' + seats(present.length, r.seat_cap, away) + "<span>" + present.length + "/" + r.seat_cap + " 席</span></div></div></div>" +
       (r.acts.length ? '<div class="band-acts">' + acts(veiled(noted, reached), reached) + "</div>" : "") + "</header>" +
-    statsSection(r) +
+    shelfSection(r) + endedSection(r) + resultSection(r.id) + statsSection(r) +
     '<div class="grid cols-2"><div class="stack" style="gap:52px">' + nowSection(r, actLine, leadLines) + storySection(story) + recordsSection(r, present.length) + timelineSection(r) + "</div>" +
     '<div class="stack" style="gap:52px">' + (live ? consoleSection(r) : "") + peopleSection(r) + sceneSection(r) + "</div></div>" +
     '<div class="sec">' + seatsSection(r, present) + "</div>";
@@ -128,7 +200,29 @@ async function detail(root, ctx, id) {
       if (slot) slot.innerHTML = ring(remaining(r.turn.deadline_at), r.turn_timeout_seconds, "剩余");
     });
   }
+  bindResult(ctx);
+  paintArt(root, ctx.api);
   if (live) bindConsole(root, ctx, r);
+  root.querySelector('[data-ended-close]')?.addEventListener('click', (e) => {
+    if (window.confirm('确定收起这张已完结的桌吗？收桌后本群可以开新桌或取回暂存桌，这桌不再接受指令。')) hostRun(ctx, r, e.currentTarget, '关闭', { label: '收桌' });
+  });
+  root.querySelector('[data-retrieve]')?.addEventListener('click', (e) => hostRun(ctx, r, e.currentTarget, '取回', { label: '取回团桌' }));
+}
+
+function endedSection(r) {
+  if (r.state !== 'ended') return '';
+  return '<section class="ended-close"><div><h2>故事已完结，桌位仍保留</h2><p>收桌后，本群就能开新桌或取回暂存的故事；这桌的故事仍可查看。</p></div>' +
+    '<button type="button" class="btn" data-ended-close>' + icon('door', 16) + '收桌并腾出桌位</button></section>';
+}
+
+function shelfSection(r) {
+  if (r.state !== 'shelved') return '';
+  const active = r.active_table;
+  return '<section class="card shelf-panel"><div>' + '<span class="tag">已暂存</span><h2>' + esc(r.shelf?.name || shortTitle(r.title)) +
+    '</h2><p>角色、背包、剧情与存档都在这里。取回后进入准备阶段，大家准备好再开演。</p>' +
+    (active ? '<p>本群桌位仍由 <a href="#/rooms/' + esc(encodeURIComponent(active.id)) + '">《' + esc(shortTitle(active.title)) + '》</a>占用。' +
+      (active.state === 'ended' ? '这桌已完结，请先前往当前桌收桌，再回来取回。' : '请先前往当前桌暂存或收桌，再回来取回。') + '这里不会自动收起其他桌。</p>' : '<p>本群桌位空闲，可以取回这段故事。</p>') +
+    '</div><button type="button" class="btn primary" data-retrieve' + (active ? ' disabled' : '') + '>' + icon('folder', 16) + '取回团桌</button></section>';
 }
 
 /** A small ring for a share, with the figure in the middle. */
@@ -152,6 +246,7 @@ function statsSection(r) {
 }
 
 function nowSection(r, actLine, leadLines) {
+  if (r.state === 'shelved') return '';
   const t = r.turn, v = r.vote;
   const states = { awaiting: "等待行动", resolving: "结算中", narration_failed: "正文待重试", review: "正文待主持人审阅" };
   let html = '<section>' + section("此刻", { meta: [r.scene?.title ? icon("map", 13) + " " + esc(r.scene.title) : "", r.goal ? icon("flag", 13) + " " + esc(r.goal) : ""].filter(Boolean).join('<i class="sep">·</i>') || esc(actLine || "") });
@@ -305,13 +400,7 @@ function pacingSection(r) {
 
 function bindPacing(root, ctx, r) {
   if (!r.pacing) return;
-  const run = async (button, command, done) => {
-    try {
-      await busy(button, () => ctx.api.post("room/command", { id: r.id, command }));
-      ctx.toast(done || "已执行：" + command);
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); }
-  };
+  const run = (button, command, done) => hostRun(ctx, r, button, command, { done });
   root.querySelectorAll("[data-pace-cmd]").forEach((b) => b.addEventListener("click", () => {
     if (b.classList.contains("on")) return;
     if (b.dataset.confirm && !window.confirm(b.dataset.confirm)) return;
@@ -325,11 +414,26 @@ function bindPacing(root, ctx, r) {
     const changed = Object.keys(now).filter((k) => field(k).value !== "" && Number(field(k).value) !== now[k]);
     if (!changed.length) return ctx.toast("轮数没有变化");
     const button = nums.querySelector("[type=submit]");
-    try {
-      for (const k of changed) await busy(button, () => ctx.api.post("room/command", { id: r.id, command: "主持 节奏 " + k + " " + Number(field(k).value) }));
-      ctx.toast("已调整：" + changed.map((k) => k + " " + field(k).value + " 轮").join("、"));
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); ctx.refresh(); }
+    const edits = changed.map((k) => ({ key: k, value: Number(field(k).value) }));
+    const completed = [], replies = [];
+    const log = await busy(button, async () => {
+      for (const edit of edits) {
+        const label = edit.key + ' ' + edit.value + ' 轮';
+        const reply = await requestResult(ctx, r, 'room/command', { command: '主持 节奏 ' + edit.key + ' ' + edit.value }, label);
+        replies.push(reply);
+        if (reply.status !== 'success') return { ...reply, command: '批量调整节奏', progress: '已确认完成：' + (completed.join('、') || '无') + '。已停止；本项「' + label + '」未确认完成，其余 ' + (edits.length - replies.length) + ' 项未提交。' };
+        completed.push(label);
+        // Prevent a retry after a partial result from re-applying an already confirmed edit.
+        now[edit.key] = edit.value;
+        const targets = { 场景: [r.pacing.scene, 'limit'], 每幕: [r.pacing.act, 'limit'], 全程: [r.pacing.story, 'target'], 上限: [r.pacing.story, 'hard'] };
+        targets[edit.key][0][targets[edit.key][1]] = edit.value;
+      }
+      return { id: r.id, command: '批量调整节奏', status: 'success', messages: replies.flatMap((reply) => reply.messages),
+        delivery: replies.some((reply) => reply.delivery === 'pending') ? 'pending' : replies.every((reply) => ['sent', 'none'].includes(reply.delivery)) ? (replies.some((reply) => reply.delivery === 'sent') ? 'sent' : 'none') : undefined,
+        progress: '已确认完成：' + completed.join('、') };
+    });
+    if (log.status !== 'success' && replies.slice(0, -1).some((reply) => reply.delivery === 'pending')) log.progress += ' 已完成项目中有群聊通知待补发。';
+    finishResult(ctx, log, { done: '已调整：' + completed.join('、') });
   });
   const close = root.querySelector("[data-pace-close]");
   close?.addEventListener("submit", (e) => {
@@ -359,13 +463,7 @@ function narrationSection(r) {
 }
 
 function bindNarration(root, ctx, r) {
-  const post = async (button, changes, done) => {
-    try {
-      await busy(button, () => ctx.api.post("room/narration", { id: r.id, changes }));
-      ctx.toast(done + "，从下一段正文开始生效");
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); ctx.refresh(); }
-  };
+  const post = (button, changes, done) => roomPost(ctx, r, button, 'room/narration', { changes }, '叙事设置', { done: done + '，从下一段正文开始生效' });
   root.querySelectorAll("[data-own]").forEach((box) => box.addEventListener("change", () => {
     const field = box.dataset.own, d = r.settings.narration[field];
     post(box, { [field]: box.checked ? d.value || FALLBACK[field] : null }, box.checked ? NARRATION[field].title + "改为本桌设置" : NARRATION[field].title + "恢复世界默认");
@@ -434,11 +532,9 @@ function bindCreation(root, ctx, r) {
     : (kind === "move" ? "挪点 " : "换技能 ") + value;
   root.querySelectorAll("[data-create]").forEach((b) => b.addEventListener("click", async () => {
     if (b.classList.contains("on")) return;
-    try {
-      await busy(b, () => ctx.api.post("room/command", { id: r.id, command: "主持 建卡 " + arg(b.dataset.create, b.dataset.value) }));
-      ctx.toast(b.dataset.create === "reset" ? "已恢复世界的建卡设置" : "建卡设置已更新，之后建卡的人生效");
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); }
+    hostRun(ctx, r, b, '主持 建卡 ' + arg(b.dataset.create, b.dataset.value), {
+      label: '建卡设置', done: b.dataset.create === 'reset' ? '已恢复世界的建卡设置' : '建卡设置已更新，之后建卡的人生效',
+    });
   }));
   const box = root.querySelector("[data-reach-box]");
   box?.addEventListener("click", (e) => {
@@ -467,19 +563,10 @@ function bindAdjust(root, ctx, r) {
     if (k === "skill") Object.assign(change, { ref: form.skill.value, grant: form.grant.value === "1" });
     if (k === "uses") { const [entry, ref] = form.entry.value.split(":"); Object.assign(change, { entry, ref, value: Number(form.value.value) }); }
     if (k === "attitude") Object.assign(change, { subject: form.subject.value.trim(), standing: Number(form.standing.value) });
-    try {
-      await busy(form.querySelector("[type=submit]"), () => ctx.api.post("room/adjust", { id: r.id, changes: [change] }));
-      ctx.toast("已加入待生效，下一回合正文写完后生效");
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); }
+    roomPost(ctx, r, form.querySelector('[type=submit]'), 'room/adjust', { changes: [change] }, '提交待生效调整（下一回合正文写完后生效）', { done: '已加入待生效，下一回合正文写完后生效' });
   });
-  root.querySelectorAll("[data-cancel-adjust]").forEach((b) => b.addEventListener("click", async () => {
-    try {
-      await ctx.api.post("room/adjust/cancel", { id: r.id, adjustment: b.dataset.cancelAdjust });
-      ctx.toast("已撤销");
-      ctx.refresh();
-    } catch (error) { ctx.toast(error.message, "error"); }
-  }));
+  root.querySelectorAll('[data-cancel-adjust]').forEach((b) => b.addEventListener('click', () =>
+    roomPost(ctx, r, b, 'room/adjust/cancel', { adjustment: b.dataset.cancelAdjust }, '撤销待生效调整')));
 }
 
 
@@ -546,19 +633,12 @@ function consoleSection(r) {
     pane("play", playPane(r)) +
     pane("pace", pacingSection(r) || '<div class="card">' + empty("还没开演", "开演后这里显示场景、幕和全程的轮数，以及收尾") + "</div>") +
     pane("table", tablePane(r)) + pane("config", configPane(r) + narrationSection(r) + creationSection(r)) + pane("adjust", adjustSection(r)) +
-    (lastLog && lastLog.id === r.id ? '<div class="sent-log"><div class="label" style="margin-bottom:6px">已发往群聊 · ' + esc(lastLog.command) + "</div>" + esc(lastLog.messages.join("\n\n")) + "</div>" : "") +
     "</section>";
 }
 
-async function hostRun(ctx, r, button, command, { actors = null, label = "" } = {}) {
-  try {
-    const result = await busy(button, () => ctx.api.post("room/command", { id: r.id, command, ...(actors ? { actors } : {}) }));
-    const name = label || command.split(" ").slice(0, 2).join(" ");
-    lastLog = { id: r.id, command: name, messages: result.messages };
-    consoleView.tool = null;
-    ctx.toast("已执行：" + name);
-    ctx.refresh();
-  } catch (error) { ctx.toast(error.message, "error"); }
+async function hostRun(ctx, r, button, command, { actors = null, label = "", done = "" } = {}) {
+  return roomPost(ctx, r, button, 'room/command', { command, ...(actors ? { actors } : {}) },
+    label || command.split(' ').slice(0, 2).join(' '), { closeTool: true, done });
 }
 
 // ---- 进行
@@ -692,6 +772,8 @@ function tablePane(r) {
   return '<div class="pane-block">' + paneHead("桌面状态", { meta: "现在：" + esc(r.state_label) }) + '<div class="card">' +
     (flow.length ? '<div class="flow-list">' + flow.map(([cmd, label, ic, , note]) => '<button type="button" class="flow-btn" data-run-table="' + esc(cmd) + '">' + icon(ic, 18) +
       "<span><b>" + esc(label) + "</b><small>" + esc(note) + "</small></span></button>").join("") + "</div>" : "") +
+    '<div class="rule-row"><div><b>暂存这桌，换个世界</b><p>保留角色、背包、剧情和存档，腾出本群位置；以后从「已暂存」取回</p></div></div>' +
+    '<form class="narr-style" data-shelve><input class="input" name="name" maxlength="40" aria-label="暂存名称" placeholder="暂存名称（默认世界名）" /><button class="btn primary" type="submit">' + icon('folder', 14) + '暂存团桌</button></form>' +
     '<div class="rule-row tight"><div><b>完结故事</b><p>直接写下结局，跳过收尾和尾声</p></div></div>' +
     '<form class="narr-style" data-finish><input class="input" name="ending" maxlength="40" list="ending-names" placeholder="结局名（可不填，可选世界里的结局）" />' +
     '<datalist id="ending-names">' + endings.map((n) => '<option value="' + esc(n) + '"></option>').join("") + '</datalist><button class="btn" type="submit">' + icon("flag", 14) + "完结</button></form>" +
@@ -717,6 +799,8 @@ function tablePane(r) {
 
 function bindTable(root, ctx, r) {
   const pane = root.querySelector('[data-pane="table"]');
+  const shelf = pane.querySelector('[data-shelve]');
+  shelf.addEventListener('submit', (e) => { e.preventDefault(); hostRun(ctx, r, shelf.querySelector('[type=submit]'), ('暂存 ' + shelf.name.value.trim()).trim(), { label: '暂存团桌' }); });
   pane.querySelectorAll("[data-run-table]").forEach((b) => b.addEventListener("click", () => hostRun(ctx, r, b, b.dataset.runTable)));
   const finish = pane.querySelector("[data-finish]");
   finish.addEventListener("submit", (e) => {

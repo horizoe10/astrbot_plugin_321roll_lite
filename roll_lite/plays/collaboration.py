@@ -110,6 +110,8 @@ async def close_vote(app: "LiteApp", vote_id: str) -> Reply:
         if vote is None or vote["state"] != "open":
             return Reply()
         room = c.execute("SELECT * FROM rooms WHERE id=?", (vote["room_id"],)).fetchone()
+        if room is None or room["state"] not in ("running", "paused"):
+            return Reply()      # A queued timeout must not consume a parked or finished table's vote.
         if economy.outfit(room) is not None:      # the story waits for 整备; so does the vote's result
             return Reply().say(messages.notice(f"表决「{vote['title']}」等整备结束再结算",
                                                "整备期间故事不往下写；票照常可以投、可以改。",

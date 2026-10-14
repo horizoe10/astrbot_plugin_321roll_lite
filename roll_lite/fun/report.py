@@ -23,19 +23,26 @@ OUTCOME_WORDS = {"大成功": "critical", "大失败": "fumble", "成功": "succ
 _PLAY_OUTCOME = re.compile(r"→ (大成功|大失败|成功|失败)")
 
 
+def check_outcome(kind: str, text: str, data: dict[str, Any]) -> str:
+    """A resolved dice outcome; 'check' events also contain non-rolling resource receipts."""
+    if kind == "check":
+        outcome = data.get("outcome")
+        return outcome if outcome in OUTCOME_WORDS.values() else ""
+    if kind == "play" and "【检定】" in text:
+        found = _PLAY_OUTCOME.search(text)
+        return OUTCOME_WORDS[found.group(1)] if found else ""
+    return ""
+
+
 def check_outcomes(c: sqlite3.Connection, room_id: str, after: int = 0) -> list[tuple[str | None, str]]:
-    """(actor id, outcome) of every check in the story and in plays after event id 'after', outcome one of
-    OUTCOME_WORDS' values or ''."""
+    """(actor id, outcome) of resolved checks after event id 'after', excluding non-rolling receipts."""
     rows = c.execute("SELECT kind,actor_id,text,data_json FROM events WHERE room_id=? AND "
                      "(kind='check' OR (kind='play' AND text LIKE '%【检定】%')) AND id>? ORDER BY id", (room_id, after)).fetchall()
     result = []
     for r in rows:
-        if r["kind"] == "check":
-            outcome = loads(r["data_json"], {}).get("outcome") or ""
-        else:
-            found = _PLAY_OUTCOME.search(r["text"])
-            outcome = OUTCOME_WORDS[found.group(1)] if found else ""
-        result.append((r["actor_id"], outcome))
+        outcome = check_outcome(r["kind"], r["text"], loads(r["data_json"], {}))
+        if outcome:
+            result.append((r["actor_id"], outcome))
     return result
 
 
