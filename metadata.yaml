@@ -4,6 +4,6 @@ desc: "（原 AI 酒馆）叫上群友，组一桌属于你们的冒险！AI 当
 short_desc: "叫上群友，一起当故事主角！AI 主持多人跑团，队友配合、自由行动，围观也能起哄竞猜。"
 help: "在群里发送 /团 帮助 查看指令；管理员发送 /团 开启 开一桌。"
 author: "horizoe10"
-version: 0.10.0
+version: 0.10.1
 repo: "https://github.com/horizoe10/astrbot_plugin_321roll_lite"
 astrbot_version: ">=4.26,<5"
