@@ -412,7 +412,7 @@ export async function render(root, ctx, { id, from, tavern = false }) {
         '<div class="ed-rows">' + p.resources.map((x, i) => '<div class="ed-row res"><input class="input" data-bind="pack.resources.' + i + '.name" value="' + esc(x.name) + '" placeholder="名称" />' +
           ["min", "max", "initial"].map((f) => '<label class="ed-mini"><span>' + { min: "最小", max: "最大", initial: "初始" }[f] + '</span><input class="input num" type="number" data-type="int" data-bind="pack.resources.' + i + "." + f + '" value="' + x[f] + '" /></label>').join("") +
           '<div data-live="res:' + i + '"></div>' + (p.resources.length > 1 ? del("del-res", i) : "<span></span>") + "</div>").join("") + "</div>" +
-        '<hr class="rule" />' + sectionHead("难度", "四档难度对应群里的 简单 / 标准 / 困难 / 极难。刻度上的百分比是属性加值为 0 时 d20 的成功率。") +
+        '<hr class="rule" />' + sectionHead("难度", "四档难度对应群里的 简单 / 标准 / 困难 / 极难。刻度上的百分比是属性加值为 0 时投掷的成功率。") +
         '<div class="grid cols-even" style="grid-template-columns:repeat(5,1fr);gap:0 12px">' + DIFF.map((d, i) => num("pack.rules.difficulties." + i, d)).join("") + num("pack.rules.dc", "默认难度") + "</div>" +
         '<div data-live="scale"></div>' +
         '<hr class="rule" />' + sectionHead("人数与玩法", "Lite 的团桌最多 8 人，推荐人数会显示在 /团 世界 列表里。") +

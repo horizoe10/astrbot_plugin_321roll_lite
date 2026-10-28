@@ -13,8 +13,9 @@ from ..commands import Caller, Reply, UserError
 from ..engine import VENDOR  # noqa: F401
 from ..engine.gateway import EngineCallFailed, EngineInputError
 from ..storage import dumps, loads, new_id, now
-from ..worlds.catalog import WorldCatalog
+from ..worlds.catalog import WorldCatalog, WorldInvalid
 from ..worlds.package import display_label, edition_of, label, required_plugin
+from . import guidance
 
 from story_engine import world_rules
 
@@ -167,7 +168,10 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
     entry = catalog(app).resolve(args)
     if entry is None:
         raise UserError("没有找到这个世界。发送 /团 开启 查看可开的世界和序号。")
-    snapshot, rules = await catalog(app).snapshot(entry)
+    try:
+        snapshot, rules = await catalog(app).snapshot(entry)
+    except WorldInvalid as exc:
+        raise UserError(str(exc)) from exc
     pack = snapshot["pack"]
     from .. import narration
     defaults = narration.world_defaults(app, entry)
@@ -196,13 +200,14 @@ async def open_room(app: "LiteApp", caller: Caller, args: str) -> Reply:
     from ..worlds import scenes
     with app.store.read() as c:
         opened = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        experienced = guidance.has_turn_experience(c, opened["platform"], caller.user_id)
     reply = Reply().say(scenes.bind(messages.open_card(pack["title"], pack["seed"], cap, pack["rules"]["minPlayers"], caller.user_name,
                                            world=entry.id, note=CORE_NOTE if edition == "core" else ""), opened, "cover"))
     if any(d["source"] != "fallback" for d in defaults.values()):
         reply.say(messages.notice("叙事设置：" + narration.summary(inherited), "沿用这个世界的默认设置，主持人可以随时调整，从下一段正文开始生效。",
                                   "主持人发送 /团 主持 即兴、/团 主持 文风 或 /团 主持 篇幅 调整"))
     # Last, so the newest message in the group is the one every player needs.
-    return reply.say(messages.table_guide(pack["title"], pack["rules"]["minPlayers"], cap))
+    return reply.say(messages.table_guide(pack["title"], pack["rules"]["minPlayers"], cap, experienced=experienced))
 
 
 def table_in_use(room: sqlite3.Row) -> str:
@@ -257,9 +262,15 @@ async def join(app: "LiteApp", caller: Caller, args: str) -> Reply:
                       (actor_id, room["id"], caller.user_id, caller.user_name, order, now(), now()))
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} 入座", actor_id=actor_id)
         app.store.bump_room(c, room["id"])
-    reply = Reply().say(messages.joined(caller.user_name, seated + 1, room["seat_cap"]))
+        progress = guidance.preparation(c, room)
+        experienced = guidance.has_turn_experience(c, room["platform"], caller.user_id)
+    has_card = existing is not None and bool(existing["archetype_id"])
+    reply = Reply().say(messages.joined(caller.user_name, seated + 1, room["seat_cap"], experienced=experienced,
+                                       has_card=has_card, progress=progress))
+    if has_card and room["state"] == "running":
+        return reply.extend(await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor_id, change="joined"))
     if room["state"] == "paused":
-        reply.say("故事正在暂停：建好角色后发送 /团 准备，主持人开演后你会排进行动顺序末尾，AI 会把你写进故事。"
+        reply.say("故事正在暂停：角色就绪后发送 /团 准备，主持人开演后你会排进行动顺序末尾，AI 会把你写进故事。"
                   if regroup(room) is not None else
                   "故事正在暂停：先建好角色，等主持人发送 /团 恢复 打开准备大厅后发送 /团 准备；开演后你会排进行动顺序末尾。")
     elif room["state"] != "lobby":
@@ -331,6 +342,8 @@ async def commit_character(app: "LiteApp", caller: Caller, room: sqlite3.Row, ac
         app.store.add_event(c, room["id"], "system", f"{caller.user_name} {how}「{built['name']}」", actor_id=actor["id"])
         app.store.bump_room(c, room["id"])
         actor = c.execute("SELECT * FROM actors WHERE id=?", (actor["id"],)).fetchone()
+        room = c.execute("SELECT * FROM rooms WHERE id=?", (room["id"],)).fetchone()
+        progress = guidance.preparation(c, room)
     reply = Reply()
     if rebuilt:
         reply.say(f"已改为{arch['name']}「{built['name']}」，原来的角色卡作废。开演前还可以再改。")
@@ -342,7 +355,10 @@ async def commit_character(app: "LiteApp", caller: Caller, room: sqlite3.Row, ac
         reply.say(f"这个角色带着人设「{personas.attached(actor)['name']}」。")
     public: list[Any] = []
     if caller.in_private:
-        public.append(f"{caller.user_name} " + ("" if mode == "快选" else f"用{mode}") + f"建好了角色：{arch['name']}「{built['name']}」。")
+        announcement = f"{caller.user_name} " + ("" if mode == "快选" else f"用{mode}") + f"建好了角色：{arch['name']}「{built['name']}」。"
+        if progress and not rebuilt:
+            announcement += "\n" + progress
+        public.append(announcement)
     if extra:
         if caller.in_private:
             public.extend(extra)
@@ -356,7 +372,7 @@ async def commit_character(app: "LiteApp", caller: Caller, room: sqlite3.Row, ac
             reply.extend(hook)
     if public:
         await app.notifier.send(room["umo"], public)
-    reply.say(messages.next_steps_after_card(room["state"], regroup(room) is not None))
+    reply.say(progress or messages.next_steps_after_card(room["state"], regroup(room) is not None))
     if room["state"] == "running":
         from ..plays import story_recap
         line = story_recap.welcome(app, caller, room["id"])
@@ -401,6 +417,9 @@ async def leave(app: "LiteApp", caller: Caller, args: str) -> Reply:
     reply = Reply().say(messages.notice(f"{shared.actor_label(actor)} 已离座", "角色和记录保留在这一桌，想回来时在群里发送 /团 加入。"))
     if room["state"] in ("running", "paused"):
         reply.extend(await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor["id"], change="left"))
+    else:
+        with app.store.read() as c:
+            reply.say(guidance.preparation(c, room))
     return reply
 
 
@@ -436,6 +455,9 @@ async def change_presence(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row,
     if room["state"] in ("running", "paused"):
         reply.extend(await app.hooks.emit("roster_changed", room_id=room["id"], actor_id=actor["id"],
                                           change="away" if presence == "away" else "returned"))
+    else:
+        with app.store.read() as c:
+            reply.say(guidance.preparation(c, room))
     return reply
 
 
@@ -491,11 +513,10 @@ async def start(app: "LiteApp", caller: Caller, args: str) -> Reply:
                          (now(), room["id"], room["revision"])).rowcount != 1:
                 raise UserError("团桌状态刚刚变化，请再试一次。")
             app.store.add_event(c, room["id"], "system", "故事开演")
-        for notice in ("正在生成开场，请稍候……", messages.plays_intro()):
-            try:
-                await caller.send(notice)
-            except Exception:
-                logger.exception("321Roll Lite could not send the opening notice")
+        try:
+            await caller.send("正在生成开场，请稍候……开场后会在群里点名，轮到你时按提示行动；/团 状态 查看团桌进度。")
+        except Exception:
+            logger.exception("321Roll Lite could not send the opening notice")
         try:
             return await app.hooks.emit("story_started", room_id=room["id"])
         except (EngineCallFailed, EngineInputError) as exc:
@@ -763,11 +784,13 @@ async def status_message(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row |
     with app.store.read() as c:
         round_row = c.execute("SELECT MAX(round) FROM turns WHERE room_id=?", (room["id"],)).fetchone()
         party, npcs = _party(c, room) if started else ([], [])
+        progress = guidance.preparation(c, room)
     me = None
     if actor is not None and actor["archetype_id"]:
         data = card_data(room, actor)
         me = {"name": data["name"], "archetype": data["archetype"], "resources": data["resources"]}
     extra = await app.hooks.emit("status_lines", room_id=room["id"])
+    extra.say(progress)
     state = "准备大厅" if room["state"] == "paused" and regroup(room) is not None else STATE_LABELS[room["state"]]
     return messages.status_card(
         room["title"], state, (room["act"], acts_total(room), act["title"]) if act and started else None,

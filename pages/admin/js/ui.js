@@ -264,7 +264,7 @@ export function outcomeBar(counts, { legend = true, slim = false } = {}) {
 }
 
 /** A d20 face as a small hexagon badge, coloured by the outcome. */
-export const d20 = (face, outcome = "") => '<span class="d20 o-' + esc(outcome) + '" title="d20 ' + esc(face) + '"><b>' + esc(face) + "</b></span>";
+export const d20 = (face, outcome = "") => '<span class="d20 o-' + esc(outcome) + '" title="投掷点数 ' + esc(face) + '"><b>' + esc(face) + "</b></span>";
 
 /** Attitude from 敌对 (-3) to 盟友 (+3) as a continuous track with a marker; labels are the seven tiers. */
 export function standing(value, labels) {

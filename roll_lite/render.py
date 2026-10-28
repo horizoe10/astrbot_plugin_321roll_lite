@@ -110,10 +110,10 @@ class Block:
             mod, label = d["modifier"], OUTCOMES.get(d["outcome"], d["outcome"])
             if md:
                 return (f"**{esc_inline(d['attribute'])}检定** · {esc_inline(d['difficulty'])} {d['dc']}　"
-                        f"{BT}d20 {d['face']}{BT} {mod:+d} ＝ **{d['total']}**　**【{label}】**")
-            return f"{d['attribute']}检定  {d['difficulty']} {d['dc']}\nd20 {d['face']} {mod:+d} ＝ {d['total']}　【{label}】"
+                        f"{BT}投掷点数 {d['face']}{BT} {mod:+d} ＝ **{d['total']}**　**【{label}】**")
+            return f"{d['attribute']}检定  {d['difficulty']} {d['dc']}\n投掷点数 {d['face']} {mod:+d} ＝ {d['total']}　【{label}】"
         if k == "draw":
-            return f"{BT}d20 {d['face']}{BT}　**【{esc_inline(d['label'])}】**" if md else f"d20 {d['face']}　【{d['label']}】"
+            return f"{BT}投掷点数 {d['face']}{BT}　**【{esc_inline(d['label'])}】**" if md else f"投掷点数 {d['face']}　【{d['label']}】"
         if k == "choices":
             rows = []
             for item in d["items"]:

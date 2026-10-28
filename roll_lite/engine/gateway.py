@@ -9,7 +9,6 @@ Methods of the hosted-turn dispatcher used by Lite:
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from . import VENDOR  # noqa: F401
@@ -20,6 +19,7 @@ from story_engine.hosted_turn import create_embedded_hosted_turn_engine
 from story_engine.versions import STORY_ENGINE_DISTRIBUTION_VERSION
 
 from .bridge import AstrBotModelBridge, ModelOutputInvalid, ModelUnavailable
+from .budget import ModelBudget, ModelLimitReached
 
 if TYPE_CHECKING:
     from ..app import LiteApp
@@ -72,12 +72,15 @@ class EngineGateway:
 
     async def compile_world(self, world: dict[str, Any]) -> dict[str, Any]:
         """321roll.world-template/1 -> engine rules (raises ValueError for an unusable world)."""
+        from ..worlds.catalog import require_supported_rules
+        require_supported_rules(world)
         return await self.brief_engine.dispatch("world_rules", {"world": world})
 
     # ------------------------------------------------------------ model-backed
     async def call(self, method: str, fields: dict[str, Any], *, room_id: str | None, umo: str,
                    rules: dict[str, Any] | None = None, operation_ref: str | None = None,
-                   continuity_sources: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+                   continuity_sources: list[dict[str, Any]] | None = None,
+                   budget: ModelBudget | None = None) -> dict[str, Any]:
         """Run one model-backed engine method with bounded repair attempts.
 
         fields are the method's own payload fields: {'context': ...} for hosted-turn methods,
@@ -86,10 +89,12 @@ class EngineGateway:
         """
         operation_ref = operation_ref or new_operation_ref()
         attempts = min(self.app.config.model_attempts, MAX_SEQUENCE.get(method, 3))
-        # Each narrative attempt may also spend up to two bounded continuity-review calls.
-        calls_per_attempt = 3 if continuity_sources is not None else 1
-        deadline = (datetime.now(UTC) + timedelta(seconds=self.app.config.model_timeout_seconds * attempts * calls_per_attempt + 30)).isoformat()
-        bridge = AstrBotModelBridge(self.app, room_id=room_id, umo=umo, rules=rules, omit=OMITTED_OUTPUT_FIELDS)
+        # Provider fallback, format repair and continuity review share actual HTTP-request slots.
+        budget = budget or ModelBudget(attempts * (3 if continuity_sources is not None else 2),
+                                        self.app.config.model_timeout_seconds * attempts + 30)
+        deadline = budget.deadline_at
+        bridge = AstrBotModelBridge(self.app, room_id=room_id, umo=umo, rules=rules,
+                                    omit=OMITTED_OUTPUT_FIELDS, budget=budget)
         engine = self.brief_engine if method in BRIEF_METHODS else self.engine
         category, message = "engine_unknown", "故事引擎没有给出结果。"
         for sequence in range(1, attempts + 1):
@@ -103,11 +108,14 @@ class EngineGateway:
                     if continuity_sources is not None:
                         from .. import continuity
                         findings = await continuity.review(self.app, room_id, umo, fields['context'], result['proposal'],
-                                                           continuity_sources, f'{operation_ref}.continuity.{sequence}')
+                                                           continuity_sources, f'{operation_ref}.continuity.{sequence}',
+                                                           budget=budget)
                         if findings:
                             raise ValueError(continuity.rejection(findings))
                         result['continuity_approval'] = continuity.approval(result['proposal'], continuity_sources)
                 return result
+            except ModelLimitReached as exc:
+                raise EngineCallFailed(method, exc.category, str(exc)) from exc
             except ModelUnavailable as exc:
                 category, message = "provider_unavailable", str(exc)
             except ModelOutputInvalid as exc:

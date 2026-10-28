@@ -24,13 +24,10 @@ from story_engine.contracts.port import ModelInvocationRequest, ModelInvocationR
 from ..storage import now
 from .conform import conform, problems
 from .model_output import model_output_schema
+from .budget import ModelBudget, ModelLimitReached, ModelUnavailable
 
 if TYPE_CHECKING:
     from ..app import LiteApp
-
-
-class ModelUnavailable(RuntimeError):
-    """The provider could not be reached or returned nothing usable at the transport level."""
 
 
 class ModelOutputInvalid(ValueError):
@@ -153,12 +150,15 @@ class AstrBotModelBridge:
     """One bridge per engine call chain; remembers rejected outputs for repair prompts."""
 
     def __init__(self, app: "LiteApp", *, room_id: str | None, umo: str,
-                 rules: dict[str, Any] | None = None, omit: tuple[str, ...] = ()) -> None:
+                 rules: dict[str, Any] | None = None, omit: tuple[str, ...] = (),
+                 budget: ModelBudget | None = None) -> None:
         self.app = app
         self.room_id = room_id
         self.umo = umo
         self.rules = rules
         self.omit = omit
+        self.budget = budget or ModelBudget(app.config.model_attempts * 3,
+                                            app.config.model_timeout_seconds * app.config.model_attempts + 30)
         self.called_sequences: set[int] = set()
         self.rejections: dict[int, tuple[str, Any]] = {}
         self.outputs: dict[int, Any] = {}
@@ -207,21 +207,30 @@ class AstrBotModelBridge:
                 primary = ""
         return [p for p in dict.fromkeys((primary, fallback)) if p]
 
-    async def _generate(self, system: str, prompt: str, open_call: Callable[[str], int]) -> tuple[Any, int]:
+    async def _generate(self, system: str, prompt: str, open_call: Callable[[str], int],
+                        *, deadline_at: str | None = None) -> tuple[Any, int]:
         """One model answer, trying the fallback model when the narrative model fails at the transport level.
 
         Every try is journaled (open_call returns its row id); a format problem in an answer is the caller's
         concern and never switches models.
         """
-        providers = await self._providers()
+        try:
+            remaining = self.budget.remaining(deadline_at)
+            providers = await asyncio.wait_for(self._providers(), timeout=remaining)
+        except asyncio.TimeoutError:
+            raise ModelLimitReached('model_deadline_exceeded', '选择模型时已达到总等待时间上限。') from None
         error: ModelUnavailable | None = None
         for index, provider_id in enumerate(providers):
+            timeout = self.budget.claim(self.app.config.model_timeout_seconds, deadline_at)
             call_id = open_call(provider_id)
             try:
                 response = await asyncio.wait_for(
                     self.app.context.llm_generate(chat_provider_id=provider_id, system_prompt=system, prompt=prompt),
-                    timeout=self.app.config.model_timeout_seconds)
+                    timeout=timeout)
                 return response, call_id
+            except asyncio.CancelledError:
+                self._journal_end(call_id, "cancelled", "provider_cancelled")
+                raise
             except asyncio.TimeoutError:
                 self._journal_end(call_id, "timeout", "provider_timeout")
                 error = ModelUnavailable("模型响应超时。")
@@ -231,6 +240,7 @@ class AstrBotModelBridge:
             if index + 1 < len(providers):
                 logger.warning("321Roll Lite: model %s failed (%s); trying the fallback model %s",
                                provider_id, error, providers[index + 1])
+        self.budget.remaining(deadline_at)
         raise error or ModelUnavailable("没有可用的聊天模型。")
 
     async def invoke_model(self, request: ModelInvocationRequest) -> ModelInvocationResult:
@@ -256,7 +266,7 @@ class AstrBotModelBridge:
             self.call_ids[request.call_sequence] = call_id
             return call_id
 
-        response, call_id = await self._generate(system, request.user_input, open_call)
+        response, call_id = await self._generate(system, request.user_input, open_call, deadline_at=request.deadline_at)
         usage = getattr(response, "usage", None)
         input_tokens = int(getattr(usage, "input_other", 0) or 0) + int(getattr(usage, "input_cached", 0) or 0)
         output_tokens = int(getattr(usage, "output", 0) or 0)

@@ -128,12 +128,13 @@ def validate_review(output, selected, candidate):
             raise ValueError('continuity.review_invalid: 引用不存在的来源或正文原句')
 
 
-async def review(app, room_id, umo, context, candidate, archive, operation_ref):
+async def review(app, room_id, umo, context, candidate, archive, operation_ref, *, budget=None):
     """A separate journaled model call; invalid/unavailable reviews never approve a candidate."""
     from .engine.bridge import AstrBotModelBridge, ModelOutputInvalid, ModelUnavailable
     from .engine.gateway import EngineCallFailed
+    from .engine.budget import ModelLimitReached
     from story_engine.contracts.port import ModelInvocationRequest, ModelPurpose
-    bridge = AstrBotModelBridge(app, room_id=room_id, umo=umo)
+    bridge = AstrBotModelBridge(app, room_id=room_id, umo=umo, budget=budget)
     selected = select(archive, context['action'] + '\n' + json.dumps(candidate, ensure_ascii=False))
     # Clock is also a cited source so a first-turn date mistake can be diagnosed.
     selected.append({'ref': 'current.clock', 'kind': 'platform', 'before': context.get('clock'),
@@ -150,6 +151,8 @@ async def review(app, room_id, umo, context, candidate, archive, operation_ref):
             output = bridge.outputs[sequence]
             validate_review(output, selected, candidate)
             return output['findings']
+        except ModelLimitReached as exc:
+            raise EngineCallFailed('continuity_review', exc.category, str(exc)) from exc
         except ModelUnavailable as exc:
             error = str(exc)
         except (ModelOutputInvalid, ValueError) as exc:

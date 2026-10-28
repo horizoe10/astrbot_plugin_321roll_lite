@@ -112,7 +112,7 @@ def hourly(c: sqlite3.Connection, moment: datetime) -> list[dict[str, Any]]:
     start = moment.astimezone(UTC).replace(minute=0, second=0, microsecond=0) - timedelta(hours=23)
     found = {r["hour"]: dict(r) for r in c.execute(
         "SELECT substr(started_at,1,13) AS hour,COUNT(*) AS calls,SUM(status<>'ok') AS failures FROM model_calls "
-        "WHERE started_at>=? GROUP BY hour", (start.isoformat(timespec="seconds"),))}
+        "WHERE started_at>=? AND status<>'running' GROUP BY hour", (start.isoformat(timespec="seconds"),))}
     series = []
     for offset in range(24):
         hour = (start + timedelta(hours=offset)).isoformat(timespec="seconds")[:13]

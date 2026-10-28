@@ -1,7 +1,7 @@
 import { busy, columns, dot, empty, esc, figure, fmt, hero, icon, roundIcon, section, shares, when } from "../ui.js";
 
 const TABS = [["usage", "模型用量", "activity"], ["outbox", "待重发", "send"], ["audit", "操作记录", "list"], ["backup", "备份", "save"]];
-const CONTRACTS = [["brief-start", "开场"], ["intent", "理解行动"], ["narrative", "叙事正文"], ["risk", "风险排序"], ["collective-event", "集体事件"]];
+const CONTRACTS = [["brief-start", "开场"], ["intent", "理解行动"], ["narrative", "叙事正文"], ["continuity-review", "历史核对"], ["risk", "风险排序"], ["collective-event", "集体事件"]];
 const contractName = (id) => (CONTRACTS.find(([key]) => String(id).includes(key)) || [null, id])[1];
 const CONTRACT_TONES = ["c1", "c2", "c3", "c4", "c5", "c6"];
 const TABLES = { rooms: "团桌", actors: "角色", records: "玩法记录", turns: "回合", events: "时间线", facts: "事实", npcs: "人物", votes: "表决",
@@ -44,7 +44,7 @@ async function usage(root, ctx) {
     (busiest.calls ? "<span>最忙 <b>" + busiest.day.slice(5).replace("-", "/") + "</b> · " + busiest.calls + " 次</span>" : "") + "<span>失败 <b" + (failed ? ' class="err-text"' : "") + ">" + failed + "</b> 次</span></div>";
   const contracts = d.contracts.map((c, i) => ({ ...c, tone: CONTRACT_TONES[i % CONTRACT_TONES.length] }));
   const slowest = Math.max(1, ...contracts.map((c) => c.latency?.p50 || 0));
-  root.innerHTML = '<div class="figures" style="margin-bottom:40px;gap:56px">' + figure(fmt(total), "近 14 天调用") +
+  root.innerHTML = '<div class="figures" style="margin-bottom:40px;gap:56px">' + figure(fmt(total), "近 14 天已结束调用") +
     figure(failed ? ((failed / total) * 100).toFixed(1) + "%" : "0%", "失败率 · " + failed + " 次", failed ? "err" : "plain") +
     figure(lat ? lat.p50 + "″" : "—", "中位耗时", "plain") + figure(lat ? lat.p95 + "″" : "—", "95% 在此之内", "plain") +
     (tokens ? figure(fmt(tokens), "tokens", "plain") : "") + figure(d.config.provider || "跟随会话", "叙事模型", "small plain") +
@@ -58,9 +58,11 @@ async function usage(root, ctx) {
         '<span class="num">' + fmt(c.calls) + '<small> 次</small></span><span class="num' + (c.failures ? " err-text" : " faint") + '">' + (c.failures ? "失败 " + c.failures : "无失败") + "</span>" +
         '<span class="use-lat"><i><span style="width:' + (((c.latency?.p50 || 0) / slowest) * 100).toFixed(0) + '%"></span></i><b class="num">' + (c.latency ? c.latency.p50 + "″" : "—") + "</b></span></div>").join("") +
       "</div>" : empty("暂无")) +
-      '<dl class="kv" style="margin-top:22px"><dt>超时</dt><dd>' + d.config.timeout + " 秒</dd><dt>重试</dt><dd>最多 " + d.config.attempts + " 次</dd>" +
+      '<dl class="kv" style="margin-top:22px"><dt>单次超时</dt><dd>' + d.config.timeout + " 秒</dd><dt>单阶段尝试</dt><dd>最多 " + d.config.attempts + " 次</dd>" +
+      (d.config.narration_max_calls ? '<dt>正文处理预算</dt><dd>每次生成或手动重试最多 ' + d.config.narration_max_calls + ' 次请求 / ' + d.config.narration_timeout + ' 秒<span class="muted">（含备用、修复、历史核对及自动再试；不含行动理解）</span></dd>' : '') +
       (lat ? "<dt>最慢一次</dt><dd>" + lat.max + " 秒</dd>" : "") +
       "<dt>格式修正</dt><dd>" + fmt(d.repaired || 0) + ' 次<span class="muted">（模型漏写 null 或多写字段时自动修正）</span></dd></dl></section></div>' +
+    recentCalls(d.recent_calls || []) +
     '<section class="sec">' + section("最近失败", { count: d.failures.length }) + (d.failures.length ? '<div class="rows">' + d.failures.map((f) => '<div class="ri">' + roundIcon("alert", "err") +
       '<div style="min-width:0"><div class="ri-title">' + esc(contractName(f.contract)) + " · " + esc((f.title || "—").split(" · ")[0]) + '</div><div class="ri-meta">' + esc(f.error || f.status) +
       (f.note ? "　已自动修正：" + esc(f.note) : "") + "</div></div>" +
@@ -70,6 +72,18 @@ async function usage(root, ctx) {
     root.querySelectorAll("[data-mode]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     root.querySelector("[data-chart]").innerHTML = chart();
   }));
+}
+
+function recentCalls(calls) {
+  if (!calls.length) return '';
+  const labels = { ok: '完成', running: '处理中', error: '连接失败', timeout: '超时', invalid: '格式无效', rejected: '输出被退回', cancelled: '已取消', interrupted: '重启中断' };
+  return '<details class="sec"><summary>最近模型调用（最多 30 条）</summary><div class="rows">' + calls.map((f) =>
+    '<div class="ri no-icon"><div style="min-width:0"><div class="ri-title">' + esc(contractName(f.contract)) + ' · ' + esc(labels[f.status] || f.status) +
+    '</div><div class="ri-meta">' + esc(f.provider_id) + ' · ' + fmt(f.input_tokens + f.output_tokens) + ' tokens' +
+    (f.seconds == null ? '' : ' · ' + Number(f.seconds).toFixed(1) + ' 秒') +
+    '</div><div class="ri-meta">' + esc(f.title || '团外调用') +
+    (f.turn_ref ? ' · 行动 ' + esc(f.turn_ref) : '') + '</div></div><span class="ri-side"><time>' + esc(when(f.started_at)) + '</time></span></div>'
+  ).join('') + '</div></details>';
 }
 
 async function outbox(root, ctx) {

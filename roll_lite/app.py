@@ -123,12 +123,17 @@ class LiteApp:
 
     def start(self) -> None:
         if self._ticker is None or self._ticker.done():
+            from .plays.hosted import recover_interrupted
+            recover_interrupted(self)
             self._ticker = asyncio.create_task(self._tick_loop(), name="321roll-lite-tick")
 
     async def stop(self) -> None:
-        for task in [self._ticker, *self._tasks]:
+        tasks = [task for task in [self._ticker, *self._tasks] if task is not None]
+        for task in tasks:
             if task is not None and not task.done():
                 task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         self._tasks.clear()
 
     async def _tick_loop(self) -> None:

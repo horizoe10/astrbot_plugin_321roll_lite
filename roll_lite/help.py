@@ -156,6 +156,59 @@ def render_help(router: "Router", query: str, is_admin: bool) -> Msg:
     return index(f"没有找到“{safe(verb)}”。")
 
 
+def next_step(app, caller) -> str:
+    """A read-only hint for this player's current table; the full command directory stays available."""
+    from . import shared
+    from .storage import loads
+    with app.store.read() as c:
+        if caller.in_group:
+            room = shared.open_room(c, caller.umo)
+        else:
+            rooms = shared.seated_rooms(c, caller)
+            picked = app.store.get_setting(c, shared.private_scope(caller), 'private.room', None)
+            room = next((r for r in rooms if r['id'] == picked), rooms[0] if rooms else None)
+        if room is None:
+            return '下一步：管理员发送 /团 开启 选择世界；玩家等开桌后 /团 加入。'
+        actor = shared.actor_for(c, room['id'], caller.user_id)
+        host = shared.is_host(app, caller, room)
+        if room['state'] == 'ended':
+            return shared.STATE_STEPS['ended']
+        if room['state'] == 'paused':
+            return shared.paused_step(room)
+        from .rooms import guidance
+        if room['state'] == 'lobby' and host and actor is None:
+            return guidance.preparation(c, room)
+        if actor is None:
+            return '下一步：在群里发送 /团 加入，再用 /团 建卡 快选 选职业。'
+        if not actor['archetype_id']:
+            if loads(actor['data_json'], {}).get('build'):
+                return '下一步：私聊发送 /团 建卡 继续填写已有草稿。'
+            return '下一步：私聊发送 /团 建卡 快选 选职业；也可以 /团 建卡 AI 你想要的角色。'
+        if room['state'] == 'lobby':
+            if actor['presence'] == 'away':
+                return '你已暂离，发送 /团 返回 后才计入开演人数。'
+            return guidance.preparation(c, room)
+        ending = shared.ending_step(room)
+        if ending:
+            return ending
+        from .plays.hosted import current_turn
+        turn = current_turn(c, room['id'])
+        if turn is None:
+            return '发送 /团 状态 查看团桌；主持人可以 /团 主持 推进。'
+        if turn['state'] == 'narration_failed':
+            return ('骰果与结算已经保存。主持人发送 /团 主持 重试；'
+                    '主持人五分钟内没处理时，在座玩家也可以 /团 重试。')
+        if turn['state'] == 'review':
+            return '正文待审：发送 /团 主持 发布，或 /团 主持 重写 意见。' if host else '正文在等主持人审阅，请稍候。'
+        if turn['state'] == 'resolving':
+            return '行动正在处理，请稍候；无需重复提交。'
+        if turn['actor_id'] == actor['id']:
+            choices = loads(turn['choices_json'], [])
+            return (f"轮到你了：发送 /团 选 {choices[0]['label']}，或 /团 行动 你的做法。" if choices else
+                    '轮到你了：发送 /团 行动 你的做法。')
+        return '还没轮到你。发送 /团 回合 查看进度；也可以 /团 援手 帮同伴。'
+
+
 def index(note: str = "") -> Msg:
     m = Msg().title("321Roll Lite 帮助", "群聊文字跑团")
     if note:
@@ -182,7 +235,7 @@ def quick_start() -> Msg:
              f"不轮到你时：{cmd('/团 说 台词')}、{cmd('/团 援手')} 帮同伴、{cmd('/团 押 成')} 竞猜；选项后加“孤注”押上检定（{cmd('/团 帮助 互动')}）",
              f"{cmd('/团 闪回 回忆')} 补写一段往事，{cmd('/团 羁绊 角色名 关系')} 和同伴结下关系",
              f"{cmd('/团 人设 导入')} 带上自己的酒馆角色卡",
-             f"{cmd('/团 一掷')} 掷出今天的 d20 和宜忌，{cmd('/团 冒险')} 来一场一分钟冒险"])
+             f"{cmd('/团 一掷')} 每天投掷一次、看宜忌，{cmd('/团 冒险')} 来一场一分钟冒险"])
     return m.gap().hint(f"接着看 {cmd('/团 帮助 开团')}、{cmd('/团 帮助 行动')}；回到目录发送 {cmd('/团 帮助')}")
 
 

@@ -52,7 +52,7 @@ def cover(world_id: str, title: str, presentation: dict[str, Any] | None = None)
 @lru_cache(maxsize=1)
 def _seal() -> str:
     try:
-        return "data:image/png;base64," + base64.b64encode((_ROOT / "pages/admin/assets/solid.png").read_bytes()).decode("ascii")
+        return "data:image/webp;base64," + base64.b64encode((_ROOT / "pages/admin/assets/logo-main.webp").read_bytes()).decode("ascii")
     except OSError:
         return ""
 
@@ -140,7 +140,7 @@ def _generic(block: Block) -> str:
     if k == "hint":
         return _hint(d)
     if k == "draw":
-        return f'<div class="line"><span class="kbd">d20 {e(d["face"])}</span> <b>{e(d["label"])}</b></div>'
+        return f'<div class="line"><span class="kbd">投掷点数 {e(d["face"])}</span> <b>{e(d["label"])}</b></div>'
     if k == "rule":
         return '<hr />'
     return ""
@@ -577,7 +577,7 @@ def _daily(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
             f'<div class="orbit"><div class="glow"></div><div class="disc"></div><div class="shadow"></div>'
             f'<div class="die"><span class="num">{face}</span></div></div>'
             f'<div class="omen-r"><div class="who">{e(d.get("name", ""))} 的今日一掷</div><div class="fortune">{e(d.get("fortune", ""))}</div>'
-            f'<div class="omen-s">{"今天已经掷过，结果不会改变" if d.get("again") else "d20 · 每人每天一次"}</div></div></div>'
+            f'<div class="omen-s">{"今天已经掷过，结果不会改变" if d.get("again") else "每人每天投掷一次"}</div></div></div>'
             f'<div class="ladder">{ladder}</div>'
             + (f'<div class="crit-line t-{e(tier)}">{e(d["crit"])}</div>' if d.get("crit") else "")
             + f'<div class="signs">{_signs("宜", "yi", d.get("yi") or [])}{_signs("忌", "ji", d.get("ji") or [])}</div>'
@@ -705,16 +705,16 @@ def _luck_card(d: dict[str, Any]) -> tuple[str, str]:
         f'<em class="num">{n or ""}</em><i style="height:{max(2, round(n / peak * 100)) if n else 0}%"></i>'
         f'<span class="num">{i + 1 if i + 1 in (1, 5, 10, 15, 20) else ""}</span></div>' for i, n in enumerate(faces))
     line = f'<div class="hist-exp" style="bottom:calc(1.25rem + {expect / peak * 100 * 0.78:.1f}%)"></div>' if expect else ""
-    cells = (("count", d.get("count", 0), "次 d20", ""), ("crits", d.get("crits", 0), "大成功", " up"),
+    cells = (("count", d.get("count", 0), "次投掷", ""), ("crits", d.get("crits", 0), "大成功", " up"),
              ("fumbles", d.get("fumbles", 0), "大失败", " down"), ("high", f'{d.get("high", 0)}%', "掷出 11+", ""))
     stats = "".join(f'<div class="rs-cell{tone}"><b class="num">{e(v)}</b><span>{e(label)}</span></div>' for _, v, label, tone in cells)
     sources = "".join(_chip(f"{label} {n}", icon="dice") for label, n in d.get("sources") or [])
     body = (f'<div class="eyebrow"><span>骰运 · 本群</span><b>{e(d.get("period", ""))}</b></div>'
             f'<div class="omen t-{e(key)}"><div class="sum-ring luck"><b class="num">{d.get("average", 0):.2f}</b><span>平均点数</span></div>'
             f'<div class="omen-r"><div class="who">{e(d.get("name", ""))} 的骰运</div><div class="fortune">{e(d.get("tier", ""))}</div>'
-            f'<div class="omen-s">公平的 d20 平均 10.5 · 全部记录 {e(d.get("total", 0))} 次</div></div></div>')
+            f'<div class="omen-s">公平骰的投掷点数平均 10.5 · 全部记录 {e(d.get("total", 0))} 次</div></div></div>')
     if not d.get("count"):
-        return body + '<div class="omen-note">这段时间还没掷过 d20</div>' + _cmds(("全部记录", "/团 骰运 全部")), "骰运"
+        return body + '<div class="omen-note">这段时间还没投掷过</div>' + _cmds(("全部记录", "/团 骰运 全部")), "骰运"
     return (body + f'<div class="hist-wrap"><div class="hist">{cols}{line}</div></div>'
             f'<div class="rstats">{stats}</div>'
             + (f'<div class="uses"><span class="lab">来源</span>{sources}</div>' if sources else "")
@@ -737,7 +737,7 @@ def _luck_board(d: dict[str, Any]) -> tuple[str, str]:
                                       f'<div><div class="ml">{label}</div><b>{e(item["name"]) if item else "—"}</b>'
                                       f'<div class="sd">{str(item["n"]) + " 次" if item else "还没有人掷出"}</div></div></div>')
     parts = [f'<div class="eyebrow"><span>骰运榜 · 本群</span><b>{e(d.get("month", ""))}</b></div>',
-             f'<div class="spread"><div class="sum"><b class="num">{d.get("rolls", 0)}</b><span>颗 d20</span></div>'
+             f'<div class="spread"><div class="sum"><b class="num">{d.get("rolls", 0)}</b><span>次投掷</span></div>'
              + "".join(f'<div class="tally on t-{key}"><b class="num">{sum(1 for r in ranked if r["tier"] == label)}</b><span>{label}</span></div>'
                        for key, label, _ in reversed(_LADDER)) + "</div>"]
     if ranked:
@@ -745,9 +745,9 @@ def _luck_board(d: dict[str, Any]) -> tuple[str, str]:
         if bottom:
             parts.append(f'<div class="board-h low"><span>非酋</span><em>平均点数最低</em></div><div class="ranks">{_luck_rows(bottom, len(ranked) - len(bottom))}</div>')
     else:
-        parts.append(f'<div class="omen-note" style="margin-top:1.4rem">这个月还没有人掷满 {e(d.get("minimum", 10))} 次 d20</div>')
+        parts.append(f'<div class="omen-note" style="margin-top:1.4rem">这个月还没有人投掷满 {e(d.get("minimum", 10))} 次</div>')
     parts.append(f'<div class="honors">{medal("crit", "大成功最多", d.get("crit"))}{medal("fumble", "大失败最多", d.get("fumble"))}</div>')
-    parts.append(f'<div class="omen-note">掷满 {e(d.get("minimum", 10))} 次 d20 才上榜 · 共 {e(d.get("players", 0))} 人掷过</div>')
+    parts.append(f'<div class="omen-note">投掷满 {e(d.get("minimum", 10))} 次才上榜 · 共 {e(d.get("players", 0))} 人掷过</div>')
     return "".join(parts) + _cmds(("我的骰运", "/团 骰运")), "骰运榜"
 
 
@@ -840,7 +840,7 @@ def _adventure_roll(r: dict[str, Any]) -> str:
     sign = "≥" if r["total"] >= r["dc"] else "&lt;"
     return (f'<div class="aroll {"ok" if r["ok"] else "bad"}"><div class="adie"><span class="num">{e(r["face"])}</span></div>'
             f'<div><div class="ar-k">第 {e(r["step"])} 步 · {e(r["label"])}　{e(r["text"])}</div>'
-            f'<div class="ar-h">{verdict}<span class="ar-t num">d20 {e(r["face"])} {_signed(int(r["modifier"]))} = {e(r["total"])} {sign} {e(r["dc"])}'
+            f'<div class="ar-h">{verdict}<span class="ar-t num">投掷点数 {e(r["face"])} {_signed(int(r["modifier"]))} = {e(r["total"])} {sign} {e(r["dc"])}'
             f' · {e(r["attr"])}·{e(r["difficulty"])}</span></div><div class="ar-o">{e(r["outcome"])}</div></div></div>')
 
 
@@ -859,7 +859,7 @@ def _adventure_card(d: dict[str, Any], art: dict[str, Any] | None) -> tuple[str,
             parts.append(_adventure_roll(results[-1]))
         parts.append(f'<div class="ascene"><span class="lab">第 {int(d.get("step") or 0) + 1} 步</span><p>{e(d.get("scene", ""))}</p></div>')
         parts.append('<div class="fates">' + "".join(_fate(o, False) for o in d.get("options") or []) + "</div>")
-        parts.append(_hint({"note": "选一项掷 d20；成功率按这个职业的属性计算", "cmds": [("选择", "/团 冒险 A"), ("放弃", "/团 冒险 放弃")]}))
+        parts.append(_hint({"note": "选一项投掷；成功率按这个职业的属性计算", "cmds": [("选择", "/团 冒险 A"), ("放弃", "/团 冒险 放弃")]}))
         return "".join(parts), f"第 {int(d.get('step') or 0) + 1}/{total} 步"
     wins = int(d.get("wins") or 0)
     tone = "dawn" if wins == total else "fair" if wins >= 2 else "cloud" if wins == 1 else "gale"
@@ -1065,7 +1065,7 @@ def _fate_body(item: dict[str, Any], vote: bool) -> str:
             tone = "hi" if chance >= 70 else "mid" if chance >= 40 else "lo"
             right = (f'<div class="odds chance {tone}"><div class="pie" style="--p:{chance / 100:.2f}"><b class="num">{chance}'
                      f'<small>%</small></b></div><span class="k">{e(attr)} · {e(difficulty)}</span></div>')
-        sub = "d20 检定" + "".join(f' · <span class="cost">{e(r)}</span>' if r.startswith("失败") else f" · {e(r)}" for r in rest)
+        sub = "投掷检定" + "".join(f' · <span class="cost">{e(r)}</span>' if r.startswith("失败") else f" · {e(r)}" for r in rest)
         return (f'<div class="fate"><span class="key">{e(item["label"])}</span><div><div class="title">{e(item["text"])}</div>'
                 f'<div class="sub">{sub}</div></div>{right}</div>')
     elif tag:
@@ -1582,8 +1582,9 @@ def _table_guide_card(d: dict[str, Any]) -> tuple[str, str]:
                     for icon, name, command, desc in d.get("after") or [])
     return (_top(None, "入座指南", d.get("title", ""), f'{d.get("min")} 人起开演 · 最多 {d.get("cap")} 人')
             + f'<div class="flow four">{flow}</div>'
-            + f'<section class="sect guide-after"><h4>开演后</h4><div class="ptiles three">{tiles}</div></section>'
-            + _hint({"note": "第一次玩先看上手页，一页看懂一局怎么玩", "cmds": [("上手", "/团 帮助 上手"), ("阵容", "/团 阵容")]})), "入座指南"
+            + (f'<section class="sect guide-after"><h4>开演后</h4><div class="ptiles three">{tiles}</div></section>' if tiles else '')
+            + _hint({"note": "建卡完成后会更新群内进度；轮到你时再提示怎样行动。主持人可以只主持，不占玩家席位。",
+                     "cmds": [("查看进度", "/团 阵容"), ("上手", "/团 帮助 上手")]})), "入座指南"
 
 
 def _wager_result(w: dict[str, Any]) -> str:
@@ -2058,7 +2059,7 @@ def _receipt(msg: Msg, art: dict[str, Any] | None) -> tuple[str, str]:
         elif k == "draw":
             parts.append(f'<div class="throw"><div class="orbit"><div class="glow"></div><div class="disc"></div><div class="shadow"></div>'
                          f'<div class="die"><span class="num">{e(d["face"])}</span></div></div>'
-                         f'<div class="verdict draw"><div class="k">d20 抽取</div><div class="h">{e(d["label"])}</div></div></div>')
+                         f'<div class="verdict draw"><div class="k">投掷抽取</div><div class="h">{e(d["label"])}</div></div></div>')
         elif k == "text":
             changes.append(d["text"])
         elif k == "caption" and "接下来" in str(d["text"]):

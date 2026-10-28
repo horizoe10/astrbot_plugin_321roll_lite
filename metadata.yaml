@@ -1,9 +1,9 @@
 name: astrbot_plugin_321roll_lite
-display_name: "321Roll Lite · 群聊文字跑团"
-desc: "（原AI酒馆）基于 321Roll 世界引擎的纯文字群聊跑团：托管叙事、原骰检定、A–D 选项、集体表决与 16 类文字玩法，后台用 WebUI 管理。"
-short_desc: "321Roll 世界引擎驱动的群聊文字跑团。"
+display_name: "321Roll Lite · AI 多人冒险跑团酒馆"
+desc: "（原 AI 酒馆）叫上群友，组一桌属于你们的冒险！AI 当主持，每人扮演自己的角色，轮流探索、推理、谈判；你去冒险，队友出手援助，围观群友也能起哄竞猜，一起决定故事走向。新手选 A–D 即可入戏，老玩家自由行动、搭配技能与物品，由插件投掷裁定成败。支持将 SillyTavern 角色卡导入为人设，世界书可在后台整理成开团世界；挂机托管、暂停存档，让这桌冒险下次还能继续。"
+short_desc: "叫上群友，一起当故事主角！AI 主持多人跑团，队友配合、自由行动，围观也能起哄竞猜。"
 help: "在群里发送 /团 帮助 查看指令；管理员发送 /团 开启 开一桌。"
 author: "horizoe10"
-version: 0.8.0
+version: 0.10.0
 repo: "https://github.com/horizoe10/astrbot_plugin_321roll_lite"
 astrbot_version: ">=4.26,<5"

@@ -235,6 +235,9 @@ class Router:
 
 def register_core(router: Router) -> None:
     async def help_command(app: "LiteApp", caller: Caller, args: str) -> Reply:
+        if not args.strip():
+            from .help import index, next_step
+            return Reply().say(index(next_step(app, caller)))
         return Reply().say(app.router.help_text(args.strip(), is_admin=caller.is_admin))
 
     router.register("帮助", help_command, summary="查看指令：目录 → 大项 → 小组 → 单条指令",

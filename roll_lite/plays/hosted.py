@@ -350,10 +350,12 @@ def open_turn(app: "LiteApp", c: sqlite3.Connection, room: sqlite3.Row, actor: s
     if actor is None:
         return None
     turn_id = new_id("turn")
-    # The player's first turn at this table carries a short cheat sheet (read by turn_prompt, which never writes).
+    # Reuse the existing marker across tables, so returning players only see the action commands.
+    from ..rooms import guidance
     actor_data = loads(c.execute("SELECT data_json FROM actors WHERE id=?", (actor["id"],)).fetchone()["data_json"], {})
-    tips = cheat_sheet and not actor_data.get("tips_seen")
-    if tips:
+    first_turn = cheat_sheet and not actor_data.get("tips_seen")
+    tips = first_turn and not guidance.has_turn_experience(c, room["platform"], actor["user_id"])
+    if first_turn:
         c.execute("UPDATE actors SET data_json=? WHERE id=?", (dumps({**actor_data, "tips_seen": True}), actor["id"]))
     c.execute("INSERT INTO turns(id,room_id,round,actor_id,state,choices_json,deadline_at,data_json,created_at,updated_at) "
               "VALUES(?,?,?,?,'awaiting',?,?,?,?,?)", (turn_id, room["id"], round_number, actor["id"], dumps(choices),
@@ -471,7 +473,7 @@ def receipt_text(receipt: dict[str, Any]) -> str:
     if receipt.get("kind") == "check":
         outcome = {"critical": "大成功", "fumble": "大失败", "success": "成功", "failure": "失败"}[receipt["outcome"]]
         parts.append(f"【检定】{receipt['attribute']}·{DIFFICULTY_LABELS.get(receipt['difficulty'], receipt['difficulty'])}："
-                     f"d20={receipt['face']} {receipt['modifier']:+d} = {receipt['total']}，对抗 {receipt['dc']} → {outcome}")
+                     f"投掷点数 {receipt['face']} {receipt['modifier']:+d} = {receipt['total']}，对抗 {receipt['dc']} → {outcome}")
     elif receipt.get("kind") == "recover":
         parts.append("【休整】")
     if receipt.get("prepared"):
@@ -538,13 +540,17 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
         turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
     # Group actions and host advances return the turn to the actor who was waiting.
     advance = advance and not loads(turn["data_json"], {}).get("resume_actor")
-    # One automatic second try: a network blip or one malformed reply should not stop the table.
+    # The automatic second try shares the first try's request/time budget.
+    from ..engine.budget import LIMIT_CATEGORIES, ModelBudget
+    budget = ModelBudget(app.config.model_attempts * 3,
+                         app.config.model_timeout_seconds * app.config.model_attempts + 30)
     for attempt in range(2):
         with app.store.read() as c:
             _require_active_turn(c, room_id, turn_id)
         try:
             result = await app.engine.call("narrate_committed", {"context": context}, room_id=room_id, umo=room["umo"],
-                                           rules=shared.rules(room), continuity_sources=archive)
+                                           rules=shared.rules(room), continuity_sources=archive,
+                                           operation_ref=f'{turn_id}.narration', budget=budget)
             break
         except EngineInputError:
             # Settlement is already committed. Invalid input cannot be repaired by re-rolling
@@ -568,23 +574,25 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
         except EngineCallFailed as exc:
             with app.store.read() as c:
                 _require_active_turn(c, room_id, turn_id)
-            if attempt == 0:
+            if attempt == 0 and exc.category not in LIMIT_CATEGORIES:
                 logger.warning("321Roll Lite: narration for turn %s failed (%s); trying once more", turn_id, exc.category)
                 await asyncio.sleep(AUTO_RETRY_DELAY)
                 continue
             with app.store.tx() as c:
                 c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=?", (now(), turn_id))
-            reason = ("模型暂时连不上。" if exc.category == "provider_unavailable" else
+            reason = (exc.user_message if exc.category in LIMIT_CATEGORIES else
+                      "模型暂时连不上。" if exc.category == "provider_unavailable" else
                       "历史日期或物品来历未通过核对。" if exc.category.startswith('continuity.') else "模型几次回复都不合格式。")
             kind = (loads(turn["receipt_json"], {}) or {}).get("kind")
+            retry_note = "已经自动重试过一次。" if attempt else "本次已停止自动重试。"
             if kind == "finale":
                 return Reply(status="error").say(messages.notice(
-                    "终章没写出来", reason + "已经自动重试过一次，故事停在终章前。",
+                    "终章没写出来", reason + retry_note + "故事停在终章前。",
                     f"主持人发送 /团 主持 重试 重新写终章，或 /团 主持 跳过 不写终章、直接请大家写尾声；主持人 "
                     f"{PLAYER_RETRY_AFTER_MINUTES} 分钟内没处理的话，在座的玩家也可以发送 /团 重试"))
             skip = ("不写这段、直接轮到 " + shared.actor_label(actor)) if kind in NARRATOR_KINDS else "直接轮到下一位"
             return Reply(status="error").say(messages.notice(
-                "这一段正文没写出来", reason + "已经自动重试过一次。骰果和资源变化已经保存，故事停在这里等主持人处理。",
+                "这一段正文没写出来", reason + retry_note + "骰果和资源变化已经保存，故事停在这里等主持人处理。",
                 f"主持人发送 /团 主持 重试 重新生成正文，或 /团 主持 跳过 {skip}；主持人 {PLAYER_RETRY_AFTER_MINUTES} 分钟内"
                 "没处理的话，在座的玩家也可以发送 /团 重试。具体原因可在后台“运行”页查看"))
     proposal = result["proposal"]
@@ -601,7 +609,7 @@ async def narrate(app: "LiteApp", room_id: str, turn_id: str, *, advance: bool =
         await app.notifier.send(reviewer, draft_card(room, turn, actor, proposal, names))
         return Reply().say(messages.notice("正文已写好，正在等主持人审阅", "主持人确认后会发到群里。"))
     try:
-        return await commit_narration(app, room_id, turn_id, proposal, advance)
+        return await commit_narration(app, room_id, turn_id, proposal, advance, budget=budget)
     except UserError:
         with app.store.tx() as c:
             c.execute("UPDATE turns SET state='narration_failed',updated_at=? WHERE id=? AND state='resolving'",
@@ -627,7 +635,8 @@ def draft_card(room: sqlite3.Row, turn: sqlite3.Row, actor: sqlite3.Row, proposa
     return m.gap().hint("发送 /团 主持 发布 公开到群里，或 /团 主持 重写 意见 按意见重新生成")
 
 
-async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal: dict[str, Any], advance: bool) -> Reply:
+async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal: dict[str, Any], advance: bool,
+                           *, budget=None) -> Reply:
     """Store the narration, apply queued host adjustments and open the next turn.
 
     Pacing may instead hand the table to the world (a push or the finale, written right after this one)
@@ -642,7 +651,8 @@ async def commit_narration(app: "LiteApp", room_id: str, turn_id: str, proposal:
     if prior != checked:
         context = {'action': turn['action_text'], 'clock': loads(turn['data_json'], {}).get('narration_clock')}
         try:
-            findings = await continuity.review(app, room_id, room['umo'], context, proposal, archive, new_operation_ref('continuity'))
+            findings = await continuity.review(app, room_id, room['umo'], context, proposal, archive,
+                                               f'{turn_id}.narration.publish', budget=budget)
         except EngineCallFailed as exc:
             raise UserError('历史连续性核对暂未完成，请稍后重试发布。') from exc
         if findings:
@@ -814,12 +824,12 @@ def fallback_check(room: sqlite3.Row, actor: sqlite3.Row, turn: sqlite3.Row, act
 
 
 async def firm_intent(app: "LiteApp", room: sqlite3.Row, actor: sqlite3.Row, turn: sqlite3.Row,
-                      context: dict[str, Any], action: str) -> dict[str, Any]:
+                      context: dict[str, Any], action: str, *, budget=None) -> dict[str, Any]:
     """The player answered the question and the model asked again: one firmer request, then a platform check."""
     firm = {**context, "action": (str(context["action"]) + FIRM_NOTE)[:2000]}
     try:
         result = await app.engine.call("propose_intent", {"context": firm}, room_id=room["id"], umo=room["umo"],
-                                       rules=shared.rules(room))
+                                      rules=shared.rules(room), operation_ref=f"{turn['id']}.intent", budget=budget)
         if result["proposal"]["kind"] != "clarify":
             return result["proposal"]
         logger.info("321Roll Lite: the model asked back twice after an answer; using a standard check")
@@ -893,6 +903,7 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
     only what follows the narration call, so players see the roll while the story is written.
     """
     async with app.lock(room_id):
+        started = datetime.now(UTC)
         with app.store.tx() as c:
             turn = c.execute("SELECT * FROM turns WHERE id=?", (turn_id,)).fetchone()
             if turn is None or turn["state"] != "awaiting":
@@ -911,9 +922,12 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                 context["action"] = (action + f"\n（主持刚才追问：{asked['question']}；括号里的补充就是玩家的回答）")[:2000]
         try:
             if intent is None:
+                from ..engine.budget import ModelBudget
+                intent_budget = ModelBudget(app.config.model_attempts * 2,
+                                            app.config.model_timeout_seconds * app.config.model_attempts + 30)
                 try:
                     result = await app.engine.call("propose_intent", {"context": context}, room_id=room_id, umo=room["umo"],
-                                                   rules=shared.rules(room))
+                                                   rules=shared.rules(room), operation_ref=f'{turn_id}.intent', budget=intent_budget)
                 except EngineCallFailed as exc:
                     with app.store.tx() as c:
                         _require_active_turn(c, room_id, turn_id)
@@ -923,7 +937,7 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                     _require_active_turn(c, room_id, turn_id)
                 intent = result["proposal"]
                 if intent["kind"] == "clarify" and asked and asked.get("question"):
-                    intent = await firm_intent(app, room, actor, turn, context, action)
+                    intent = await firm_intent(app, room, actor, turn, context, action, budget=intent_budget)
                 if intent["kind"] in ("clarify", "impossible"):
                     return _ask_back(app, room_id, turn_id, intent, action, asked)
             flash_review = await ties.review_for_check(app, room, actor, action, intent)
@@ -968,7 +982,14 @@ async def resolve(app: "LiteApp", room_id: str, turn_id: str, action: str, inten
                                         data=receipt)
         except Exception:
             with app.store.tx() as c:
-                c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE id=? AND state='resolving'", (now(), turn_id))
+                fresh = c.execute('SELECT state,receipt_json,deadline_at FROM turns WHERE id=?', (turn_id,)).fetchone()
+                active = c.execute('SELECT state FROM rooms WHERE id=?', (room_id,)).fetchone()
+                if fresh and fresh['state'] in ('resolving', 'awaiting') and not loads(fresh['receipt_json']):
+                    deadline = fresh['deadline_at']
+                    if deadline and active['state'] == 'running':
+                        deadline = (datetime.fromisoformat(deadline) + (datetime.now(UTC) - started)).isoformat()
+                    c.execute("UPDATE turns SET state='awaiting',deadline_at=?,updated_at=? WHERE id=?",
+                              (deadline, now(), turn_id))
             raise
         status = status_message(room, actor, turn["round"], action, receipt, announce)
         reply = Reply()
@@ -1168,9 +1189,39 @@ async def world_pulse(app: "LiteApp", room_id: str, turn: sqlite3.Row, joined: l
         return reply.extend(await narrate(app, room_id, pulse, advance=False))
 
 
+def recover_interrupted(app: "LiteApp") -> None:
+    """Run before the ticker starts: a committed receipt is never offered for action again."""
+    with app.store.tx() as c:
+        stamp = now()
+        c.execute("UPDATE model_calls SET status='interrupted',error='process_restarted',completed_at=? "
+                  "WHERE status='running'", (stamp,))
+        rows = c.execute("SELECT t.*,r.state AS room_state FROM turns t JOIN rooms r ON r.id=t.room_id "
+                         "WHERE r.state IN ('running','paused') AND t.state IN ('resolving','awaiting')").fetchall()
+        for turn in rows:
+            settled = bool(loads(turn['receipt_json']))
+            if turn['state'] == 'awaiting' and not settled:
+                continue
+            state = 'narration_failed' if settled else 'awaiting'
+            deadline = turn['deadline_at']
+            if not settled and turn['room_state'] == 'running':
+                room = c.execute('SELECT * FROM rooms WHERE id=?', (turn['room_id'],)).fetchone()
+                deadline = _deadline(app, room)
+            c.execute('UPDATE turns SET state=?,deadline_at=?,updated_at=? WHERE id=?',
+                      (state, deadline, stamp, turn['id']))
+            app.store.add_event(c, turn['room_id'], 'system',
+                                '重启后保留原结算，正文等待重试。' if settled else '重启后将未结算行动退回本人。')
+        # An interrupted opening has no turn or committed story to retry yet.
+        c.execute("UPDATE rooms SET state='lobby',revision=revision+1,updated_at=? WHERE state='running' "
+                  "AND NOT EXISTS(SELECT 1 FROM turns WHERE room_id=rooms.id) "
+                  "AND NOT EXISTS(SELECT 1 FROM events WHERE room_id=rooms.id AND kind='narration')", (stamp,))
+
+
 async def on_room_restored(room_id: str, *, app: "LiteApp") -> Reply:
     with app.store.tx() as c:
-        c.execute("UPDATE turns SET state='awaiting',updated_at=? WHERE room_id=? AND state='resolving'", (now(), room_id))
+        for turn in c.execute("SELECT id,receipt_json FROM turns WHERE room_id=? AND state IN ('resolving','awaiting')",
+                              (room_id,)).fetchall():
+            state = 'narration_failed' if loads(turn['receipt_json']) else 'awaiting'
+            c.execute('UPDATE turns SET state=?,updated_at=? WHERE id=?', (state, now(), turn['id']))
     return Reply()
 
 

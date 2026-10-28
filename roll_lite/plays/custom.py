@@ -287,7 +287,7 @@ async def perform(app: "LiteApp", caller: Caller, play: str, action: str, value:
             outcome = "大成功" if roll.critical else "大失败" if roll.fumble else "成功" if roll.success else "失败"
             dice_line = (f"【检定】{rules['attributes'][check['attribute_ref']]}·"
                          f"{hosted.DIFFICULTY_LABELS.get(check['difficulty'], check['difficulty'])}："
-                         f"d20={roll.face} {mod:+d} = {roll.total}，对抗 {roll.dc} → {outcome}")
+                         f"投掷点数 {roll.face} {mod:+d} = {roll.total}，对抗 {roll.dc} → {outcome}")
             check_block = {"attribute": rules["attributes"][check["attribute_ref"]],
                            "difficulty": messages.DIFFICULTY.get(check["difficulty"], check["difficulty"]),
                            "dc": roll.dc, "face": roll.face, "modifier": mod, "total": roll.total,
@@ -297,7 +297,7 @@ async def perform(app: "LiteApp", caller: Caller, play: str, action: str, value:
             face = d20()
             band = next(b for b in proposal["draw"]["bands"] if b["low"] <= face <= b["high"])
             branch = band["key"]
-            dice_line = f"【d20={face}】{band['label']}"
+            dice_line = f"【投掷点数 {face}】{band['label']}"
             draw_block = (face, band["label"])
         chosen = proposal["outcomes"][branch]
         written, completes, extra_lines = commit(app, room, actor, play, action, proposal, chosen, current, dice_line, value)

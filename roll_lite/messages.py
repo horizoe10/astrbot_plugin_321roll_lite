@@ -96,30 +96,29 @@ def open_card(title: str, hook: str, seat_cap: int, min_players: int, host: str,
     if note:
         m.caption(note)
     m.field("席位", f"0/{seat_cap}　最少 {min_players} 人可开演").field("主持", host).gap()
-    return m.hint(f"{cmd('/团 加入')} 入座　{cmd('/团 世界观')} 读设定；完整步骤见下一条入座指南")
+    return m.hint(f"{cmd('/团 加入')} 入座　{cmd('/团 世界观')} 读设定；下一步见随后的准备提示")
 
 
-def table_guide(title: str, min_players: int, seat_cap: int) -> Msg:
-    """Sent to the whole group right after a table opens: how to get seated, then what a turn asks of you."""
+def table_guide(title: str, min_players: int, seat_cap: int, *, experienced: bool = False) -> Msg:
+    """After opening, focus on preparing this table; action instructions arrive with the first turn."""
+    if experienced:
+        return notice("下一步：入座建卡", f"玩家在群里 /团 加入，再私聊我 /团 建卡；至少 {min_players} 人且在场玩家都建好卡后，由主持人 /团 开演。",
+                      "/团 阵容 查看筹备进度；主持人想参与冒险，也要先入座建卡")
     # Descriptions name commands as {/团 …}: backticked in chat text, plain inside the image card.
     steps = [("入座", "/团 加入", "想上桌的每个人都在群里发一次"),
-             ("建卡", "/团 建卡", "私聊我选快选、定制、精雕，或 {/团 建卡 AI 想要的角色}"),
-             ("读设定", "/团 世界观", "{/团 阵容} 看谁已入座、谁还没建卡"),
-             ("等开演", "", f"{min_players} 人建好卡就能开演，最多 {seat_cap} 人")]
-    after = [("dice", "轮到你", "/团 A", "我会点你的名；想自己写就发 {/团 行动 你的做法}"),
-             ("skill", "用技能物品", "[用 名称]", "写在指令末尾，加值计入检定；{/团 背包} 看手里有什么"),
-             ("hand", "不轮到你", "/团 说 台词", "也能插话、援手、竞猜，开演时细说")]
+             ("私聊建卡", "/团 建卡 快选", "挑职业、起名字就能入戏；想细调或让 AI 起草，发送 {/团 建卡}"),
+             ("查看进度", "/团 阵容", "查看谁已就绪、谁还在建卡；{/团 世界观} 随时读设定"),
+             ("主持开演", "/团 开演", f"至少 {min_players} 人、在场玩家都建好卡后，由主持人发送；主持人参玩也先入座")]
     chat = lambda desc: re.sub(r"\{(/团 [^}]+)\}", lambda x: cmd(x.group(1)), desc)
     card = lambda desc: re.sub(r"\{(/团 [^}]+)\}", r"\1", desc)
     m = Msg().title("📜 入座指南", f"《{short_title(title)}》{min_players} 人起开演 · 最多 {seat_cap} 人").gap()
     for i, (label, command, desc) in enumerate(steps, 1):
         m.text(f"**{i}. {label}**　" + (cmd(command) + "　" if command else "") + chat(desc))
-    m.gap().caption("开演后")
-    m.items([f"**{name}**　{cmd(command)}　{chat(desc)}" for _, name, command, desc in after])
-    m.gap().hint(f"第一次玩发送 {cmd('/团 帮助 上手')}，一页看懂一局怎么玩")
+    m.gap().hint("建卡完成后会在群里更新进度；开演后轮到你时，再提示怎样行动。",
+                 note="不必先记住所有指令；主持人可以只主持，不占玩家席位")
     return m.as_segment("receipt").with_data({"kind": "table_guide", "title": short_title(title), "min": min_players, "cap": seat_cap,
                                               "steps": [[a, b, card(c)] for a, b, c in steps],
-                                              "after": [[i, n, c, card(d)] for i, n, c, d in after]})
+                                              "after": []})
 
 
 def worldview(title: str, worldview: str, entries: list[tuple[str, str, str]]) -> Msg:
@@ -275,11 +274,20 @@ def roster(seated: int, cap: int, rows: list[tuple[str, str, str]]) -> Msg:
     return m.items([f"**{safe(user)}**　{safe(role)}　{state}" for user, role, state in rows] or ["还没有人入座"])
 
 
-def joined(user: str, seated: int, cap: int) -> Msg:
+def joined(user: str, seated: int, cap: int, *, experienced: bool = False, has_card: bool = False,
+           progress: str = "") -> Msg:
     m = Msg().title(f"{safe(user)} 已入座", f"{seated}/{cap} 人　{dots(seated, cap)}")
-    return m.gap().hint(f"下一步建卡：私聊我发送 {cmd('/团 建卡')}，选快选（挑个职业就走）、定制或精雕，"
-                        f"也可以 {cmd('/团 建卡 AI 你想要的角色')} 让 AI 起草；之后每一步在私聊里直接回复序号或名字就行。"
-                        f"有人设卡的话，角色名写人设的名字就会带上它（{cmd('/团 人设')} 查看）")
+    if has_card:
+        m.gap().hint("原角色卡已保留，不用重新建卡；/团 角色 查看角色。")
+    elif experienced:
+        m.gap().hint("下一步：私聊我发送 /团 建卡；已有草稿会接着填写。")
+    else:
+        m.gap().hint(f"下一步：私聊我发送 {cmd('/团 建卡 快选')}，挑职业、起名字两步完成。"
+                     f"之后直接回复序号或名字即可；想定制或让 AI 起草，发送 {cmd('/团 建卡')}。"
+                     "私聊不方便时，也可以在群里发送这些指令。")
+    if progress:
+        m.gap().text(progress)
+    return m
 
 
 def next_steps_after_card(state: str, regroup_open: bool = False) -> str:
@@ -419,11 +427,11 @@ def turn_prompt(actor: str, user_name: str, user_id: str, round_number: int, cho
         m.gap().field("节奏", f"**{safe(pace[0])}**　{safe(pace[1])}")
     if loadout:
         m.gap().field("可准备", "　".join(loadout[:5]) + ("　…" if len(loadout) > 5 else ""))
-    if tips:    # the player's first turn at this table
+    if tips:
         lines = (["选一项：" + cmd("/团 A") + "（或 " + cmd("/团 选 A") + "），后面可以补一句演绎"] if choices and mode != "dialogue_only" else []) \
             + (["自己写：" + cmd("/团 行动 你的做法") + "，AI 会判断要不要检定"] if mode != "choice_only" else []) \
-            + ["带上技能或物品：句末加 " + cmd("[用 名称]") + "，" + cmd("/团 背包") + " 看你有什么",
-               "押上这次检定：选项后加“孤注”；想起有用的准备：" + cmd("/团 闪回 回忆") + "，成立后相关检定 +2"]
+            + ["查看当前进度：" + cmd("/团 状态") + "；找回本轮选项：" + cmd("/团 回合"),
+               "带上技能或物品：句末加 " + cmd("[用 名称]") + "，" + cmd("/团 背包") + " 看你有什么"]
         m.gap().caption("新手速查").items(lines)
     hints = []
     cmds = []
@@ -1145,7 +1153,7 @@ def duel_challenge(name: str, target: str | None, reason: str, minutes: int) -> 
     m = Msg().title("骰子对决", safe(reason))
     if target:
         m.mention(target, "对手")
-    m.text(f"{safe(name)} 发起了一场骰子对决，双方各掷一次 d20，点大者胜。")
+    m.text(f"{safe(name)} 发起了一场骰子对决，双方各投掷一次，点大者胜。")
     return m.gap().hint(f"{'被点名的人' if target else '谁都可以'}发送 {cmd('/团 应战')} 接下，{minutes} 分钟内有效")
 
 
@@ -1241,7 +1249,7 @@ def luck_card(name: str, period: str, s: dict[str, Any], total: int) -> Msg:
     m = Msg().title("骰运", f"{safe(name)}　{period}").as_segment("daily")
     m.with_data({"kind": "luck", "name": name, "period": period, "total": total, **s})
     if not s["count"]:
-        return m.gap().text(f"这段时间还没掷过 d20，全部记录共 {total} 次。").gap().hint(f"发送 {cmd('/团 骰运 全部')} 看全部记录")
+        return m.gap().text(f"这段时间还没投掷过，全部记录共 {total} 次。").gap().hint(f"发送 {cmd('/团 骰运 全部')} 看全部记录")
     m.gap().text(f"平均 **{s['average']:.2f}** · {s['tier']}　共 {s['count']} 次")
     m.field("大成功", f"{s['crits']} 次").field("大失败", f"{s['fumbles']} 次").field("过半", f"{s['high']}%（掷出 11 以上）")
     if s["sources"]:
@@ -1262,7 +1270,7 @@ def luck_board(month: str, ranked: list[dict[str, Any]], rows: list[dict[str, An
                  "crit": {"name": crit["name"], "n": crit["crits"]} if crit and crit["crits"] else None,
                  "fumble": {"name": fumble["name"], "n": fumble["fumbles"]} if fumble and fumble["fumbles"] else None})
     if not ranked:
-        m.gap().text(f"这个月还没有人掷满 {minimum} 次 d20。")
+        m.gap().text(f"这个月还没有人投掷满 {minimum} 次。")
     else:
         top, bottom = ranked[:3], [r for r in ranked[::-1][:3] if r not in ranked[:3]]
         m.gap().caption("欧皇").items([f"**{r['average']:.2f}**　{safe(r['name'])}　{r['count']} 次" for r in top])
@@ -1272,7 +1280,7 @@ def luck_board(month: str, ranked: list[dict[str, Any]], rows: list[dict[str, An
         m.gap().field("大成功最多", f"{safe(crit['name'])} {crit['crits']} 次")
     if fumble and fumble["fumbles"]:
         m.field("大失败最多", f"{safe(fumble['name'])} {fumble['fumbles']} 次")
-    return m.gap().caption(f"掷满 {minimum} 次 d20 才上榜；检定、一掷、掷骰和对决都算")
+    return m.gap().caption(f"投掷满 {minimum} 次才上榜；检定、一掷、掷骰和对决都算")
 
 
 QUOTE_HEADS = {"saved": "已收入金句", "marked": "已收藏金句", "random": "金句重温"}
@@ -1360,7 +1368,7 @@ def soup_reveal(soup: dict[str, Any], solver: str, guess: str, minutes: int) -> 
 # ---------------------------------------------------------------- one-minute adventure
 def _adventure_roll(m: Msg, r: dict[str, Any]) -> Msg:
     verdict = "大成功" if r["crit"] else "大失败" if r["fumble"] else "成功" if r["ok"] else "失败"
-    m.text(f"第 {r['step']} 步 · {r['label']} {safe(r['text'])}　{BT}d20 {r['face']}{BT} {r['modifier']:+d} ＝ **{r['total']}**"
+    m.text(f"第 {r['step']} 步 · {r['label']} {safe(r['text'])}　{BT}投掷点数 {r['face']}{BT} {r['modifier']:+d} ＝ **{r['total']}**"
            f"（{r['attr']}·{r['difficulty']} {r['dc']}）**【{verdict}】**")
     return m.text(safe(r["outcome"]))
 
@@ -1375,7 +1383,7 @@ def adventure_stage(v: dict[str, Any], *, fresh: bool = False) -> Msg:
     if v["results"]:
         _adventure_roll(m.gap(), v["results"][-1])
     m.gap().quote(v["scene"]).gap().choices(v["options"])
-    return m.gap().hint(f"发送 {cmd('/团 冒险 A')} 选一项，掷 d20 定成败；不玩了发送 {cmd('/团 冒险 放弃')}")
+    return m.gap().hint(f"发送 {cmd('/团 冒险 A')} 选一项，投掷定成败；不玩了发送 {cmd('/团 冒险 放弃')}")
 
 
 def adventure_end(v: dict[str, Any]) -> Msg:

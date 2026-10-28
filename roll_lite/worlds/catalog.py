@@ -37,6 +37,13 @@ class WorldInvalid(ValueError):
     pass
 
 
+def require_supported_rules(world: dict[str, Any]) -> None:
+    """Known full-version rule blocks cannot be silently treated as presentation extensions."""
+    for key, label in (('resource_effects', '资源效果与阈值规则'), ('perception_overlays', '角色感知叠层')):
+        if key in world:
+            raise WorldInvalid(f'本世界使用{label}（{key}），需要 321Roll 全量版；Lite 无法按这些规则开桌')
+
+
 def validate_world(value: Any) -> dict[str, Any]:
     """Port of 321Roll world_template.validate with readable failure messages."""
     def require(ok: bool, message: str) -> None:
@@ -54,6 +61,7 @@ def validate_world(value: Any) -> dict[str, Any]:
         return isinstance(v, str) and re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,100}", v) is not None
 
     require(isinstance(value, dict) and value.get("format") == WORLD_FORMAT, f"format 必须是 {WORLD_FORMAT}")
+    require_supported_rules(value)
     require(key(value.get("id")) and integer(value.get("revision"), 1, 1000000), "id 或 revision 无效")
     for name, limit in (("title", 100), ("worldview", 6000), ("seed", 3000), ("style", 300), ("boundaries", 1000), ("guidance", 2000)):
         require(text(value.get(name), limit, name in ("title", "worldview", "seed")), f"{name} 缺失或超长（上限 {limit}）")

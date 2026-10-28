@@ -161,7 +161,7 @@ async def board_command(app: "LiteApp", caller: Caller, args: str) -> Reply:
 
 def install(app: "LiteApp") -> None:
     r = app.router
-    r.register(("一掷", "今日一掷", "每日一掷"), roll_command, summary="掷出今天的 d20 和宜忌，每天一次，不影响检定",
+    r.register(("一掷", "今日一掷", "每日一掷"), roll_command, summary="每天投掷一次，看今天的宜忌，不影响检定",
                usage="/团 一掷", topic="日常", group_only=False)
     r.register(("一掷 全群", "一掷 榜"), board_command, summary="看本群今天谁掷了多少", usage="/团 一掷 全群", topic="日常",
                group_only=False)

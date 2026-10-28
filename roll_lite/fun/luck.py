@@ -98,7 +98,7 @@ async def luck_command(app: "LiteApp", caller: Caller, args: str) -> Reply:
                             (caller.umo, user_id)).fetchone()
             name = row["user_name"] if row else "这位群友"
     if not total:
-        raise UserError(f"{name} 在本群还没有掷过 d20。跑团检定、今日一掷、自由掷骰和对决都会算进骰运。")
+        raise UserError(f"{name} 在本群还没有投掷过。跑团检定、今日一掷、自由掷骰和对决都会算进骰运。")
     return Reply().say(messages.luck_card(name, "全部记录" if everything else month, stats, total))
 
 

@@ -195,12 +195,12 @@ PLAY_NOTES = {
     "playBranchEndings": ("提出结局分支，全员支持后进入并写尾声。", "/团 结局 提出 …"),
     "playAiBuild": ("玩家说一句想要的角色，AI 按世界规则起草，可再用自然语言改 5 次；每人每天起草 5 次。",
                     "/团 建卡 AI …　/团 建卡 改 …"),
-    "funDaily": ("每人每天一次 d20 与两宜两忌，附本群今日榜；不影响检定。", "/团 一掷　/团 一掷 全群"),
-    "funDice": ("不开团也能掷的自由骰，私聊里是暗骰；两人掷 d20 比大小。", "/团 掷 2d6+1　/团 对决 @某人"),
+    "funDaily": ("每人每天投掷一次、两宜两忌，附本群今日榜；不影响检定。", "/团 一掷　/团 一掷 全群"),
+    "funDice": ("不开团也能掷的自由骰，私聊里是暗骰；两人各投掷一次比大小。", "/团 掷 2d6+1　/团 对决 @某人"),
     "funReport": ("每人每幕给同伴喝彩一次，换幕与终章公布最佳；随时生成战报卡。", "/团 喝彩 林晓　/团 战报"),
     "funSchedule": ("主持人给出几个时间，大家勾选，定档后开始前 30 分钟提醒。", "/团 约团 周六 20:00｜周日 14:00"),
     "funRelay": ("群友一人一句写故事，满 8 句由 AI 收尾，每群每天有次数上限。", "/团 接龙 第一句"),
-    "funLuck": ("统计每人在本群掷出的每一颗 d20，看平均点数和大成功大失败，附本月骰运榜。", "/团 骰运　/团 骰运 榜"),
+    "funLuck": ("统计每人在本群的每一次投掷，看平均点数和大成功大失败，附本月骰运榜。", "/团 骰运　/团 骰运 榜"),
     "funQuotes": ("收藏跑团正文里的好句子，随机重温，按收藏人数排出金句榜。", "/团 金句 几个字　/团 金句 +编号　/团 金句 榜"),
     "funSoup": ("AI 出一道海龟汤，全群问是非题、猜汤底；每群每天有碗数上限。", "/团 海龟汤　/团 问 …　/团 猜 …"),
     "funAdventure": ("从已安装的世界里随机挑一个，三步选择、三次掷骰走完一段小冒险；每人每天一次。", "/团 冒险　/团 冒险 A"),
@@ -222,10 +222,10 @@ async def overview(app: "LiteApp", payload: dict[str, Any], username: str) -> di
                               " updated_at DESC LIMIT 12").fetchall()
         active = [_room_summary(app, c, r) for r in open_rows]
         calls = c.execute("SELECT COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0),"
-                          "COALESCE(SUM(status<>'ok'),0) FROM model_calls WHERE started_at>=?", (since,)).fetchone()
+                          "COALESCE(SUM(status<>'ok'),0) FROM model_calls WHERE started_at>=? AND status<>'running'", (since,)).fetchone()
         days = {r["day"]: dict(r) for r in c.execute(
             "SELECT substr(started_at,1,10) AS day,COUNT(*) AS calls,SUM(status<>'ok') AS failures,"
-            "SUM(input_tokens+output_tokens) AS tokens FROM model_calls WHERE substr(started_at,1,10)>=? GROUP BY day", (week,))}
+            "SUM(input_tokens+output_tokens) AS tokens FROM model_calls WHERE substr(started_at,1,10)>=? AND status<>'running' GROUP BY day", (week,))}
         hours = insight.hourly(c, moment)
         speed = insight.latency(c.execute("SELECT started_at,completed_at FROM model_calls WHERE started_at>=? AND status='ok'",
                                           (since,)).fetchall())
@@ -552,14 +552,18 @@ async def usage(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[
         days = [dict(r) for r in c.execute(
             "SELECT substr(started_at,1,10) AS day,COUNT(*) AS calls,SUM(input_tokens) AS input_tokens,"
             "SUM(output_tokens) AS output_tokens,SUM(status<>'ok') AS failures FROM model_calls "
-            "GROUP BY day ORDER BY day DESC LIMIT 14")]
-        rows = c.execute("SELECT contract,COUNT(*) AS calls,SUM(status<>'ok') AS failures FROM model_calls GROUP BY contract").fetchall()
+            "WHERE status<>'running' GROUP BY day ORDER BY day DESC LIMIT 14")]
+        rows = c.execute("SELECT contract,COUNT(*) AS calls,SUM(status<>'ok') AS failures FROM model_calls WHERE status<>'running' GROUP BY contract").fetchall()
         timed = c.execute("SELECT contract,started_at,completed_at FROM model_calls WHERE status='ok' AND started_at>=?",
                           (fortnight,)).fetchall()
         hours = insight.hourly(c, moment)
         failures = [dict(r) for r in c.execute(
-            "SELECT m.started_at,m.contract,m.status,m.error,m.note,r.title FROM model_calls m LEFT JOIN rooms r ON r.id=m.room_id "
-            "WHERE m.status<>'ok' ORDER BY m.id DESC LIMIT 20")]
+            "SELECT m.started_at,m.contract,m.status,m.error,m.note,m.operation_ref,r.title FROM model_calls m LEFT JOIN rooms r ON r.id=m.room_id "
+            "WHERE m.status NOT IN ('ok','running') ORDER BY m.id DESC LIMIT 20")]
+        recent_calls = [dict(r) for r in c.execute(
+            "SELECT m.operation_ref,m.call_sequence,m.contract,m.provider_id,m.status,m.error,m.started_at,m.completed_at,"
+            "m.input_tokens,m.output_tokens,r.title FROM model_calls m LEFT JOIN rooms r ON r.id=m.room_id "
+            "ORDER BY m.id DESC LIMIT 30")]
         repaired = c.execute("SELECT COUNT(*) FROM model_calls WHERE status='ok' AND note<>''").fetchone()[0]
     def family(contract: str) -> str:
         # one row per contract family: an engine update bumps the version after the slash, the use stays the same
@@ -573,10 +577,17 @@ async def usage(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[
     contracts = sorted(merged.values(), key=lambda x: -x["calls"])
     for item in contracts:
         item["latency"] = insight.latency([r for r in timed if family(r["contract"]) == item["contract"]])
+    for item in recent_calls:
+        parts = item['operation_ref'].split('.')
+        item['turn_ref'] = '.'.join(parts[:2]) if len(parts) > 2 and parts[0] == 'turn' else None
+        item['seconds'] = insight._seconds(item['started_at'], item['completed_at'])
     return {"days": days, "hours": hours, "contracts": contracts, "failures": failures, "repaired": repaired,
+            "recent_calls": recent_calls,
             "latency": insight.latency(timed),
             "config": {"provider": app.config.chat_provider_id or "", "fallback": app.config.fallback_provider_id,
-                       "timeout": app.config.model_timeout_seconds, "attempts": app.config.model_attempts}}
+                       "timeout": app.config.model_timeout_seconds, "attempts": app.config.model_attempts,
+                       "narration_max_calls": app.config.model_attempts * 3,
+                       "narration_timeout": app.config.model_timeout_seconds * app.config.model_attempts + 30}}
 
 
 async def outbox(app: "LiteApp", payload: dict[str, Any], username: str) -> dict[str, Any]:
