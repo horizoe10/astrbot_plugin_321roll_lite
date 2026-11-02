@@ -3,25 +3,6 @@
   "name": "321Roll 官方世界",
   "worlds": [
     {
-      "id": "final-curtain-core",
-      "revision": 2,
-      "edition": "core",
-      "title": "封箱戏（核心版） · 第七夜，台下多出一排看客",
-      "summary": "“封箱前不唱《夜奔》，后台镜子盖红布，散场给老郎神留一盏灯。”",
-      "cover": {
-        "mark": "戏",
-        "tone": "wine"
-      },
-      "images": 7,
-      "min_plugin": "0.7.0",
-      "file": "packs/final-curtain-core-0.7-C2.zip",
-      "size": 1099503,
-      "sha256": "14aba1b1c00e23e880b27019e0ab30f77e59bc0950d8409811b4b2210ced48dd",
-      "content_digest": "cabf30851187411cf6b61ba99598bd8158db007313b6fb478708750a91e36f69",
-      "immersive": true,
-      "preview": "previews/final-curtain-core-0.7-C2.webp"
-    },
-    {
       "id": "greycrown-prequel-core",
       "revision": 3,
       "edition": "core",
